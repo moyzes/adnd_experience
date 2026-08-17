@@ -11,8 +11,8 @@ import { CharacterSheetUI } from './engine/character_sheet.js';
 import { ShopUI } from './engine/shop_ui.js';
 
 /**
- * Bootstraps the application data, populates spell/prayer selections,
- * and handles the transition from the setup screen to the main game.
+ * Bootstraps application data, initializes setup screen options,
+ * and handles the transition from setup into the main game orchestrator.
  */
 async function init() {
   const [adventureData, classesData] = await Promise.all([
@@ -20,54 +20,32 @@ async function init() {
     loadJSON('data/classes.json')
   ]);
 
+  // Automated spell progression handles learning, so setup options are cleared.
   const mageChoicesContainer = document.getElementById('mage-spells-choices');
   const clericChoicesContainer = document.getElementById('cleric-spells-choices');
-  const mageAvailable = classesData.archetypes.mage.vancian_magic.spells_available;
-  const clericAvailable = classesData.archetypes.cleric.spells_available;
-
-  mageChoicesContainer.innerHTML = mageAvailable.map((spell, idx) => `
-    <label class="spell-option-label">
-      <input type="checkbox" name="mage-spell" value="${spell.id}" ${idx < 2 ? 'checked' : ''}>
-      <span><b>${spell.name}</b> (Load: ${spell.cognitive_load}) ${spell.description}</span>
-    </label>`).join('');
-
-  clericChoicesContainer.innerHTML = clericAvailable.map((spell, idx) => `
-    <label class="spell-option-label">
-      <input type="checkbox" name="cleric-spell" value="${spell.id}" ${idx < 2 ? 'checked' : ''}>
-      <span><b>${spell.name}</b> ${spell.description}</span>
-    </label>`).join('');
+  
+  if (mageChoicesContainer) mageChoicesContainer.innerHTML = '<span style="color:var(--text-muted); font-size:11px;">Spells unlock organically via level progression.</span>';
+  if (clericChoicesContainer) clericChoicesContainer.innerHTML = '<span style="color:var(--text-muted); font-size:11px;">Prayers unlock organically via level progression.</span>';
 
   document.getElementById('start-adventure-btn').addEventListener('click', () => {
-    const selectedMageIds = Array.from(document.querySelectorAll('input[name="mage-spell"]:checked')).map(cb => cb.value);
-    const selectedClericIds = Array.from(document.querySelectorAll('input[name="cleric-spell"]:checked')).map(cb => cb.value);
-
-    if (selectedMageIds.length !== 2 || selectedClericIds.length !== 2) {
-      alert("Please select exactly 2 spells for the Mage and 2 prayers for the Cleric!");
-      return;
-    }
-
-    const chosenMageSpells = mageAvailable.filter(s => selectedMageIds.includes(s.id));
-    const chosenClericSpells = clericAvailable.filter(s => selectedClericIds.includes(s.id));
-
     document.getElementById('setup-screen').style.display = 'none';
     
-    // Launch the orchestrator
-    const game = new GameOrchestrator(adventureData, classesData, chosenMageSpells, chosenClericSpells);
+    // Launch game orchestrator with empty arrays (automated progression takes over)
+    const game = new GameOrchestrator(adventureData, classesData, [], []);
     game.start();
   });
 }
 
 /**
- * GameOrchestrator acts as the central nerve center. It wires the state to the
- * renderers, manages the 60fps loop, and acts as the delegate for all controllers.
+ * GameOrchestrator acts as the central nerve center for the application.
+ * It coordinates state changes, manages render cycles, and delegates UI controllers.
  */
 class GameOrchestrator {
   constructor(adventureData, classesData, chosenMageSpells, chosenClericSpells) {
     this.spec = adventureData;
     this.classesSpec = classesData;
-    this.isActionActive = false; // Locks inputs during cinematic actions
+    this.isActionActive = false;
     
-    // Timing properties
     this.lastFrameTime = performance.now();
     this.frameInterval = 1000 / 60; // Target 60 FPS
 
@@ -78,7 +56,7 @@ class GameOrchestrator {
   }
 
   // ===========================================================================
-  // INITIALIZATION
+  // INITIALIZATION & BINDING
   // ===========================================================================
 
   bindUIElements() {
@@ -100,6 +78,7 @@ class GameOrchestrator {
     this.state = new GameState(this.spec, this.classesSpec);
     this.state.onLog = (msg, type) => this.log(msg, type);
     
+    // Override party with selected setup spells
     this.state.party = [
       this.state.createPartyMember("fighter", "Valeros"),
       this.state.createPartyMember("thief", "Merisiel"),
@@ -131,7 +110,7 @@ class GameOrchestrator {
   }
 
   bindControllers() {
-    // 1. Initialize the new UI class
+    // 1. Isolated Character Sheet UI Module
     this.characterSheet = new CharacterSheetUI(this.state, {
       playSFX: (id) => this.playSFX(id),
       log: (msg, type) => this.log(msg, type),
@@ -139,12 +118,14 @@ class GameOrchestrator {
       onUIAction: (action, payload) => this.handleUIAction(action, payload)
     });
 
+    // 2. Isolated Shop UI Module
     this.shopUI = new ShopUI(this.state, {
       playSFX: (id) => this.playSFX(id),
       log: (msg, type) => this.log(msg, type),
       updateHUD: () => this.uiController.updateHUD()
     });
 
+    // 3. Combat Controller with Level-Up & Fanfare Callbacks
     this.combatController = new CombatController(this.state, this.renderer3D, {
       log: (msg, type) => this.log(msg, type),
       updateHUD: () => this.uiController.updateHUD(),
@@ -153,11 +134,20 @@ class GameOrchestrator {
       stopCombatBgm: () => this.audioManager.stopCombatBgm(),
       flashHeroCard: (idx) => this.flashHeroCardRed(idx),
       applyVisualCombatHp: (enemies, heroHp) => this.uiController.applyVisualCombatHp(enemies, heroHp),
-      onPartyWiped: () => this.showGameOver()
+      onPartyWiped: () => this.showGameOver(),
+      onLevelUp: (levelUps) => {
+        levelUps.forEach((evt, idx) => {
+          setTimeout(() => {
+            this.playSFX('level_up');
+            this.flashLevelUpCard(evt.heroIndex);
+            this.showLevelUpModal(evt);
+          }, idx * 500);
+        });
+      }
     });
 
+    // 4. Main UI HUD Controller
     this.uiController = new UIController(this.state, this.renderer2D, this.uiElements, {
-      // 2. Delegate the open call to the new class
       onOpenSheet: (heroName) => this.characterSheet.open(heroName),
       onCommand: (hIdx, cmdType, extra) => this.handleCombatCommandQueue(hIdx, cmdType, extra),
       onTargetChange: (hIdx, targetId) => this.handleTargetChange(hIdx, targetId),
@@ -165,6 +155,7 @@ class GameOrchestrator {
       onUIAction: (actionType, payload) => this.handleUIAction(actionType, payload)
     });
 
+    // 5. Dialogue & Input Controllers
     this.dialogueController = new DialogueController(this.spec, this.state, this.uiController, {
       log: (msg, type) => this.log(msg, type),
       updateHUD: () => this.uiController.updateHUD(),
@@ -173,15 +164,7 @@ class GameOrchestrator {
 
     new InputController((action) => this.handleInput(action));
 
-    document.getElementById('close-sheet-btn')?.addEventListener('click', () => this.characterSheet.close());
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' || e.code === 'Escape') {
-        this.characterSheet.close();
-        this.shopUI.close(); // Also close shop on Escape
-      }
-    });
-
-    // 3. Delegate the close call to the new class
+    // Global UI listeners
     document.getElementById('close-sheet-btn')?.addEventListener('click', () => this.characterSheet.close());
     document.getElementById('close-shop-btn')?.addEventListener('click', () => this.shopUI.close());
     
@@ -198,18 +181,16 @@ class GameOrchestrator {
     this.uiController.updateHUD();
 
     if (this.spec.briefing) this.log(this.spec.briefing, "info");
-    this.log("You stand on the chapel approach. The Thorn Outfitter stall is the gold tile on the minimap. Stock up before you descend.", "info");
+    this.log("You stand on the chapel approach. Stock up at the outfitter before descending.", "info");
 
-    // Force resize measurement
     requestAnimationFrame(() => this.renderer3D.onResize());
     
-    // Bind 'this' to the animation loop
     this.animationLoop = this.animationLoop.bind(this);
     requestAnimationFrame(this.animationLoop);
   }
 
   // ===========================================================================
-  // MAIN RENDER LOOP
+  // MAIN RENDER LOOP (60 FPS)
   // ===========================================================================
 
   animationLoop(currentTime) {
@@ -222,9 +203,8 @@ class GameOrchestrator {
     const delta = elapsedSinceLastRender / 1000;
     this.lastFrameTime = currentTime - (elapsedSinceLastRender % this.frameInterval);
 
-    if (delta > 0.1) return; // Prevent massive jumps if tab was inactive
+    if (delta > 0.1) return; // Prevent massive leaps on inactive tab focus
 
-    // Smooth Camera Interpolation
     const speed = 1 - Math.exp(-12 * delta);
     this.camera.x += (this.camera.targetX - this.camera.x) * speed;
     this.camera.y += (this.camera.targetY - this.camera.y) * speed;
@@ -234,7 +214,7 @@ class GameOrchestrator {
     while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
     this.camera.angle += angleDiff * speed;
 
-    // Torch Lighting Hook (Now actively checks state memory to toggle 3D lights)
+    // Torch Lighting Renderer Hook
     const isTorchLit = this.state.torchLitUntil && this.state.torchLitUntil > Date.now();
     if (this.renderer3D.setTorchLight) {
         this.renderer3D.setTorchLight(isTorchLit);
@@ -242,7 +222,6 @@ class GameOrchestrator {
 
     this.renderer3D.render(this.camera);
 
-    // Conditional Dirty Flag HUD Update
     if (this.state.isDirty) {
       this.uiController.updateHUD();
       this.state.isDirty = false;
@@ -283,11 +262,10 @@ class GameOrchestrator {
     const hint = this.state.checkPassiveHearNoise();
     if (hint) this.log(`${hint.heroName} catches a faint sound to the ${hint.direction}...`, "muted");
 
-    // 2. Map Interaction Triggers (Previously Dead Code)
+    // 2. Map Interaction Triggers
     const interaction = this.state.checkInteractionTrigger(currentX, currentY);
     if (interaction) {
         this.log(`Map Event: ${interaction.description || 'You triggered an event.'}`, "warning");
-        // E.g., this.dialogueController.triggerEvent(interaction.id);
     }
 
     // 3. Encounters
@@ -321,23 +299,22 @@ class GameOrchestrator {
     // 5. Shops
     const shopTile = this.state.getShopTile();
     if (shopTile && shopTile[0] === currentX && shopTile[1] === currentY) {
-      this.log("Thorn Outfitter — lantern light and the smell of oil. Press 🏪 Outfitter to trade.", "info");
+      this.log("Thorn Outfitter stall. Press 🏪 Outfitter to trade.", "info");
     }
   }
 
   // ===========================================================================
-  // UI & ACTION DISPATCHERS
+  // UI ACTION DISPATCHERS
   // ===========================================================================
 
   handleGlobalAction(actionType) {
     if (actionType === 'RESOLVE_ROUND') this.combatController.resolveCombatRoundSequence();
     else if (actionType === 'OPEN_OBJECT') this.handleOpenObject();
-    else if (actionType === 'OPEN_SHOP') this.shopUI.open(); // Delegated here
+    else if (actionType === 'OPEN_SHOP') this.shopUI.open();
     else if (actionType === 'REST_CAMP') this.handleRestCamp();
   }
 
   handleUIAction(actionType, payload) {
-    // Lockpicking
     if (actionType === 'PICK_LOCK') {
       const target = this.getLockInFront();
       if (!target || this.checkTrapBeforeAction(target)) return;
@@ -352,14 +329,13 @@ class GameOrchestrator {
       }
       this.uiController.updateHUD();
     } 
-    // Trap Detection & Disarm
     else if (actionType === 'FIND_TRAP') {
       const target = this.state.getTrapInFront();
       if (!target) return this.log(`No traps here.`, "info");
       const result = this.state.attemptFindTrap(target);
       if (result.success) {
         this.playSFX('trap_found');
-        this.log(`Success! Trap detected: ${target.name}. Disarm unlocked!`, "warning");
+        this.log(`Success! Trap detected: ${target.name}.`, "warning");
       } else this.log(`Find traps failed.`, "info");
       this.uiController.updateHUD();
     } 
@@ -376,7 +352,6 @@ class GameOrchestrator {
       }
       this.uiController.updateHUD();
     }
-    // Rogue Skills
     else if (actionType === 'HIDE_SHADOWS') {
       const result = this.state.attemptHideInShadows();
       if (result.success) {
@@ -399,7 +374,6 @@ class GameOrchestrator {
       else this.log(`Pickpocket failed! Caught in the act!`, "danger");
       this.uiController.updateHUD();
     }
-    // Magic 
     else if (actionType === 'STUDY_GRIMOIRE') {
       const result = this.state.studyGrimoire();
       if (!result.success) return this.log(result.reason, "warning");
@@ -425,7 +399,6 @@ class GameOrchestrator {
       else this.log(res.reason, "warning");
       this.uiController.updateHUD(true);
     }
-    // Force/Magic Interaction
     else if (actionType === 'BASH_DOOR') {
       const target = this.getLockInFront();
       if (!target || this.checkTrapBeforeAction(target)) return;
@@ -464,25 +437,16 @@ class GameOrchestrator {
     const targetId = selectEl ? selectEl.value : null;
     
     this.state.queueHeroCommand(hIdx, { type: cmdType, targetInstanceId: targetId, ...extra });
-    
-    // Aesthetic UI logging
-    if (cmdType === 'GUARD') this.log(`${hero.name} will guard.`, "info");
-    else if (cmdType === 'CAST') this.log(`${hero.name} begins channeling…`, "info");
-    else if (cmdType === 'PRAY') this.log(`${hero.name} invokes divine aid…`, "info");
-    else if (cmdType === 'TURN') this.log(`${hero.name} brandishes holy symbol!`, "info");
-    else this.log(`${hero.name} order set: ${cmdType}`, "info");
-    
     this.uiController.updateHUD();
   }
 
   handleTargetChange(hIdx, targetId) {
     const currentCmd = this.state.combat.queuedCommands[hIdx] || { type: 'ATTACK' };
     this.state.queueHeroCommand(hIdx, { ...currentCmd, targetInstanceId: targetId });
-    this.log(`${this.state.party[hIdx].name} targeted ${targetId}`, "muted");
   }
 
   // ===========================================================================
-  // WORLD INTERACTIONS
+  // WORLD INTERACTIONS & TRAPS
   // ===========================================================================
 
   handleOpenObject() {
@@ -582,7 +546,7 @@ class GameOrchestrator {
   }
 
   // ===========================================================================
-  // MENUS & CAMPING
+  // CAMPING & RESTING
   // ===========================================================================
 
   handleRestCamp() {
@@ -646,7 +610,58 @@ class GameOrchestrator {
   }
 
   // ===========================================================================
-  // UTILITIES
+  // LEVEL-UP FANFARE & MODAL HELPERS
+  // ===========================================================================
+
+  flashLevelUpCard(heroIndex) {
+    const cards = this.uiElements.partyContainer.querySelectorAll('.hero-card');
+    const card = cards[heroIndex];
+    if (card) {
+      card.classList.remove('level-up-glow');
+      void card.offsetWidth; // Force CSS reflow
+      card.classList.add('level-up-glow');
+      setTimeout(() => card.classList.remove('level-up-glow'), 1800);
+    }
+  }
+
+  showLevelUpModal(levelUpEvent) {
+    const modal = document.getElementById('interaction-modal');
+    const title = document.getElementById('interaction-title');
+    const prompt = document.getElementById('interaction-prompt');
+    const actions = document.getElementById('interaction-actions');
+    
+    if (!modal || !title || !prompt || !actions) return;
+    
+    const hero = this.state.party[levelUpEvent.heroIndex];
+    const atkDisplay = levelUpEvent.atkGain > 0 
+      ? `+${levelUpEvent.atkGain.toFixed(2)} to-hit`
+      : 'to-hit unchanged';
+    
+    title.textContent = `⭐ ${hero.name.toUpperCase()} ADVANCES ⭐`;
+    prompt.innerHTML = `
+      <div style="font-size: 14px; color: var(--accent-gold); margin-bottom: 8px;">REACHED LEVEL ${levelUpEvent.newLevel}</div>
+      <div style="text-align: left; background: #0d1117; padding: 10px; border-radius: 4px; font-size: 12px; line-height: 1.5;">
+        <div>HP: <b style="color: #3fb950;">${levelUpEvent.hpBefore} → ${levelUpEvent.hpAfter}</b> (+${levelUpEvent.hpGain})</div>
+        <div>Attack Bonus: <b style="color: var(--text-parchment);">+${levelUpEvent.atkAfter.toFixed(2)}</b> (${atkDisplay})</div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-top: 10px;">Check the Character Sheet anytime to review unlocked skills and mastery thresholds.</div>
+    `;
+    
+    actions.innerHTML = '';
+    const btn = document.createElement('button');
+    btn.className = 'action-tab primary';
+    btn.style.width = '100%';
+    btn.style.padding = '12px';
+    btn.textContent = 'ACKNOWLEDGE';
+    btn.addEventListener('click', () => {
+      modal.style.display = 'none';
+    });
+    actions.appendChild(btn);
+    modal.style.display = 'flex';
+  }
+
+  // ===========================================================================
+  // UTILITIES & DELEGATES
   // ===========================================================================
 
   log(message, type = 'info') {

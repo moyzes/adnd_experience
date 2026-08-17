@@ -960,18 +960,50 @@ export class GameState {
     }
   }
 
-  awardQuestXP(amount) {
+  // state.js — modify awardQuestXP to return levelup events
+
+awardQuestXP(amount) {
+    const levelUps = [];
+
     this.party.forEach(hero => {
+      const hpBefore = hero.maxHp;
+      const atkBefore = hero.attackBonus || 1;
+      
       hero.xp = (hero.xp || 0) + amount;
-      while (hero.xp >= hero.nextLevelXp) {
+      while (hero.xp >= hero.nextLevelXp && hero.level < 10) {
         hero.level += 1;
         hero.nextLevelXp = Math.round(hero.nextLevelXp * 2.2);
+        
         const hpBonus = hero.classKey === 'fighter' ? 15 : hero.classKey === 'cleric' ? 10 : 8;
         hero.maxHp += hpBonus;
         hero.hp = Math.min(hero.maxHp, hero.hp + hpBonus);
-        this.addLog(`LEVEL UP! ${hero.name} reached Level ${hero.level}! (+${hpBonus} HP, Skill Thresholds expanded)`, "success");
+
+        if (hero.classKey === 'mage') {
+          hero.maxCognition = (hero.maxCognition || 100) + 5;
+        }
+
+        const atkGrowth = GameState.ATTACK_BONUS_GROWTH[hero.classKey] ?? 0.5;
+        const newAtk = (hero.attackBonus || 1) + atkGrowth;
+
+        levelUps.push({
+          heroName: hero.name,
+          heroIndex: this.party.indexOf(hero),
+          newLevel: hero.level,
+          hpBefore: hpBefore,
+          hpAfter: hero.maxHp,
+          hpGain: hpBonus,
+          atkBefore: atkBefore,
+          atkAfter: newAtk,
+          atkGain: atkGrowth,
+          classKey: hero.classKey
+        });
+
+        this.checkSpellUnlocks(hero);
+        this.addLog(`LEVEL UP! ${hero.name} reached Level ${hero.level}! (+${hpBonus} HP)`, "success");
       }
     });
+
+    return levelUps;
   }
 
   // ===========================================================================

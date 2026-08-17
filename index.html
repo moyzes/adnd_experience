@@ -651,6 +651,31 @@
     .hero-card.hit-flash {
       animation: heroHitFlash 1s cubic-bezier(0.25, 1, 0.5, 1) forwards;
     }
+
+    @keyframes heroLevelUpGlow {
+      0% {
+        border-color: #d4af37;
+        box-shadow: 0 0 24px rgba(212, 175, 55, 0.95), inset 0 0 12px rgba(212, 175, 55, 0.3);
+        background: linear-gradient(135deg, rgba(212, 175, 55, 0.25) 0%, #161b22 100%);
+        transform: scale(1.02);
+      }
+
+      50% {
+        border-color: #f3e08c;
+        box-shadow: 0 0 32px rgba(243, 224, 140, 1), inset 0 0 16px rgba(243, 224, 140, 0.4);
+      }
+
+      100% {
+        border-color: var(--border-iron);
+        box-shadow: none;
+        background: var(--panel-inset);
+        transform: scale(1);
+      }
+    }
+
+    .hero-card.level-up-glow {
+      animation: heroLevelUpGlow 1.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
   </style>
 </head>
 
@@ -759,14 +784,16 @@
   </div>
 
   <!-- Outfitter / Shop Modal -->
-  <div id="shop-modal" style="display:none; position:fixed; inset:0; background:rgba(4,5,7,0.88); z-index:200; align-items:center; justify-content:center;">
+  <div id="shop-modal"
+    style="display:none; position:fixed; inset:0; background:rgba(4,5,7,0.88); z-index:200; align-items:center; justify-content:center;">
     <div class="modal-box" style="width: min(520px, 94vw); max-height: 85vh; overflow-y: auto; text-align: left;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
         <div class="panel-header" style="font-size: 15px; margin:0;">🏪 THORN OUTFITTER</div>
         <button id="close-shop-btn" class="action-tab" style="padding:4px 12px; font-size:10px;">CLOSE</button>
       </div>
       <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">
-        Stock provisions before the crypt claims what it wants. Gold on hand: <b id="shop-gold-val" style="color:var(--gold-tsr);">0</b> gp
+        Stock provisions before the crypt claims what it wants. Gold on hand: <b id="shop-gold-val"
+          style="color:var(--gold-tsr);">0</b> gp
       </div>
       <div id="shop-list" style="display:flex; flex-direction:column; gap:6px;"></div>
     </div>

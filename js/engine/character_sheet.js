@@ -97,19 +97,60 @@ export class CharacterSheetUI {
         </div>
       </div>`;
     } else if (hero.classKey === 'thief') {
+      const backstabTier = (() => {
+        const { familiarity, mastery } = GameState.BACKSTAB_TIERS;
+        if (hero.level >= mastery.minLevel && (hero.backstabSuccesses || 0) >= mastery.count) return 'mastery';
+        if (hero.level >= familiarity.minLevel && (hero.backstabSuccesses || 0) >= familiarity.count) return 'familiarity';
+        return 'novice';
+      })();
+
+      const shadowTier = (() => {
+        const { familiarity, mastery } = GameState.SHADOW_TIERS;
+        if (hero.level >= mastery.minLevel && (hero.shadowcraftSuccesses || 0) >= mastery.count) return 'mastery';
+        if (hero.level >= familiarity.minLevel && (hero.shadowcraftSuccesses || 0) >= familiarity.count) return 'familiarity';
+        return 'novice';
+      })();
+
       specializedHTML = `
       <div style="background: #161b22; padding: 10px; border: 1px solid var(--border-steel); border-radius: 4px; margin-bottom: 12px; font-size: 12px;">
         <div style="color: var(--accent-gold); font-weight: bold; margin-bottom: 6px; font-size: 13px;">🗡️ Rogue Metrics</div>
         <div>Tools Durability: <b style="color:#f0883e;">${hero.toolsDurability}%</b></div>
         <div>Stealth State: <b>${hero.isStealth ? 'Active (Hidden)' : 'Inactive'}</b></div>
+        
+        <div style="background: #0a0b0e; padding: 8px; border: 1px solid #1a1e27; border-radius: 2px; margin-top: 8px; font-size: 11px;">
+          <div style="color: var(--accent-gold); font-weight: bold; margin-bottom: 4px;">🎯 Mastery Progression</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div>
+              <div style="color: #d2a8ff; font-weight: bold;">Backstab</div>
+              <div style="color: var(--text-muted); font-size: 10px; margin: 2px 0;">${backstabTier.toUpperCase()}</div>
+              <div style="color: var(--favor-blue); font-size: 10px;">Hits: ${hero.backstabSuccesses || 0}</div>
+            </div>
+            <div>
+              <div style="color: #d2a8ff; font-weight: bold;">Shadowcraft</div>
+              <div style="color: var(--text-muted); font-size: 10px; margin: 2px 0;">${shadowTier.toUpperCase()}</div>
+              <div style="color: var(--favor-blue); font-size: 10px;">Successes: ${hero.shadowcraftSuccesses || 0}</div>
+            </div>
+          </div>
+        </div>
       </div>`;
     }
 
     const heroIndex = this.state.party.indexOf(hero);
     const equipped = hero.equippedWeapon || 'None';
     const equippedIsRanged = this.state.isRangedWeapon(hero.equippedWeapon);
-    const invItems = (hero.inventory || []);
     
+    // Weapon Mastery Tracker for Gear Section
+    const weaponMastery = hero.equippedWeapon ? this.state.getWeaponMastery(hero, hero.equippedWeapon) : null;
+    const weaponUsageCount = hero.weaponUsage?.[hero.equippedWeapon] || 0;
+    const masteryInfo = weaponMastery ? `
+    <div style="background: #0a0b0e; padding: 8px; border: 1px solid #1a1e27; border-radius: 2px; margin-top: 6px; font-size: 11px;">
+      <div style="color: var(--gold-tsr); font-weight: bold; margin-bottom: 4px;">${hero.equippedWeapon} — ${weaponMastery.tier.toUpperCase()}</div>
+      <div style="color: var(--text-muted); margin-bottom: 3px;">Successful hits: ${weaponUsageCount}</div>
+      ${weaponMastery.tier !== 'mastery' ? `<div style="color: var(--favor-blue); font-size: 10px;">Next tier at ${weaponMastery.tier === 'familiarity' ? '40 hits' : '15 hits'}</div>` : '<div style="color: #3fb950; font-size: 10px;">✓ Mastery reached</div>'}
+      ${weaponMastery.atkBonus > 0 || weaponMastery.dmgBonus > 0 ? `<div style="color: #58a6ff; margin-top: 4px; font-size: 10px;">+${weaponMastery.atkBonus} to-hit${weaponMastery.dmgBonus > 0 ? `, +${weaponMastery.dmgBonus} damage` : ''}</div>` : ''}
+    </div>` : '';
+
+    const invItems = (hero.inventory || []);
     const invRows = invItems.length === 0
       ? `<div style="color:var(--text-muted);">Empty</div>`
       : invItems.map(i => {
@@ -140,6 +181,7 @@ export class CharacterSheetUI {
       <div style="margin-bottom:6px;">Equipped Weapon: <b style="color:var(--gold-tsr);">${equipped}</b>
         ${equippedIsRanged ? '<span style="color:var(--favor-blue);font-size:10px;"> — ranged</span>' : '<span style="color:var(--text-muted);font-size:10px;"> — melee</span>'}
       </div>
+      ${masteryInfo}
       <div style="color: var(--accent-gold); font-weight: bold; margin: 8px 0 4px; font-size: 12px;">Personal Inventory</div>
       ${invRows}
       <div style="color: var(--accent-gold); font-weight: bold; margin: 10px 0 4px; font-size: 12px;">Party Pack (use on this hero)</div>
@@ -162,7 +204,7 @@ export class CharacterSheetUI {
         if (result.success) {
           this.context.playSFX('button');
           this.context.log(`${this.state.party[hIdx].name} equips ${result.equipped}.`, "success");
-          this.open(this.state.party[hIdx].name); // Re-render
+          this.open(this.state.party[hIdx].name);
           this.context.updateHUD();
         } else {
           this.context.log(result.reason || 'Could not equip.', "warning");
@@ -178,7 +220,7 @@ export class CharacterSheetUI {
         if (result.success) {
           this.context.playSFX('reward');
           this.context.log(result.log || `Used ${itemName}.`, "success");
-          this.open(this.state.party[hIdx].name); // Re-render
+          this.open(this.state.party[hIdx].name);
           this.context.updateHUD();
         } else {
           this.context.log(result.reason || 'Could not use item.', "warning");
