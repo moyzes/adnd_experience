@@ -1,0 +1,129 @@
+body {
+    background-color: #121212;
+    color: #e0e0e0;
+    font-family: monospace;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+#game-container {
+    border: 2px solid #333;
+    background-color: #1a1a1a;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: row;
+    padding: 15px;
+    gap: 15px;
+}
+
+#main-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+#sidebar {
+    width: 220px;
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+.panel-title {
+    font-size: 12px;
+    color: #777;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #222;
+    padding-bottom: 4px;
+}
+
+.hero-card {
+    background: #18191d;
+    border: 1px solid #2c2f36;
+    border-radius: 4px;
+    padding: 10px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.hero-avatar {
+    font-size: 28px;
+    background: #252830;
+    padding: 6px;
+    border-radius: 4px;
+}
+
+.hero-name {
+    font-weight: bold;
+    color: #f1c40f;
+    font-size: 14px;
+}
+
+.hero-class {
+    font-size: 11px;
+    color: #aaa;
+}
+
+.hero-hp {
+    font-size: 12px;
+    color: #e74c3c;
+    margin-top: 4px;
+}
+
+.action-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.game-btn {
+    background: #2c3e50;
+    color: #fff;
+    border: 1px solid #34495e;
+    padding: 10px;
+    font-family: monospace;
+    font-weight: bold;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.game-btn:hover {
+    background: #34495e;
+    border-color: #f1c40f;
+    color: #f1c40f;
+}
+
+#hud-panel {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    background: #111;
+    padding: 10px 15px;
+    border-radius: 6px;
+    border: 1px solid #333;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+canvas {
+    display: block;
+    background-color: #0a0a0a;
+    border-radius: 4px;
+}
+
+#status-text {
+    font-size: 13px;
+    line-height: 1.6;
+}

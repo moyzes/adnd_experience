@@ -1,0 +1,612 @@
+{
+  "id": "flooded_crypt_orlan",
+  "name": "The Flooded Crypt of Saint Orlan",
+  "combat_tracks": [
+    "combat_1",
+    "combat_2",
+    "combat_3"
+  ],
+  "rest_duration_seconds": 12,
+  "briefing": "Elder Harlan Marrow of Thorn has hired you. Young Mira Vale vanished near the ruined chapel on the ridge. He claims a rival cult seeks the bones of Saint Orlan beneath the flooded crypt. Recover the saint’s remains — and bring Mira home if she still lives. The village watches. The feud between Marrow and Vale runs deeper than any of them will say aloud.",
+  "assets": {
+    "skeleton": "assets/glb/skeleton_animated.glb",
+    "wizard": "assets/glb/strange_wizard.glb",
+    "kobold": "assets/glb/kobold.glb",
+    "giant_spider": "assets/glb/giant_spider.glb",
+    "ghoul": "assets/glb/goblin_ghoul.glb",
+    "chest": "assets/glb/chest.gltf"
+  },
+  "start": {
+    "x": 7,
+    "y": 13,
+    "facing": "NORTH"
+  },
+  "legend": {
+    "0": {
+      "name": "Flooded Flagstone",
+      "walkable": true
+    },
+    "1": {
+      "name": "Damp Stone Wall",
+      "walkable": false
+    },
+    "2": {
+      "name": "Reinforced Oak Door",
+      "walkable": false,
+      "interactive": true,
+      "locked": {
+        "methods": ["mechanical", "brute"],
+        "dc": 11
+      },
+      "trap": {
+        "name": "Spring-Blade Trap",
+        "dc": 12,
+        "damage": 8,
+        "saveCategory": "breath"
+      }
+    },
+    "3": {
+      "name": "Arcane-Sealed Reliquary Chest",
+      "walkable": false,
+      "interactive": true,
+      "locked": {
+        "methods": ["mechanical", "brute", "read_magic"],
+        "dc": 12
+      },
+      "trap": {
+        "name": "Explosive Runes",
+        "dc": 13,
+        "damage": 10,
+        "saveCategory": "spell"
+      }
+    },
+    "4": {
+      "name": "Chapel Rubble Floor",
+      "walkable": true
+    },
+    "5": {
+      "name": "Collapsed Pillar",
+      "walkable": false
+    },
+    "6": {
+      "name": "Saint’s Altar (Atonement)",
+      "walkable": true,
+      "interactive": true,
+      "action": "atonement"
+    },
+    "7": {
+      "name": "Flooded Trap Corridor",
+      "walkable": true,
+      "trap": {
+        "name": "Poisoned Dart Battery",
+        "dc": 13,
+        "damage": 9,
+        "saveCategory": "poison"
+      }
+    },
+    "8": {
+      "name": "Arcane-Locked Sanctum Door",
+      "walkable": false,
+      "interactive": true,
+      "locked": {
+        "methods": ["mechanical", "brute", "read_magic"],
+        "dc": 13
+      },
+      "trap": {
+        "name": "Glyph of Warding",
+        "dc": 14,
+        "damage": 12,
+        "saveCategory": "spell"
+      }
+    },
+    "9": {
+      "name": "Thorn Outfitter Stall",
+      "walkable": true,
+      "interactive": true,
+      "action": "shop",
+      "description": "A weather-stained canvas stall at the chapel approach. Lantern light, dried meat, and the smell of oil."
+    }
+  },
+  "shop": {
+    "tile": [3, 13],
+    "name": "Thorn Outfitter",
+    "radius": 1
+  },
+  "map": [
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+    [1, 0, 3, 0, 1, 0, 1, 0, 1, 0, 1, 0, 6, 0, 1],
+    [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+    [1, 1, 1, 8, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1],
+    [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 3, 0, 1],
+    [1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 1, 1, 1, 7, 7, 7, 7, 7, 1, 1, 1, 0, 1],
+    [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+    [1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1],
+    [1, 4, 4, 9, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+  ],
+  "entities": [
+    {
+      "type": "prop",
+      "id": "reliquary_chest",
+      "model": "chest",
+      "x": 2,
+      "y": 2,
+      "rotation": 0
+    },
+    {
+      "type": "prop",
+      "id": "side_chest_east",
+      "model": "chest",
+      "x": 12,
+      "y": 7,
+      "rotation": 1.57
+    }
+  ],
+  "npcs": {
+    "mira_vale": {
+      "id": "mira_vale",
+      "name": "Mira Vale",
+      "tile": [12, 2],
+      "initialNode": "node_mira_found",
+      "inventory_to_steal": [
+        { "name": "Vale Family Signet", "type": "quest" },
+        { "name": "Cracked Prayer Beads", "type": "currency", "amount": 8 }
+      ]
+    },
+    "corvin_vale": {
+      "id": "corvin_vale",
+      "name": "Corvin Vale, the Bitter Scholar",
+      "tile": [7, 1],
+      "initialNode": "node_corvin_greeting",
+      "inventory_to_steal": [
+        { "name": "Saint Orlan’s Femur", "type": "quest" },
+        { "name": "Cult Ledger", "type": "quest" }
+      ]
+    }
+  },
+  "monsters": {
+    "crypt_skeleton": {
+      "id": "crypt_skeleton",
+      "name": "Crypt Skeleton",
+      "glbModel": "assets/glb/skeleton_animated.glb",
+      "rotationOffset": [0, 180, 0],
+      "positionOffset": [0, 0, 0],
+      "scale": 0.2,
+      "hp": 8,
+      "maxHp": 8,
+      "armorClass": 7,
+      "armorType": "leather",
+      "attackTarget": 12,
+      "damage": "1d6",
+      "damageType": "slashing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 100,
+      "xpReward": 65,
+      "creatureType": "undead",
+      "undeadTier": "weak"
+    },
+    "tomb_ghoul": {
+      "id": "tomb_ghoul",
+      "name": "Tomb Ghoul",
+      "glbModel": "assets/glb/goblin_ghoul.glb",
+      "rotationOffset": [360, 180, 0],
+      "positionOffset": [0, 0, 0],
+      "scale": 0.12,
+      "hp": 14,
+      "maxHp": 14,
+      "armorClass": 6,
+      "armorType": "leather",
+      "attackTarget": 13,
+      "damage": "1d6+1",
+      "damageType": "slashing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 100,
+      "xpReward": 175,
+      "creatureType": "undead",
+      "undeadTier": "medium"
+    },
+    "cult_thrall": {
+      "id": "cult_thrall",
+      "name": "Cult Thrall",
+      "glbModel": "assets/glb/kobold.glb",
+      "rotationOffset": [0, 180, 0],
+      "positionOffset": [0, 0.1, 0],
+      "scale": 0.5,
+      "hp": 5,
+      "maxHp": 5,
+      "armorClass": 7,
+      "armorType": "leather",
+      "attackTarget": 11,
+      "damage": "1d4",
+      "damageType": "piercing",
+      "actionPhase": "FAST",
+      "moraleThreshold": 40,
+      "xpReward": 15
+    },
+    "cult_guard": {
+      "id": "cult_guard",
+      "name": "Cult Guard",
+      "glbModel": "assets/glb/kobold.glb",
+      "rotationOffset": [0, 180, 0],
+      "positionOffset": [0, 0.15, 0],
+      "scale": 0.35,
+      "hp": 11,
+      "maxHp": 11,
+      "armorClass": 4,
+      "armorType": "chain",
+      "attackTarget": 14,
+      "damage": "1d8",
+      "damageType": "slashing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 50,
+      "xpReward": 65
+    },
+    "giant_spider": {
+      "id": "giant_spider",
+      "name": "Giant Spider",
+      "glbModel": "assets/glb/giant_spider.glb",
+      "rotationOffset": [0, 180, 0],
+      "positionOffset": [0, 0, 0],
+      "scale": 1.0,
+      "hp": 14,
+      "maxHp": 14,
+      "armorClass": 6,
+      "armorType": "leather",
+      "attackTarget": 13,
+      "damage": "1d6",
+      "damageType": "piercing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 45,
+      "xpReward": 175,
+      "special_attack": "poison",
+      "save_category": "poison",
+      "save_target": 14,
+      "poison_damage": 6
+    },
+    "corvin_sorcerer": {
+      "id": "corvin_sorcerer",
+      "name": "Corvin Vale",
+      "glbModel": "assets/glb/strange_wizard.glb",
+      "rotationOffset": [0, 180, 0],
+      "positionOffset": [0, 0, 0],
+      "scale": 0.85,
+      "hp": 16,
+      "maxHp": 16,
+      "armorClass": 5,
+      "armorType": "leather",
+      "attackTarget": 13,
+      "damage": "1d4+1",
+      "damageType": "bludgeoning",
+      "actionPhase": "SLOW",
+      "moraleThreshold": 70,
+      "xpReward": 270
+    }
+  },
+  "encounters": [
+    {
+      "id": "enc_chapel_threshold",
+      "x": 7,
+      "y": 11,
+      "name": "Chapel Threshold — Restless Dead",
+      "enemies": [
+        { "monsterId": "crypt_skeleton", "count": 2 },
+        { "monsterId": "cult_thrall", "count": 1 }
+      ],
+      "onVictoryXp": 145
+    },
+    {
+      "id": "enc_trap_corridor_ambush",
+      "x": 7,
+      "y": 9,
+      "name": "Dart Corridor Ambush",
+      "enemies": [
+        { "monsterId": "cult_thrall", "count": 2 },
+        { "monsterId": "crypt_skeleton", "count": 1 }
+      ],
+      "onVictoryXp": 95
+    },
+    {
+      "id": "enc_spider_alcove",
+      "x": 1,
+      "y": 9,
+      "name": "Webbed Alcove",
+      "enemies": [
+        { "monsterId": "giant_spider", "count": 1 },
+        { "monsterId": "cult_thrall", "count": 1 }
+      ],
+      "onVictoryXp": 190
+    },
+    {
+      "id": "enc_ossuary",
+      "x": 7,
+      "y": 5,
+      "name": "Flooded Ossuary",
+      "enemies": [
+        { "monsterId": "crypt_skeleton", "count": 2 },
+        { "monsterId": "tomb_ghoul", "count": 1 }
+      ],
+      "onVictoryXp": 305
+    },
+    {
+      "id": "enc_sanctum_guard",
+      "x": 7,
+      "y": 3,
+      "name": "Sanctum Guardians",
+      "enemies": [
+        { "monsterId": "cult_guard", "count": 2 },
+        { "monsterId": "crypt_skeleton", "count": 1 }
+      ],
+      "onVictoryXp": 195
+    },
+    {
+      "id": "enc_corvin_last_stand",
+      "x": 7,
+      "y": 1,
+      "name": "Reliquary Confrontation",
+      "enemies": [
+        { "monsterId": "corvin_sorcerer", "count": 1 },
+        { "monsterId": "cult_guard", "count": 1 }
+      ],
+      "onVictoryXp": 335
+    }
+  ],
+  "dialogues": {
+    "mira_vale": {
+      "node_mira_found": {
+        "text": "Mira Vale presses herself against the damp wall, wrists raw from rope. 'You are from the village… or did Harlan Marrow send you to finish what his family started? I found the truth. The bones are a lie. The Marrows used Saint Orlan’s name to seize our land. My uncle Corvin only wanted the village to see it.'",
+        "choices": [
+          {
+            "id": "choice_mira_comfort",
+            "text": "Tend her wounds and swear to bring her out alive.",
+            "attribute": "wisdom",
+            "dc": 10,
+            "specialtyClass": "Cleric",
+            "specialtyBonus": 4,
+            "moral_tax": 12,
+            "clericMultiplier": 1.5,
+            "attitudeShift": 30,
+            "onSuccess": "node_mira_trusts",
+            "onFail": "node_mira_wary"
+          },
+          {
+            "id": "choice_mira_demand",
+            "text": "Demand the location of the bones and her uncle — no softness.",
+            "attribute": "strength",
+            "dc": 11,
+            "specialtyClass": "Fighter",
+            "specialtyBonus": 3,
+            "moral_tax": -10,
+            "clericMultiplier": 2.0,
+            "attitudeShift": -15,
+            "onSuccess": "node_mira_points",
+            "onFail": "node_mira_silent"
+          },
+          {
+            "id": "choice_mira_listen",
+            "text": "Stay quiet and let her talk. Watch for the truth between the words.",
+            "attribute": "intelligence",
+            "dc": 11,
+            "specialtyClass": "Mage",
+            "specialtyBonus": 3,
+            "moral_tax": 0,
+            "attitudeShift": 10,
+            "onSuccess": "node_mira_truth",
+            "onFail": "node_mira_wary"
+          },
+          {
+            "id": "choice_mira_sneak_info",
+            "text": "Offer a quiet escape route if she hands over any key or map she took.",
+            "attribute": "dexterity",
+            "dc": 10,
+            "specialtyClass": "Thief",
+            "specialtyBonus": 4,
+            "moral_tax": -5,
+            "attitudeShift": 5,
+            "onSuccess": "node_mira_bargain",
+            "onFail": "node_mira_wary"
+          }
+        ]
+      },
+      "node_mira_trusts": {
+        "text": "She nods, tears cutting clean tracks through the grime. 'Corvin is in the northern reliquary. He has the femur. He will listen to a priest… maybe. The Marrows will call you heretics if you side with us.'",
+        "choices": [
+          {
+            "id": "choice_leave",
+            "text": "Leave her to rest and press deeper.",
+            "onSuccess": null,
+            "onEnd": "stay_silent"
+          }
+        ]
+      },
+      "node_mira_points": {
+        "text": "She flinches but points north. 'Past the sealed door. He waits with the bone. Do what you will.'",
+        "choices": [
+          {
+            "id": "choice_leave",
+            "text": "Move on.",
+            "onSuccess": null,
+            "onEnd": "stay_silent"
+          }
+        ]
+      },
+      "node_mira_truth": {
+        "text": "Between sobs she reveals more: the original interment records were altered. Saint Orlan’s true resting place was never this crypt. The bones are a prop in a land dispute that has poisoned Thorn for three generations.",
+        "choices": [
+          {
+            "id": "choice_leave",
+            "text": "File the knowledge away and continue.",
+            "onSuccess": null,
+            "onEnd": "stay_silent"
+          }
+        ]
+      },
+      "node_mira_bargain": {
+        "text": "She presses a small iron key into your palm. 'Side door to the sanctum. My uncle does not know I took it. Get me out after.'",
+        "choices": [
+          {
+            "id": "choice_leave",
+            "text": "Pocket the key and go.",
+            "onSuccess": null,
+            "onEnd": "stay_silent"
+          }
+        ]
+      },
+      "node_mira_wary": {
+        "text": "She draws her knees up and says nothing more. The feud has taught her that every kindness has a price.",
+        "choices": [
+          {
+            "id": "choice_leave",
+            "text": "Leave her.",
+            "onSuccess": null,
+            "onEnd": "stay_silent"
+          }
+        ]
+      },
+      "node_mira_silent": {
+        "text": "She turns her face to the wall. You will get nothing further from Mira Vale.",
+        "choices": [
+          {
+            "id": "choice_leave",
+            "text": "Walk away.",
+            "onSuccess": null,
+            "onEnd": "stay_silent"
+          }
+        ]
+      }
+    },
+    "corvin_vale": {
+      "node_corvin_greeting": {
+        "text": "An older man in frayed scholar’s robes stands before a stone plinth. A yellowed femur rests on dark cloth. 'So Marrow’s hired blades finally arrive. I am Corvin Vale. These bones are a fraud that kept my family landless and despised. I will not let the lie stand. Walk away, or become part of the story.'",
+        "choices": [
+          {
+            "id": "choice_corvin_preach",
+            "text": "Call upon the true light — demand he surrender the relic and face judgment.",
+            "attribute": "wisdom",
+            "dc": 13,
+            "specialtyClass": "Cleric",
+            "specialtyBonus": 4,
+            "moral_tax": 20,
+            "clericMultiplier": 2.0,
+            "attitudeShift": 25,
+            "onSuccess": "node_corvin_yields_faith",
+            "onFail": "node_corvin_defiant"
+          },
+          {
+            "id": "choice_corvin_threaten",
+            "text": "Draw steel. The contract is clear: the bones return to Thorn.",
+            "attribute": "strength",
+            "dc": 12,
+            "specialtyClass": "Fighter",
+            "specialtyBonus": 4,
+            "moral_tax": -8,
+            "clericMultiplier": 1.8,
+            "attitudeShift": -30,
+            "onSuccess": "node_corvin_cowed",
+            "onFail": "node_corvin_fights"
+          },
+          {
+            "id": "choice_corvin_reason",
+            "text": "Argue the evidence. A public accounting serves truth better than a crypt war.",
+            "attribute": "intelligence",
+            "dc": 12,
+            "specialtyClass": "Mage",
+            "specialtyBonus": 4,
+            "moral_tax": 5,
+            "attitudeShift": 15,
+            "onSuccess": "node_corvin_considers",
+            "onFail": "node_corvin_defiant"
+          },
+          {
+            "id": "choice_corvin_deal",
+            "text": "Offer a quiet deal: the bones leave with you, Mira lives, the feud stays buried for now.",
+            "attribute": "charisma",
+            "dc": 11,
+            "specialtyClass": "Thief",
+            "specialtyBonus": 3,
+            "moral_tax": -12,
+            "clericMultiplier": 2.2,
+            "attitudeShift": 10,
+            "onSuccess": "node_corvin_deal",
+            "onFail": "node_corvin_defiant"
+          }
+        ]
+      },
+      "node_corvin_yields_faith": {
+        "text": "Corvin’s shoulders sag. He places the femur in your hands. 'Take it. Let your god weigh the Marrows. I am finished with blood.' Mira can be freed. The crypt falls quiet.",
+        "choices": [
+          {
+            "id": "choice_end",
+            "text": "Accept the relic and end the confrontation.",
+            "onSuccess": null,
+            "onEnd": "despawn"
+          }
+        ]
+      },
+      "node_corvin_cowed": {
+        "text": "He steps back from the plinth, hands raised. 'Take the cursed bone. Tell Marrow the Vales are broken. Just leave my niece alive.'",
+        "choices": [
+          {
+            "id": "choice_end",
+            "text": "Claim the relic.",
+            "onSuccess": null,
+            "onEnd": "despawn"
+          }
+        ]
+      },
+      "node_corvin_considers": {
+        "text": "He listens, then nods once. 'A public reading of the true interment rolls… that could end it without more graves. Take the femur as surety. I will walk out with you under truce.'",
+        "choices": [
+          {
+            "id": "choice_end",
+            "text": "Accept the truce.",
+            "onSuccess": null,
+            "onEnd": "despawn"
+          }
+        ]
+      },
+      "node_corvin_deal": {
+        "text": "A thin smile. 'Pragmatic. The bone is yours. Mira walks free. The village never learns what we both know. Dirty hands all around — but fewer corpses.'",
+        "choices": [
+          {
+            "id": "choice_end",
+            "text": "Seal the quiet bargain.",
+            "onSuccess": null,
+            "onEnd": "despawn"
+          }
+        ]
+      },
+      "node_corvin_defiant": {
+        "text": "Corvin’s face hardens. He raises a hand and the cult guard steps forward. 'Then the crypt keeps its secrets in blood.'",
+        "choices": [
+          {
+            "id": "choice_fight",
+            "text": "Steel and spell.",
+            "onSuccess": null,
+            "onEnd": "despawn"
+          }
+        ]
+      },
+      "node_corvin_fights": {
+        "text": "He laughs once — bitter, short — and the confrontation turns to violence.",
+        "choices": [
+          {
+            "id": "choice_fight",
+            "text": "Fight.",
+            "onSuccess": null,
+            "onEnd": "despawn"
+          }
+        ]
+      }
+    }
+  },
+  "epilogue_notes": {
+    "success_bones_returned": "You climb back into the grey light of Thorn with Saint Orlan’s femur wrapped in oilcloth. Elder Marrow pays the promised coin and speaks of piety. Mira’s eyes, if she lives, say otherwise. The feud is not ended — only postponed. The crypt still floods when it rains.",
+    "success_truth_exposed": "The true rolls are read in the village square. Some call it justice. Some call it heresy. Divine favor remembers which side the Cleric chose when the bone was still warm from Corvin’s hands.",
+    "party_wiped": "The flooded dark keeps what it takes. In Thorn they light candles for the hired strangers and return to their old hatreds."
+  }
+}

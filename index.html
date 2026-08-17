@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Grid RPG Engine - AD&D 2nd Edition</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Source+Code+Pro:wght@500;700&display=swap"
+    rel="stylesheet">
+  <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  <style>
+    :root {
+      --bg-dungeon: #08090b;
+      --panel-slate: #11141a;
+      --panel-inset: #0a0b0e;
+      --border-iron: #282f3d;
+      --border-chiseled: #423828;
+      --border-gold-frame: #635338;
+      --gold-tsr: #d4af37;
+      --gold-hover: #f3e08c;
+      --parchment: #e6c875;
+      --parchment-bg: #151310;
+      --parchment-light: #f4e8c1;
+      --crimson-active: #8b0000;
+      --text-muted: #808794;
+      --hp-green: #3fb950;
+      --guard-red: #e5534b;
+      --tools-orange: #f0883e;
+      --favor-blue: #58a6ff;
+      --cognition-purple: #d2a8ff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dungeon);
+      color: var(--parchment);
+      font-family: 'Source Code Pro', monospace;
+      margin: 0;
+      padding: 12px;
+      box-sizing: border-box;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Pre-game Setup Screen Overlay */
+    #setup-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(4, 5, 7, 0.92);
+      z-index: 2000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow-y: auto;
+    }
+
+    .setup-container {
+      background: var(--parchment-bg);
+      border: 3px solid var(--border-chiseled);
+      outline: 1px solid var(--border-gold-frame);
+      box-shadow: 0 0 35px rgba(0, 0, 0, 0.95);
+      border-radius: 3px;
+      padding: 24px;
+      width: 620px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .spell-option-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      background: var(--panel-inset);
+      border: 1px solid var(--border-iron);
+      padding: 8px 12px;
+      border-radius: 2px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      color: var(--parchment);
+      transition: border-color 0.12s ease;
+    }
+
+    .spell-option-label:hover {
+      border-color: var(--gold-tsr);
+    }
+
+    /* Main Game Layout */
+    #game-wrapper {
+      display: grid;
+      grid-template-columns: 1fr 484px;
+      gap: 12px;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+    }
+
+    .tsr-panel {
+      background: var(--panel-slate);
+      border: 2px solid var(--border-chiseled);
+      padding: 10px;
+      position: relative;
+    }
+
+    #left-main-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      height: 100%;
+      min-height: 0;
+      /* CRITICAL: Breaks flexbox content sizing feedback loop */
+      overflow: hidden;
+    }
+
+    .panel-header {
+      font-family: 'Cinzel', serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: var(--gold-tsr);
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border-chiseled);
+      padding-bottom: 6px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #view-3d-box {
+      flex: 1;
+      background: #000000;
+      border: 1px solid var(--border-iron);
+      position: relative;
+      overflow: hidden;
+      min-height: 0;
+      width: 100%;
+    }
+
+    #three-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      overflow: hidden;
+    }
+
+    #three-container canvas {
+      display: block;
+      /* No forced width/height here anymore.
+         RendererThreeJS sets the canvas's actual pixel size to a
+         4:3-constrained box via renderer.setSize(w, h, true).
+         The flex centering above provides the letterbox bars. */
+    }
+
+    /* 2D Enemy HP Overlay (replaces 3D billboard bars) */
+    #enemy-hp-overlay {
+      display: none;
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      min-width: 200px;
+      max-width: 90%;
+      background: rgba(10, 11, 14, 0.92);
+      border: 1px solid var(--border-chiseled);
+      outline: 1px solid var(--border-gold-frame);
+      border-radius: 2px;
+      padding: 8px 12px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.85);
+      pointer-events: none;
+    }
+
+    #enemy-hp-overlay.visible {
+      display: block;
+    }
+
+    .enemy-hp-row {
+      margin-bottom: 6px;
+    }
+
+    .enemy-hp-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .enemy-hp-name {
+      font-family: 'Cinzel', serif;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--gold-tsr);
+      letter-spacing: 0.5px;
+      margin-bottom: 3px;
+      text-align: center;
+    }
+
+    .enemy-hp-bar-bg {
+      background: #0e1014;
+      height: 6px;
+      border: 1px solid #1a1e27;
+      overflow: hidden;
+      border-radius: 1px;
+    }
+
+    .enemy-hp-bar-fill {
+      height: 100%;
+      background: var(--hp-green);
+      transition: width 0.25s ease, background-color 0.25s ease;
+    }
+
+    #narrative-log {
+      height: 140px;
+      background: var(--panel-inset);
+      border: 1px solid var(--border-iron);
+      padding: 10px;
+      font-size: 11px;
+      line-height: 1.5;
+      overflow-y: auto;
+      color: var(--parchment);
+    }
+
+    #footer-controls-hint {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    #right-status-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      height: 100%;
+      overflow-y: auto;
+    }
+
+    #minimap-display {
+      background: var(--panel-inset);
+      border: 1px solid var(--border-iron);
+      text-align: center;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #stats-bar {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--parchment);
+      border-top: 1px dashed var(--border-iron);
+      padding-top: 6px;
+      margin-top: 6px;
+    }
+
+    #stats-bar span {
+      color: var(--gold-tsr);
+      font-weight: bold;
+    }
+
+    /* Party Grid & Hero Plaques */
+    #party-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .hero-card {
+      background: var(--panel-inset);
+      border: 1px solid var(--border-iron);
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.85);
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      gap: 4px;
+      min-height: 160px;
+      box-sizing: border-box;
+      border-radius: 2px;
+    }
+
+    .hero-card:hover {
+      border-color: var(--border-gold-frame);
+    }
+
+    .hero-name-click {
+      font-family: 'Cinzel', serif;
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--gold-tsr) !important;
+      cursor: pointer;
+      text-decoration: none !important;
+    }
+
+    .hero-name-click:hover {
+      color: var(--gold-hover) !important;
+      text-decoration: underline !important;
+    }
+
+    .hp-bar-bg {
+      background: #0e1014;
+      height: 4px;
+      border: 1px solid #1a1e27;
+      margin-bottom: 2px;
+      overflow: hidden;
+    }
+
+    .hp-bar-fill {
+      height: 100%;
+      background: var(--hp-green);
+      transition: width 0.35s ease-out;
+    }
+
+    .metric-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 8px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      margin-bottom: 1px;
+      line-height: 1.2;
+      letter-spacing: 0.02em;
+    }
+
+    .status-bar-bg {
+      background: #0e1014;
+      height: 4px;
+      border: 1px solid #1a1e27;
+      margin-bottom: 2px;
+      overflow: hidden;
+    }
+
+    .guard-fill {
+      height: 100%;
+      background: var(--guard-red);
+    }
+
+    .cognition-fill {
+      height: 100%;
+      background: var(--cognition-purple);
+    }
+
+    .favor-fill {
+      height: 100%;
+      background: var(--favor-blue);
+    }
+
+    .tools-fill {
+      height: 100%;
+      background: var(--tools-orange);
+    }
+
+    /* 45x45px Action Buttons */
+    .card-actions-grid {
+      display: flex;
+      flex-direction: row;
+      gap: 6px;
+      margin-top: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .tsr-sq-btn {
+      width: 45px;
+      height: 45px;
+      background: linear-gradient(180deg, #242933 0%, #14171d 100%);
+      border: 1px solid #363e4d;
+      border-top-color: #4a5468;
+      border-bottom-color: #0b0c0f;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      cursor: pointer;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      position: relative;
+      transition: all 0.12s ease;
+      user-select: none;
+      padding: 3px;
+      color: var(--parchment);
+    }
+
+    .tsr-sq-btn svg {
+      width: 16px;
+      height: 16px;
+      fill: var(--gold-tsr);
+      transition: fill 0.12s ease;
+    }
+
+    .tsr-sq-btn .btn-word {
+      font-family: 'Cinzel', serif;
+      font-size: 7.5px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--parchment);
+      line-height: 1;
+      transition: color 0.12s ease;
+    }
+
+    .tsr-sq-btn:hover {
+      border-color: var(--gold-tsr);
+      box-shadow: 0 0 10px rgba(212, 175, 55, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      transform: translateY(-1px);
+    }
+
+    .tsr-sq-btn:hover svg {
+      fill: var(--gold-hover);
+    }
+
+    .tsr-sq-btn:hover .btn-word {
+      color: var(--gold-hover);
+    }
+
+    .tsr-sq-btn.queued {
+      background: linear-gradient(180deg, #6e0000 0%, #3a0000 100%) !important;
+      border-color: #b22222 !important;
+      border-top-color: #220000 !important;
+      border-bottom-color: #ff4500 !important;
+      box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.85), 0 0 12px rgba(178, 34, 34, 0.7) !important;
+      transform: translateY(1px);
+    }
+
+    .tsr-sq-btn.queued svg {
+      fill: #ffffff !important;
+    }
+
+    .tsr-sq-btn.queued .btn-word {
+      color: #ffffff !important;
+    }
+
+    /* Vancian spell actions — purple cue vs martial buttons */
+    .tsr-sq-btn.spell-action {
+      background: linear-gradient(180deg, #2a1a3a 0%, #140c1c 100%) !important;
+      border-color: #6b4c8a !important;
+      border-top-color: #3d2a52 !important;
+      border-bottom-color: #9b7bb8 !important;
+    }
+
+    .tsr-sq-btn.spell-action svg {
+      fill: #d2a8ff !important;
+    }
+
+    .tsr-sq-btn.spell-action .btn-word {
+      color: #d2a8ff !important;
+      font-size: 8px;
+    }
+
+    .tsr-sq-btn.spell-action:hover {
+      border-color: #c9a0ff !important;
+      box-shadow: 0 0 10px rgba(210, 168, 255, 0.35);
+    }
+
+    .tsr-sq-btn.spell-action.disabled,
+    .tsr-sq-btn.spell-action:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      filter: grayscale(0.6);
+    }
+
+    /* Tooltip */
+    .tsr-sq-btn::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 51px;
+      left: 50%;
+      transform: translateX(-50%) translateY(4px);
+      background: #0a0a0d;
+      color: var(--parchment-light);
+      border: 1px solid var(--border-chiseled);
+      font-family: 'Cinzel', serif;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 3px 7px;
+      border-radius: 2px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.9);
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      z-index: 100;
+    }
+
+    .tsr-sq-btn:hover::after {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Wide Action Tabs */
+    #global-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      padding-top: 6px;
+      border-top: 1px solid var(--border-iron);
+      margin-top: auto;
+    }
+
+    .action-tab {
+      font-family: 'Cinzel', serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--parchment);
+      background: linear-gradient(180deg, #242933 0%, #14171d 100%);
+      border: 1px solid var(--gold-tsr);
+      border-top-color: #4a5468;
+      border-bottom-color: #0b0c0f;
+      padding: 8px;
+      border-radius: 2px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.12s ease;
+    }
+
+    .action-tab:hover {
+      border-color: var(--gold-hover);
+      color: var(--gold-hover);
+      box-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
+    }
+
+    .action-tab.primary {
+      border-color: var(--gold-tsr);
+    }
+
+    /* Modals & Character Sheet */
+    #interaction-modal,
+    #char-sheet-modal,
+    #camp-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(4, 5, 7, 0.88);
+      z-index: 2500;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-box {
+      background: var(--parchment-bg);
+      border: 3px solid var(--border-chiseled);
+      outline: 1px solid var(--border-gold-frame);
+      box-shadow: 0 0 35px rgba(0, 0, 0, 0.95);
+      padding: 20px;
+      width: 620px;
+      max-height: 85vh;
+      overflow-y: auto;
+      border-radius: 2px;
+    }
+
+    .stealth-badge,
+    .incapacitated-badge,
+    .silence-badge,
+    .channeling-badge {
+      font-family: 'Cinzel', serif;
+      font-size: 8px;
+      font-weight: bold;
+      padding: 2px 6px;
+      border-radius: 2px;
+      display: inline-block;
+      margin-top: 2px;
+    }
+
+    .stealth-badge {
+      background: #1b4332;
+      color: #52b788;
+      border: 1px solid #2d6a4f;
+    }
+
+    .incapacitated-badge {
+      background: #3a0000;
+      color: #f85149;
+      border: 1px solid #b22222;
+    }
+
+    .silence-badge {
+      background: #1a1e27;
+      color: #8b949e;
+      border: 1px solid #30363d;
+    }
+
+    .channeling-badge {
+      background: #2a1a3a;
+      color: #d2a8ff;
+      border: 1px solid #6b4c8a;
+      letter-spacing: 0.4px;
+      width: 100%;
+      text-align: center;
+      margin-top: 4px;
+      box-shadow: 0 0 8px rgba(210, 168, 255, 0.25);
+    }
+
+    .hero-card.channeling {
+      border-color: #6b4c8a !important;
+      box-shadow: 0 0 14px rgba(210, 168, 255, 0.35);
+      outline: 1px solid #9b7bb8;
+    }
+
+    /* Red Hit Flash */
+    @keyframes heroHitFlash {
+      0% {
+        border-color: #f85149;
+        box-shadow: 0 0 18px rgba(248, 81, 73, 0.9);
+        background: linear-gradient(135deg, rgba(248, 81, 73, 0.65) 0%, #161b22 100%);
+      }
+
+      100% {
+        border-color: var(--border-iron);
+        box-shadow: none;
+        background: var(--panel-inset);
+      }
+    }
+
+    .hero-card.hit-flash {
+      animation: heroHitFlash 1s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Pre-game Party & Spells Setup Screen -->
+  <div id="setup-screen">
+    <div class="setup-container">
+      <div class="panel-header" style="font-size: 15px; text-align: center; margin-bottom: 14px;">
+        ADVANCED DUNGEONS & DRAGONS — EXPEDITION SETUP
+      </div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 14px; text-align: center;">
+        Select exactly 2 spells/prayers for your Mage and Cleric to prepare for the module.
+      </div>
+
+      <div style="margin-bottom: 14px;">
+        <div
+          style="font-family: 'Cinzel', serif; font-size: 12px; font-weight: bold; color: var(--cognition-purple); margin-bottom: 6px;">
+          📖 Mage Memorization (Select 2):</div>
+        <div id="mage-spells-choices"></div>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <div
+          style="font-family: 'Cinzel', serif; font-size: 12px; font-weight: bold; color: var(--favor-blue); margin-bottom: 6px;">
+          ✨ Cleric Prayers (Select 2):</div>
+        <div id="cleric-spells-choices"></div>
+      </div>
+
+      <button id="start-adventure-btn" class="action-tab primary"
+        style="width: 100%; padding: 10px; font-size: 12px;">BEGIN EXPEDITION</button>
+    </div>
+  </div>
+
+  <div id="game-wrapper">
+    <div id="left-main-panel" class="tsr-panel">
+      <div class="panel-header">The Kobold Lair — Unified Dialogue & Ethos Engine</div>
+      <div id="view-3d-box">
+        <div id="enemy-hp-overlay"></div>
+        <div id="three-container"></div>
+      </div>
+      <div id="narrative-log">
+        > [System] Expedition initialized. The threshold of the Kobold Lair awaits...
+      </div>
+      <div id="footer-controls-hint">W/S: Move | A/D: Turn | E: Interact | R: Rest</div>
+    </div>
+
+    <div id="right-status-panel" class="tsr-panel">
+      <div class="panel-header">Expedition Status</div>
+      <div id="minimap-display">
+        <canvas id="minimapCanvas" width="150" height="130"></canvas>
+        <div id="stats-bar">
+          <div>Pos: <span id="coord-val">7, 12</span> | <span id="dir-val">NORTH</span></div>
+          <div>💰 Gold: <span id="gold-val">0</span></div>
+          <div>🍖 Rations: <span id="rations-val">10</span></div>
+        </div>
+      </div>
+
+      <div class="panel-header" style="margin-bottom: 4px;">Adventuring Party</div>
+      <div id="party-container"></div>
+
+      <div id="global-actions">
+        <button id="open-btn" class="action-tab">🔓 Open (Object)</button>
+        <button id="rest-btn" class="action-tab primary">⛺ Rest & Camp</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interaction & NPC Dialogue Modal -->
+  <div id="interaction-modal">
+    <div class="modal-box">
+      <div id="interaction-title" class="panel-header" style="font-size: 14px; text-align: center;">
+        NPC ENCOUNTER
+      </div>
+      <div id="interaction-prompt"
+        style="color: var(--parchment); font-size: 12px; margin-bottom: 15px; line-height: 1.5; white-space: pre-line;">
+      </div>
+      <div id="interaction-actions" style="display: flex; flex-direction: column; gap: 8px;"></div>
+    </div>
+  </div>
+
+  <!-- Character Sheet Modal -->
+  <div id="char-sheet-modal">
+    <div class="modal-box">
+      <div
+        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-chiseled); padding-bottom: 8px; margin-bottom: 12px;">
+        <span id="sheet-char-title"
+          style="font-family: 'Cinzel', serif; font-weight: 900; color: var(--gold-tsr); font-size: 15px;">CHARACTER
+          SHEET</span>
+        <button id="close-sheet-btn" class="action-tab" style="padding: 4px 12px; font-size: 10px;">CLOSE [ESC]</button>
+      </div>
+      <div id="sheet-content" style="font-size: 12px; line-height: 1.6; color: var(--parchment);"></div>
+    </div>
+  </div>
+
+  <!-- Camp Progress Modal -->
+  <div id="camp-modal">
+    <div class="modal-box" style="width: 380px; text-align: center;">
+      <div class="panel-header" style="font-size: 14px; margin-bottom: 10px;">⛺ SETTING UP CAMP...</div>
+      <div id="camp-timer-text" style="font-size: 11px; margin-bottom: 10px;">Resting and recuperating...</div>
+      <div
+        style="width: 100%; background: #0d1117; height: 10px; border-radius: 2px; overflow: hidden; border: 1px solid var(--border-iron);">
+        <div id="camp-progress-bar"
+          style="width: 0%; height: 100%; background: var(--gold-tsr); transition: width linear 0.1s;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Outfitter / Shop Modal -->
+  <div id="shop-modal" style="display:none; position:fixed; inset:0; background:rgba(4,5,7,0.88); z-index:200; align-items:center; justify-content:center;">
+    <div class="modal-box" style="width: min(520px, 94vw); max-height: 85vh; overflow-y: auto; text-align: left;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div class="panel-header" style="font-size: 15px; margin:0;">🏪 THORN OUTFITTER</div>
+        <button id="close-shop-btn" class="action-tab" style="padding:4px 12px; font-size:10px;">CLOSE</button>
+      </div>
+      <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">
+        Stock provisions before the crypt claims what it wants. Gold on hand: <b id="shop-gold-val" style="color:var(--gold-tsr);">0</b> gp
+      </div>
+      <div id="shop-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+
+</html>

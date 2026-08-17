@@ -1,0 +1,159 @@
+{
+  "archetypes": {
+    "fighter": {
+      "name": "Fighter",
+      "group": "Warrior",
+      "starting_hp": 12,
+      "armor_class": 3,
+      "attack_bonus": 2,
+      "default_weapon": "Longsword",
+      "attributes": {
+        "strength": 16,
+        "dexterity": 12,
+        "constitution": 15,
+        "intelligence": 9,
+        "wisdom": 10,
+        "charisma": 11
+      },
+      "skills": {
+        "bash": { "name": "Bash Door", "type": "modifier", "base": 2, "perLevel": 1, "attribute": "strength" },
+        "intimidate": { "name": "Intimidate", "type": "modifier", "base": 2, "perLevel": 1, "attribute": "strength" }
+      }
+    },
+    "thief": {
+      "name": "Thief",
+      "group": "Rogue",
+      "starting_hp": 7,
+      "armor_class": 6,
+      "attack_bonus": 1,
+      "default_weapon": "Short Sword",
+      "attributes": {
+        "strength": 11,
+        "dexterity": 17,
+        "constitution": 12,
+        "intelligence": 12,
+        "wisdom": 10,
+        "charisma": 14
+      },
+      "skills": {
+        "hide_in_shadows": { "name": "Hide in Shadows", "type": "percentile", "base": 25, "perLevel": 5 },
+        "pick_locks": { "name": "Pick Locks", "type": "percentile", "base": 30, "perLevel": 5 },
+        "find_traps": { "name": "Find Traps", "type": "percentile", "base": 25, "perLevel": 5 },
+        "disarm_traps": { "name": "Disarm Traps", "type": "percentile", "base": 20, "perLevel": 5 },
+        "hear_noise": { "name": "Hear Noise", "type": "percentile", "base": 25, "perLevel": 3 },
+        "pick_pockets": { "name": "Pick Pockets", "type": "percentile", "base": 35, "perLevel": 5 }
+      }
+    },
+    "cleric": {
+      "name": "Cleric",
+      "group": "Priest",
+      "starting_hp": 10,
+      "armor_class": 4,
+      "attack_bonus": 1,
+      "default_weapon": "Warhammer",
+      "attributes": {
+        "strength": 14,
+        "dexterity": 10,
+        "constitution": 14,
+        "intelligence": 10,
+        "wisdom": 16,
+        "charisma": 13
+      },
+      "skills": {
+        "turn_undead": { "name": "Turn Undead", "type": "modifier", "base": 3, "perLevel": 1, "attribute": "wisdom" },
+        "convert": { "name": "Convert", "type": "modifier", "base": 2, "perLevel": 1, "attribute": "wisdom" }
+      },
+      "divine_favor": {
+        "max_favor": 100,
+        "thresholds": [
+          { "min": 75, "max": 100, "status": "Full Communion" },
+          { "min": 25, "max": 74, "status": "Strained Faith" },
+          { "min": 1, "max": 24, "status": "Faltering Light" },
+          { "min": 0, "max": 0, "status": "Absolute Silence" }
+        ]
+      },
+      "spells_available": [
+        {
+          "id": "bless",
+          "name": "Bless",
+          "level": 1,
+          "target": "party",
+          "description": "Grants divine courage to the party.",
+          "effect": { "type": "buff_attack", "amount": 1, "duration_rounds": 4 }
+        },
+        {
+          "id": "cure_wounds",
+          "name": "Cure Light Wounds",
+          "level": 1,
+          "target": "ally",
+          "description": "Restores life to a wounded ally.",
+          "effect": { "type": "heal", "amount": 15 }
+        },
+        {
+          "id": "sanctuary",
+          "name": "Sanctuary",
+          "level": 1,
+          "target": "self",
+          "description": "Wards the cleric from hostile strikes.",
+          "effect": { "type": "buff_ac", "amount": 2, "duration_rounds": 3 }
+        }
+      ]
+    },
+    "mage": {
+      "name": "Mage",
+      "group": "Wizard",
+      "starting_hp": 5,
+      "armor_class": 8,
+      "attack_bonus": 0,
+      "default_weapon": "Quarterstaff",
+      "attributes": {
+        "strength": 9,
+        "dexterity": 14,
+        "constitution": 11,
+        "intelligence": 18,
+        "wisdom": 13,
+        "charisma": 10
+      },
+      "skills": {
+        "read_magic": { "name": "Read Magic", "type": "modifier", "base": 3, "perLevel": 1, "attribute": "intelligence" },
+        "detect_magic_intent": { "name": "Detect Magic Intent", "type": "modifier", "base": 2, "perLevel": 1, "attribute": "intelligence" }
+      },
+      "vancian_magic": {
+        "cognition_max": 100,
+        "slots_level_1": 2,
+        "spells_available": [
+          {
+            "id": "magic_missile",
+            "name": "Magic Missile",
+            "level": 1,
+            "cognitive_load": 20,
+            "casting_time": "instant",
+            "target": "enemy",
+            "description": "Force bolts that never miss.",
+            "effect": { "type": "damage", "amount": 12, "auto_hit": true }
+          },
+          {
+            "id": "sleep",
+            "name": "Sleep",
+            "level": 1,
+            "cognitive_load": 30,
+            "casting_time": "normal",
+            "target": "enemy",
+            "description": "Drops a weaker foe into magical slumber for a short time.",
+            "effect": { "type": "sleep", "duration_rounds": 2, "max_hp_threshold": 30 }
+          },
+          {
+            "id": "shield",
+            "name": "Shield",
+            "level": 1,
+            "cognitive_load": 15,
+            "casting_time": "instant",
+            "target": "self",
+            "description": "Invisible barrier that turns aside blows.",
+            "effect": { "type": "buff_ac", "amount": 2, "duration_rounds": 4 }
+          }
+        ]
+      }
+    }
+  }
+}
