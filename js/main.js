@@ -186,17 +186,10 @@ class GameOrchestrator {
     document.getElementById('close-shop-btn')?.addEventListener('click', () => this.shopUI.close());
     
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' || e.code === 'Escape') this.characterSheet.close();
-    });
-
-    // Global listeners
-    document.getElementById('close-sheet-btn')?.addEventListener('click', () => this.closeCharacterSheet());
-    document.getElementById('close-shop-btn')?.addEventListener('click', () => {
-      const modal = document.getElementById('shop-modal');
-      if (modal) modal.style.display = 'none';
-    });
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' || e.code === 'Escape') this.closeCharacterSheet();
+      if (e.key === 'Escape' || e.code === 'Escape') {
+        this.characterSheet.close();
+        this.shopUI.close();
+      }
     });
   }
 
