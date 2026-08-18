@@ -33,15 +33,14 @@
         "constitution": 12,
         "intelligence": 12,
         "wisdom": 10,
-        "charisma": 14
+        "charisma": 10
       },
       "skills": {
-        "hide_in_shadows": { "name": "Hide in Shadows", "type": "percentile", "base": 25, "perLevel": 5 },
-        "pick_locks": { "name": "Pick Locks", "type": "percentile", "base": 30, "perLevel": 5 },
-        "find_traps": { "name": "Find Traps", "type": "percentile", "base": 25, "perLevel": 5 },
-        "disarm_traps": { "name": "Disarm Traps", "type": "percentile", "base": 20, "perLevel": 5 },
-        "hear_noise": { "name": "Hear Noise", "type": "percentile", "base": 25, "perLevel": 3 },
-        "pick_pockets": { "name": "Pick Pockets", "type": "percentile", "base": 35, "perLevel": 5 }
+        "pick_locks": { "name": "Pick Locks", "type": "percentile", "base": 25, "perLevel": 5 },
+        "find_traps": { "name": "Find/Disarm Traps", "type": "percentile", "base": 20, "perLevel": 5 },
+        "pick_pockets": { "name": "Pick Pockets", "type": "percentile", "base": 30, "perLevel": 5 },
+        "hide_in_shadows": { "name": "Hide in Shadows", "type": "percentile", "base": 15, "perLevel": 5 },
+        "hear_noise": { "name": "Hear Noise", "type": "percentile", "base": 20, "perLevel": 5 }
       }
     },
     "cleric": {
@@ -53,66 +52,138 @@
       "default_weapon": "Warhammer",
       "attributes": {
         "strength": 14,
-        "dexterity": 10,
-        "constitution": 14,
-        "intelligence": 10,
+        "dexterity": 9,
+        "constitution": 13,
+        "intelligence": 11,
         "wisdom": 16,
-        "charisma": 13
+        "charisma": 14
       },
       "skills": {
-        "turn_undead": { "name": "Turn Undead", "type": "modifier", "base": 3, "perLevel": 1, "attribute": "wisdom" },
-        "convert": { "name": "Convert", "type": "modifier", "base": 2, "perLevel": 1, "attribute": "wisdom" }
+        "turn_undead": { "name": "Turn Undead", "type": "modifier", "base": 14, "perLevel": 1, "attribute": "wisdom" },
+        "heal_intuition": { "name": "Healing Insight", "type": "modifier", "base": 3, "perLevel": 1, "attribute": "wisdom" }
       },
       "divine_favor": {
         "max_favor": 100,
         "thresholds": [
-          { "min": 75, "max": 100, "status": "Full Communion" },
-          { "min": 25, "max": 74, "status": "Strained Faith" },
-          { "min": 1, "max": 24, "status": "Faltering Light" },
+          { "min": 80, "max": 100, "status": "Full Communion" },
+          { "min": 40, "max": 79, "status": "Favorable Grace" },
+          { "min": 1, "max": 39, "status": "Faint Connection" },
           { "min": 0, "max": 0, "status": "Absolute Silence" }
         ]
       },
-      "spells_available": [
-        {
-          "id": "bless",
-          "name": "Bless",
-          "level": 1,
-          "target": "party",
-          "description": "Grants divine courage to the party.",
-          "effect": { "type": "buff_attack", "amount": 1, "duration_rounds": 4 }
-        },
-        {
-          "id": "cure_wounds",
-          "name": "Cure Light Wounds",
-          "level": 1,
-          "target": "ally",
-          "description": "Restores life to a wounded ally.",
-          "effect": { "type": "heal", "amount": 15 }
-        },
-        {
-          "id": "sanctuary",
-          "name": "Sanctuary",
-          "level": 1,
-          "target": "self",
-          "description": "Wards the cleric from hostile strikes.",
-          "effect": { "type": "buff_ac", "amount": 2, "duration_rounds": 3 }
-        }
-      ]
+      "spells_available_by_tier": {
+        "1": [
+          {
+            "id": "bless",
+            "name": "Bless",
+            "level": 1,
+            "target": "party",
+            "description": "Grants divine courage to the party.",
+            "effect": { "type": "buff_attack", "amount": 1, "duration_rounds": 4 }
+          },
+          {
+            "id": "cure_wounds",
+            "name": "Cure Light Wounds",
+            "level": 1,
+            "target": "ally",
+            "description": "Restores life to a wounded ally.",
+            "effect": { "type": "heal", "amount": 15 }
+          },
+          {
+            "id": "sanctuary",
+            "name": "Sanctuary",
+            "level": 1,
+            "target": "self",
+            "description": "Wards the cleric from hostile strikes.",
+            "effect": { "type": "buff_ac", "amount": 2, "duration_rounds": 3 }
+          }
+        ],
+        "2": [
+          {
+            "id": "holy_blessing",
+            "name": "Holy Blessing",
+            "level": 2,
+            "target": "party",
+            "description": "Divine grace restores health to all allies.",
+            "effect": { "type": "party_heal", "amount": 20 }
+          },
+          {
+            "id": "spiritual_hammer",
+            "name": "Spiritual Hammer",
+            "level": 2,
+            "target": "enemy",
+            "description": "A ghostly hammer strikes from afar.",
+            "effect": { "type": "damage", "amount": 18 }
+          },
+          {
+            "id": "hold_person",
+            "name": "Hold Person",
+            "level": 2,
+            "target": "enemy",
+            "description": "Divine paralysis locks a foe in place.",
+            "effect": { "type": "debuff", "debuffType": "to_hit", "amount": 4, "duration_rounds": 3 }
+          }
+        ],
+        "3": [
+          {
+            "id": "cure_serious",
+            "name": "Cure Serious Wounds",
+            "level": 3,
+            "target": "ally",
+            "description": "More potent healing restores greater wounds.",
+            "effect": { "type": "heal", "amount": 30 }
+          },
+          {
+            "id": "blade_barrier",
+            "name": "Blade Barrier",
+            "level": 3,
+            "target": "self",
+            "description": "Whirling blades protect the caster.",
+            "effect": { "type": "aoe_damage", "amount": 22 }
+          },
+          {
+            "id": "dispel_evil",
+            "name": "Dispel Evil",
+            "level": 3,
+            "target": "enemy",
+            "description": "Banish unholy presences from the battlefield.",
+            "effect": { "type": "debuff", "debuffType": "ac", "amount": 3, "duration_rounds": 4 }
+          }
+        ],
+        "4": [
+          {
+            "id": "heal",
+            "name": "Heal",
+            "level": 4,
+            "target": "ally",
+            "description": "Restore a fallen or dying ally to full vigor.",
+            "effect": { "type": "heal", "amount": 50 }
+          },
+          {
+            "id": "divine_intervention",
+            "name": "Divine Intervention",
+            "level": 4,
+            "target": "party",
+            "description": "Call upon the gods to aid all allies.",
+            "effect": { "type": "party_heal", "amount": 35 }
+          }
+        ]
+      }
     },
     "mage": {
       "name": "Mage",
       "group": "Wizard",
-      "starting_hp": 5,
+      "starting_hp": 6,
       "armor_class": 8,
       "attack_bonus": 0,
       "default_weapon": "Quarterstaff",
       "attributes": {
-        "strength": 9,
+        "strength": 8,
         "dexterity": 14,
         "constitution": 11,
         "intelligence": 18,
         "wisdom": 13,
-        "charisma": 10
+        "charisma": 12
       },
       "skills": {
         "read_magic": { "name": "Read Magic", "type": "modifier", "base": 3, "perLevel": 1, "attribute": "intelligence" },
@@ -120,39 +191,115 @@
       },
       "vancian_magic": {
         "cognition_max": 100,
-        "slots_level_1": 2,
-        "spells_available": [
-          {
-            "id": "magic_missile",
-            "name": "Magic Missile",
-            "level": 1,
-            "cognitive_load": 20,
-            "casting_time": "instant",
-            "target": "enemy",
-            "description": "Force bolts that never miss.",
-            "effect": { "type": "damage", "amount": 12, "auto_hit": true }
-          },
-          {
-            "id": "sleep",
-            "name": "Sleep",
-            "level": 1,
-            "cognitive_load": 30,
-            "casting_time": "normal",
-            "target": "enemy",
-            "description": "Drops a weaker foe into magical slumber for a short time.",
-            "effect": { "type": "sleep", "duration_rounds": 2, "max_hp_threshold": 30 }
-          },
-          {
-            "id": "shield",
-            "name": "Shield",
-            "level": 1,
-            "cognitive_load": 15,
-            "casting_time": "instant",
-            "target": "self",
-            "description": "Invisible barrier that turns aside blows.",
-            "effect": { "type": "buff_ac", "amount": 2, "duration_rounds": 4 }
-          }
-        ]
+        "spell_tiers": {
+          "1": [
+            {
+              "id": "magic_missile",
+              "name": "Magic Missile",
+              "cognitive_load": 20,
+              "casting_time": "instant",
+              "target": "enemy",
+              "description": "Force bolts that never miss.",
+              "effect": { "type": "damage", "amount": 12, "auto_hit": true }
+            },
+            {
+              "id": "sleep",
+              "name": "Sleep",
+              "cognitive_load": 30,
+              "casting_time": "normal",
+              "target": "enemy",
+              "description": "Drops a weaker foe into magical slumber.",
+              "effect": { "type": "sleep", "duration_rounds": 2, "max_hp_threshold": 30 }
+            },
+            {
+              "id": "shield",
+              "name": "Shield",
+              "cognitive_load": 15,
+              "casting_time": "instant",
+              "target": "self",
+              "description": "Invisible barrier that turns aside blows.",
+              "effect": { "type": "buff_ac", "amount": 2, "duration_rounds": 4 }
+            }
+          ],
+          "2": [
+            {
+              "id": "fireball",
+              "name": "Fireball",
+              "cognitive_load": 40,
+              "casting_time": "normal",
+              "target": "enemy",
+              "description": "A burning sphere engulfs all nearby foes.",
+              "effect": { "type": "aoe_damage", "amount": 18 }
+            },
+            {
+              "id": "invisibility",
+              "name": "Invisibility",
+              "cognitive_load": 35,
+              "casting_time": "normal",
+              "target": "self",
+              "description": "Become unseen for a short duration.",
+              "effect": { "type": "buff_ac", "amount": 4, "duration_rounds": 6 }
+            },
+            {
+              "id": "web",
+              "name": "Web",
+              "cognitive_load": 30,
+              "casting_time": "normal",
+              "target": "enemy",
+              "description": "Thick strands immobilize a foe.",
+              "effect": { "type": "debuff", "debuffType": "to_hit", "amount": 3, "duration_rounds": 4 }
+            }
+          ],
+          "3": [
+            {
+              "id": "lightning_bolt",
+              "name": "Lightning Bolt",
+              "cognitive_load": 50,
+              "casting_time": "normal",
+              "target": "enemy",
+              "description": "A jagged bolt arcs across the battlefield.",
+              "effect": { "type": "aoe_damage", "amount": 24 }
+            },
+            {
+              "id": "ice_storm",
+              "name": "Ice Storm",
+              "cognitive_load": 45,
+              "casting_time": "normal",
+              "target": "enemy",
+              "description": "Shards of ice slow and chill enemies.",
+              "effect": { "type": "debuff", "debuffType": "to_hit", "amount": 2, "duration_rounds": 5 }
+            },
+            {
+              "id": "haste",
+              "name": "Haste",
+              "cognitive_load": 40,
+              "casting_time": "instant",
+              "target": "ally",
+              "description": "Grant an ally a second action this round.",
+              "effect": { "type": "buff_attack", "amount": 2, "duration_rounds": 2 }
+            }
+          ],
+          "4": [
+            {
+              "id": "chain_lightning",
+              "name": "Chain Lightning",
+              "cognitive_load": 60,
+              "casting_time": "normal",
+              "target": "enemy",
+              "description": "Lightning jumps from foe to foe.",
+              "effect": { "type": "aoe_damage", "amount": 30 }
+            },
+            {
+              "id": "time_stop",
+              "name": "Time Stop",
+              "cognitive_load": 70,
+              "casting_time": "instant",
+              "target": "self",
+              "description": "Suspend time itself for one round.",
+              "effect": { "type": "buff_attack", "amount": 3, "duration_rounds": 1 }
+            }
+          ]
+        }
       }
     }
   }

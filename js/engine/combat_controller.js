@@ -148,7 +148,10 @@ export class CombatController {
         }
 
         // Commit real state only after every beat has played
-        this.state.commitCombatRoundResults(finalMobHp, finalHeroHp, victory, totalXp);
+        this.state.commitCombatRoundResults(finalMobHp, finalHeroHp, victory, 0);
+
+        // Award XP and capture any resulting level-up events
+        const levelUps = victory ? this.state.awardQuestXP(totalXp || 0) : [];
 
         if (partyWiped || this.state.party.every(h => h.hp <= 0)) {
             this.stopCombatMusic();
@@ -167,6 +170,12 @@ export class CombatController {
             }
             const currentEnc = this.state.spec.encounters.find(e => e.id === this.state.combat.encounterId);
             if (currentEnc) currentEnc.completed = true;
+
+            // Trigger level-up fanfare modal and audio cues here
+            if (levelUps && levelUps.length > 0 && this.callbacks.onLevelUp) {
+                this.callbacks.onLevelUp(levelUps);
+            }
+
             this.callbacks.log(`Area secured! Return to exploration stance.`, "success");
         } else {
             this.callbacks.playSFX('combat_turn');

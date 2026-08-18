@@ -130,7 +130,6 @@ export class GameState {
     const defaultWeapon = archetype.default_weapon ||
       (classKey === 'fighter' ? 'Longsword' : classKey === 'thief' ? 'Short Sword' : classKey === 'cleric' ? 'Warhammer' : 'Quarterstaff');
 
-    // Personal kit
     let inventory = [];
     if (classKey === 'thief') {
       inventory = [{ name: 'Thief Tools', amount: 1 }, { name: 'Short Bow', amount: 1 }];
@@ -154,21 +153,25 @@ export class GameState {
       skills: JSON.parse(JSON.stringify(archetype.skills || {})),
       equippedWeapon: defaultWeapon,
       inventory,
-      weaponUsage: {} // Track successful hits for Mastery Tiers
+      weaponUsage: {},
+      spells: []
     };
 
     if (classKey === 'mage' && archetype.vancian_magic) {
       const maxCog = archetype.vancian_magic.cognition_max || 100;
       member.maxCognition = maxCog;
-      member.spells = chosenSpells.map(s => ({
-        ...s,
-        spent: false
-      }));
-      const initialLoad = member.spells.reduce((sum, sp) => sum + (sp.cognitive_load || 0), 0);
-      member.cognition = Math.max(0, maxCog - initialLoad);
+      member.cognition = maxCog;
       member.hasStudiedSinceRest = true;
       member.tempAcBonus = 0;
       member.tempAcRounds = 0;
+      
+      // Load user-chosen setup spells if provided, otherwise fallback to tier 1
+      if (chosenSpells && chosenSpells.length > 0) {
+        member.spells = chosenSpells.map(s => ({ ...s, spent: false }));
+      } else {
+        const tier1 = archetype.vancian_magic.spell_tiers?.["1"] || [];
+        member.spells = tier1.slice(0, 2).map(s => ({ ...s, spent: false }));
+      }
     }
 
     if (classKey === 'cleric' && archetype.divine_favor) {
@@ -182,14 +185,20 @@ export class GameState {
       member.tempAcRounds = 0;
       member.tempAttackBonus = 0;
       member.tempAttackRounds = 0;
-      member.spells = chosenSpells.map(s => ({ ...s, spent: false }));
+
+      if (chosenSpells && chosenSpells.length > 0) {
+        member.spells = chosenSpells.map(s => ({ ...s, spent: false }));
+      } else {
+        const tier1 = archetype.spells_available_by_tier?.["1"] || [];
+        member.spells = tier1.slice(0, 2).map(s => ({ ...s, spent: false }));
+      }
     }
 
     if (classKey === 'thief') {
       member.toolsDurability = 100;
       member.isStealth = false;
-      member.backstabSuccesses = 0;   // Track successful backstabs
-      member.shadowcraftSuccesses = 0; // Track successful scouts and stealth passes
+      member.backstabSuccesses = 0;
+      member.shadowcraftSuccesses = 0;
     }
 
     return member;
@@ -199,9 +208,7 @@ export class GameState {
   // PROGRESSION & STAT RESOLUTION
   // ===========================================================================
 
-  /** 
-   * Calculates attack bonus exclusively from level growth. Pure function. 
-   * Cannot drift out of sync with actual hero level.
+  /** * Calculates attack bonus exclusively from level growth. Pure function. 
    */
   getLevelAttackBonus(hero) {
     const rate = GameState.ATTACK_BONUS_GROWTH[hero.classKey] ?? 0.5;
@@ -210,7 +217,6 @@ export class GameState {
 
   /**
    * Tracks successful weapon usage hits to drive the mastery tier unlocking. 
-   * Should only be called when an attack naturally connects.
    */
   trackWeaponUsage(hero, weaponName) {
     if (!hero.weaponUsage) hero.weaponUsage = {};
@@ -219,7 +225,6 @@ export class GameState {
 
   /**
    * Retrieves the current mastery bonus of a weapon based on usage count and hero level.
-   * Repetition alone never bypasses the gate — the hero must level into the tier.
    */
   getWeaponMastery(hero, weaponName) {
     const hits = (hero.weaponUsage && hero.weaponUsage[weaponName]) || 0;
@@ -451,9 +456,7 @@ export class GameState {
       if (!hero) return { success: false, reason: 'No hero to receive the item.' };
       if (!hero.inventory) hero.inventory = [];
       const existing = hero.inventory.find(i => i.name === itemName);
-      if (existing && def.stackable) {
-        existing.amount = (existing.amount || 1) + qty;
-      } else if (existing && !def.stackable) {
+      if (existing) {
         existing.amount = (existing.amount || 1) + qty;
       } else {
         hero.inventory.push({ name: itemName, amount: qty });
@@ -545,7 +548,7 @@ export class GameState {
   }
 
   applyArmorMitigation(rawDamage, damageType, armorType) {
-    if (damageType === 'bludgeoning') return rawDamage; // Bypasses armor!
+    if (damageType === 'bludgeoning') return rawDamage;
     if (armorType === 'chain') {
       if (damageType === 'slashing') return Math.max(1, rawDamage - 2);
     } else if (armorType === 'plate') {
@@ -573,7 +576,6 @@ export class GameState {
     const actionQueue = [];
     const combatEvents = [];
     
-    // Track simulated HP during round calculation
     const simMobHp = {};
     this.combat.enemies.forEach(e => { simMobHp[e.instanceId] = e.hp; });
 
@@ -584,7 +586,6 @@ export class GameState {
     const selfGuardAc = {};
     const guardedBy = {};
 
-    // Map Guards
     this.party.forEach((hero, index) => {
       if (this.combat.round === 1 && this.combat.alertedRound) return;
       if (hero.hp <= 0) return;
@@ -597,7 +598,6 @@ export class GameState {
       else guardedBy[targetIdx] = index;
     });
 
-    // 1. Queue Party Member Commands
     this.party.forEach((hero, index) => {
       if (hero.hp <= 0) return;
 
@@ -622,7 +622,6 @@ export class GameState {
       actionQueue.push({ sourceType: 'HERO', heroIndex: index, hero: hero, command: cmd, phaseTier: phaseTier });
     });
 
-    // 2. Queue Monster Commands
     this.combat.enemies.forEach(mob => {
       if (this.combat.round === 1 && this.combat.surpriseRound) return;
       if (mob.hp <= 0 || (mob.asleepRounds || 0) > 0 || (mob.turnedRounds || 0) > 0) return;
@@ -635,10 +634,8 @@ export class GameState {
       actionQueue.push({ sourceType: 'MONSTER', mob: mob, targetHero: targetHero, targetHeroIndex: this.party.indexOf(targetHero), phaseTier: phaseTier });
     });
 
-    // 3. Sort by Speed Phase
     actionQueue.sort((a, b) => a.phaseTier - b.phaseTier);
 
-    // 4. Resolve Actions Step-by-Step
     for (const act of actionQueue) {
       const livingMobs = this.combat.enemies.filter(e => simMobHp[e.instanceId] > 0);
       if (livingMobs.length === 0) break;
@@ -664,7 +661,7 @@ export class GameState {
         if (command.type === 'BACKSTAB' && hero.isStealth) {
           hero.isStealth = false;
           
-          let bonusChance = 20; // Default +20% base
+          let bonusChance = 20;
           const bTiers = GameState.BACKSTAB_TIERS;
           if (hero.level >= bTiers.mastery.minLevel && (hero.backstabSuccesses || 0) >= bTiers.mastery.count) {
               bonusChance += (bTiers.mastery.bonusMult * 100);
@@ -676,7 +673,7 @@ export class GameState {
           const roll = Math.floor(Math.random() * 100) + 1;
 
           if (roll <= chance) {
-            hero.backstabSuccesses = (hero.backstabSuccesses || 0) + 1; // Mark success for tier tracking
+            hero.backstabSuccesses = (hero.backstabSuccesses || 0) + 1;
 
             const rawDmg = (Math.floor(Math.random() * 8) + 2) * 2;
             const netDmg = this.applyArmorMitigation(rawDmg, 'slashing', target.armorType);
@@ -701,7 +698,6 @@ export class GameState {
           const dexVal = hero.attributes.dexterity || 10;
           const bless = hero.tempAttackBonus || 0;
           
-          // Improved dynamic pipeline for hit resolution:
           const mastery = this.getWeaponMastery(hero, hero.equippedWeapon);
           const targetNum = dexVal + (hero.attackBonus || 0) + this.getLevelAttackBonus(hero) + mastery.atkBonus + bless;
           const dmgType = this.getWeaponDamageType(hero.equippedWeapon, 'piercing');
@@ -732,7 +728,6 @@ export class GameState {
           const strVal = hero.attributes.strength || 10;
           const bless = hero.tempAttackBonus || 0;
           
-          // Improved dynamic pipeline for hit resolution:
           const mastery = this.getWeaponMastery(hero, hero.equippedWeapon);
           const targetNum = strVal + (hero.attackBonus || 1) + this.getLevelAttackBonus(hero) + mastery.atkBonus + bless;
           const dmgType = this.getWeaponDamageType(hero.equippedWeapon, 'slashing');
@@ -782,6 +777,45 @@ export class GameState {
               eventType: 'MONSTER_HIT', sourceName: hero.name, targetInstanceId: target.instanceId, targetName: target.name, damage: dmg, isDead, attackMode: 'spell', spellId: spell.id,
               logText: `🔮 ${hero.name} unleashes ${spell.name} on ${target.name} for ${dmg} damage! (mind eases +${refund})`, logType: 'success'
             });
+          } else if (effect.type === 'aoe_damage' && spellTarget === 'enemy') {
+            let totalDamageDealt = 0;
+            const hitMobs = [];
+            livingMobs.forEach(mob => {
+              const dmg = effect.amount || 18;
+              simMobHp[mob.instanceId] = Math.max(0, simMobHp[mob.instanceId] - dmg);
+              const isDead = simMobHp[mob.instanceId] <= 0;
+              totalDamageDealt += dmg;
+              hitMobs.push({ name: mob.name, damage: dmg, isDead });
+            });
+            const mobNames = hitMobs.map(m => m.name).join(', ');
+            const deadCount = hitMobs.filter(m => m.isDead).length;
+            combatEvents.push({
+              eventType: 'MONSTER_HIT', sourceName: hero.name, targetName: mobNames, damage: totalDamageDealt, isDead: deadCount > 0, attackMode: 'spell', spellId: spell.id,
+              logText: `💥 ${hero.name} unleashes ${spell.name} — ${mobNames} caught in the blast for ${totalDamageDealt} damage total! (mind eases +${refund})`, logType: 'success'
+            });
+          } else if (effect.type === 'party_heal' && spellTarget === 'party') {
+            let totalHealed = 0;
+            this.party.forEach((h, i) => {
+              if (simHeroHp[i] > 0) {
+                const healAmt = effect.amount || 20;
+                const before = simHeroHp[i];
+                simHeroHp[i] = Math.min(h.maxHp, simHeroHp[i] + healAmt);
+                totalHealed += (simHeroHp[i] - before);
+              }
+            });
+            combatEvents.push({
+              eventType: 'SPELL_CAST', sourceName: hero.name, spellId: spell.id,
+              logText: `✨ ${hero.name} invokes ${spell.name} — party recovers ${totalHealed} HP total! (mind eases +${refund})`, logType: 'success'
+            });
+          } else if (effect.type === 'debuff' && spellTarget === 'enemy') {
+            target.debuffType = effect.debuffType || 'to_hit';
+            target.debuffAmount = effect.amount || 2;
+            target.debuffRounds = effect.duration_rounds || 3;
+            const debuffLabel = target.debuffType === 'to_hit' ? 'to-hit penalty' : 'AC penalty';
+            combatEvents.push({
+              eventType: 'SPELL_CAST', sourceName: hero.name, spellId: spell.id,
+              logText: `🌀 ${hero.name} hexes ${target.name} with ${spell.name} — ${debuffLabel} for ${target.debuffRounds} rounds! (mind eases +${refund})`, logType: 'success'
+            });
           } else if (effect.type === 'sleep' && spellTarget === 'enemy') {
             const threshold = effect.max_hp_threshold || 30;
             if (simMobHp[target.instanceId] <= threshold) {
@@ -823,6 +857,17 @@ export class GameState {
             const before = simHeroHp[targetIdx];
             simHeroHp[targetIdx] = Math.min(this.party[targetIdx].maxHp, simHeroHp[targetIdx] + healAmt);
             combatEvents.push({ eventType: 'SPELL_CAST', sourceName: hero.name, spellId: spell.id, logText: `✨ ${hero.name} invokes ${spell.name} — ${this.party[targetIdx].name} recovers ${simHeroHp[targetIdx] - before} HP!`, logType: 'success' });
+          } else if (effect.type === 'party_heal') {
+            let totalHealed = 0;
+            this.party.forEach((h, i) => {
+              if (simHeroHp[i] > 0) {
+                const healAmt = effect.amount || 20;
+                const before = simHeroHp[i];
+                simHeroHp[i] = Math.min(h.maxHp, simHeroHp[i] + healAmt);
+                totalHealed += (simHeroHp[i] - before);
+              }
+            });
+            combatEvents.push({ eventType: 'SPELL_CAST', sourceName: hero.name, spellId: spell.id, logText: `✨ ${hero.name} invokes ${spell.name} — party recovers ${totalHealed} HP total!`, logType: 'success' });
           } else if (effect.type === 'buff_attack') {
             this.party.forEach((h, i) => {
               if (simHeroHp[i] > 0) {
@@ -892,11 +937,15 @@ export class GameState {
 
         const guardBonus = selfGuardAc[finalHeroIndex] || 0;
         const spellAc = (this.party[finalHeroIndex] && this.party[finalHeroIndex].tempAcBonus) || 0;
-        const acBonus = guardBonus + spellAc;
+        const debuffAcPenalty = (mob.debuffType === 'ac' && (mob.debuffRounds || 0) > 0) ? mob.debuffAmount : 0;
+        const acBonus = guardBonus + spellAc + debuffAcPenalty;
         const effectiveTarget = (mob.attackTarget || 10) - acBonus;
 
         const roll = Math.floor(Math.random() * 20) + 1;
-        if (roll <= effectiveTarget) {
+        const toHitPenalty = (mob.debuffType === 'to_hit' && (mob.debuffRounds || 0) > 0) ? mob.debuffAmount : 0;
+        const adjustedRoll = roll - toHitPenalty;
+
+        if (adjustedRoll <= effectiveTarget) {
           const rawDmg = this.rollMonsterDamage(mob.damage);
           simHeroHp[finalHeroIndex] = Math.max(0, simHeroHp[finalHeroIndex] - rawDmg);
           const isDead = simHeroHp[finalHeroIndex] <= 0;
@@ -915,7 +964,6 @@ export class GameState {
       }
     }
 
-    // 5. Evaluate Victory
     const aliveAfter = this.combat.enemies.filter(e => (simMobHp[e.instanceId] ?? e.hp) > 0);
     const livingHeroes = Object.values(simHeroHp).filter(hp => hp > 0).length;
     let victory = false, partyWiped = false, totalXp = 0;
@@ -939,6 +987,13 @@ export class GameState {
       if (finalMobHp[e.instanceId] !== undefined) e.hp = finalMobHp[e.instanceId];
       if ((e.asleepRounds || 0) > 0) e.asleepRounds = Math.max(0, e.asleepRounds - 1);
       if ((e.turnedRounds || 0) > 0) e.turnedRounds = Math.max(0, e.turnedRounds - 1);
+      if ((e.debuffRounds || 0) > 0) {
+        e.debuffRounds -= 1;
+        if (e.debuffRounds <= 0) {
+          e.debuffType = null;
+          e.debuffAmount = 0;
+        }
+      }
     });
     
     this.party.forEach((h, idx) => {
@@ -960,9 +1015,57 @@ export class GameState {
     }
   }
 
-  // state.js — modify awardQuestXP to return levelup events
+  grantLevelUpSpells(hero) {
+    if (hero.classKey === 'mage') {
+      const tiers = this.classesSpec.archetypes.mage.vancian_magic.spell_tiers;
+      if (!tiers) return;
+      let newSpells = [];
+      if (hero.level === 3) newSpells = tiers["2"] || [];
+      if (hero.level === 6) newSpells = tiers["3"] || [];
+      if (hero.level === 9) newSpells = tiers["4"] || [];
+      
+      newSpells.forEach(spellDef => {
+        if (!hero.spells.some(s => s.id === spellDef.id)) {
+          hero.spells.push({
+            id: spellDef.id,
+            name: spellDef.name,
+            level: spellDef.level || 1,
+            cognitive_load: spellDef.cognitive_load || 20,
+            casting_time: spellDef.casting_time || 'normal',
+            target: spellDef.target || 'enemy',
+            effect: spellDef.effect ? { ...spellDef.effect } : null,
+            description: spellDef.description || '',
+            spent: false
+          });
+          this.addLog(`✨ ARCANE MILESTONE! ${hero.name} has comprehended ${spellDef.name}!`, "success");
+        }
+      });
+    } else if (hero.classKey === 'cleric') {
+      const tiers = this.classesSpec.archetypes.cleric.spells_available_by_tier;
+      if (!tiers) return;
+      let newSpells = [];
+      if (hero.level === 3) newSpells = tiers["2"] || [];
+      if (hero.level === 6) newSpells = tiers["3"] || [];
+      if (hero.level === 9) newSpells = tiers["4"] || [];
+      
+      newSpells.forEach(spellDef => {
+        if (!hero.spells.some(s => s.id === spellDef.id)) {
+          hero.spells.push({
+            id: spellDef.id,
+            name: spellDef.name,
+            level: spellDef.level || 1,
+            target: spellDef.target || 'ally',
+            effect: spellDef.effect ? { ...spellDef.effect } : null,
+            description: spellDef.description || '',
+            spent: false
+          });
+          this.addLog(`✨ DIVINE REVELATION! ${hero.name} is granted prayer: ${spellDef.name}!`, "success");
+        }
+      });
+    }
+  }
 
-awardQuestXP(amount) {
+  awardQuestXP(amount) {
     const levelUps = [];
 
     this.party.forEach(hero => {
@@ -998,7 +1101,7 @@ awardQuestXP(amount) {
           classKey: hero.classKey
         });
 
-        this.checkSpellUnlocks(hero);
+        this.grantLevelUpSpells(hero);
         this.addLog(`LEVEL UP! ${hero.name} reached Level ${hero.level}! (+${hpBonus} HP)`, "success");
       }
     });
@@ -1118,7 +1221,7 @@ awardQuestXP(amount) {
     const discoveries = [];
 
     if (success) {
-      thief.shadowcraftSuccesses = (thief.shadowcraftSuccesses || 0) + 1; // Mark success for shadow tier tracking
+      thief.shadowcraftSuccesses = (thief.shadowcraftSuccesses || 0) + 1;
 
       for (let step = 1; step <= range; step++) {
         const tx = this.player.x + dx * step, ty = this.player.y + dy * step;
@@ -1172,7 +1275,6 @@ awardQuestXP(amount) {
     const consciousCount = this.party.filter(p => p.hp > 0).length;
     let penalty = Math.max(0, consciousCount - 1) * 5;
 
-    // Apply tier relief if applicable
     const sTiers = GameState.SHADOW_TIERS;
     if (thief.level >= sTiers.familiarity.minLevel && (thief.shadowcraftSuccesses || 0) >= sTiers.familiarity.count) {
         penalty = Math.max(0, penalty - sTiers.familiarity.penaltyRelief);
@@ -1183,7 +1285,7 @@ awardQuestXP(amount) {
     const success = roll <= chance;
 
     if (success) {
-      thief.shadowcraftSuccesses = (thief.shadowcraftSuccesses || 0) + 1; // Track shadowcraft success
+      thief.shadowcraftSuccesses = (thief.shadowcraftSuccesses || 0) + 1;
       
       let keepStealth = false;
       if (thief.level >= sTiers.mastery.minLevel && (thief.shadowcraftSuccesses || 0) >= sTiers.mastery.count) {

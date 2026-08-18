@@ -20,18 +20,46 @@ async function init() {
     loadJSON('data/classes.json')
   ]);
 
-  // Automated spell progression handles learning, so setup options are cleared.
   const mageChoicesContainer = document.getElementById('mage-spells-choices');
   const clericChoicesContainer = document.getElementById('cleric-spells-choices');
-  
-  if (mageChoicesContainer) mageChoicesContainer.innerHTML = '<span style="color:var(--text-muted); font-size:11px;">Spells unlock organically via level progression.</span>';
-  if (clericChoicesContainer) clericChoicesContainer.innerHTML = '<span style="color:var(--text-muted); font-size:11px;">Prayers unlock organically via level progression.</span>';
+
+  const mageSpellTier1 = classesData.archetypes.mage.vancian_magic.spell_tiers["1"];
+  const clericSpellTier1 = classesData.archetypes.cleric.spells_available_by_tier["1"];
+
+  mageChoicesContainer.innerHTML = '';
+  clericChoicesContainer.innerHTML = '';
+
+  mageSpellTier1.forEach((spell, idx) => {
+    mageChoicesContainer.innerHTML += `
+      <label class="spell-option-label">
+        <input type="checkbox" name="mage-spell" value="${spell.id}" ${idx < 2 ? 'checked' : ''}>
+        <span><b>${spell.name}</b> (Load: ${spell.cognitive_load}) ${spell.description}</span>
+      </label>`;
+  });
+
+  clericSpellTier1.forEach((spell, idx) => {
+    clericChoicesContainer.innerHTML += `
+      <label class="spell-option-label">
+        <input type="checkbox" name="cleric-spell" value="${spell.id}" ${idx < 2 ? 'checked' : ''}>
+        <span><b>${spell.name}</b> ${spell.description}</span>
+      </label>`;
+  });
 
   document.getElementById('start-adventure-btn').addEventListener('click', () => {
+    const selectedMageIds = Array.from(document.querySelectorAll('input[name="mage-spell"]:checked')).map(cb => cb.value);
+    const selectedClericIds = Array.from(document.querySelectorAll('input[name="cleric-spell"]:checked')).map(cb => cb.value);
+
+    if (selectedMageIds.length !== 2 || selectedClericIds.length !== 2) {
+      alert("Please select exactly 2 starting spells for the Mage and 2 prayers for the Cleric!");
+      return;
+    }
+
+    const chosenMageSpells = mageSpellTier1.filter(s => selectedMageIds.includes(s.id));
+    const chosenClericSpells = clericSpellTier1.filter(s => selectedClericIds.includes(s.id));
+
     document.getElementById('setup-screen').style.display = 'none';
-    
-    // Launch game orchestrator with empty arrays (automated progression takes over)
-    const game = new GameOrchestrator(adventureData, classesData, [], []);
+
+    const game = new GameOrchestrator(adventureData, classesData, chosenMageSpells, chosenClericSpells);
     game.start();
   });
 }
@@ -45,7 +73,7 @@ class GameOrchestrator {
     this.spec = adventureData;
     this.classesSpec = classesData;
     this.isActionActive = false;
-    
+
     this.lastFrameTime = performance.now();
     this.frameInterval = 1000 / 60; // Target 60 FPS
 
@@ -77,7 +105,7 @@ class GameOrchestrator {
   initializeState(chosenMageSpells, chosenClericSpells) {
     this.state = new GameState(this.spec, this.classesSpec);
     this.state.onLog = (msg, type) => this.log(msg, type);
-    
+
     // Override party with selected setup spells
     this.state.party = [
       this.state.createPartyMember("fighter", "Valeros"),
@@ -104,7 +132,7 @@ class GameOrchestrator {
 
     this.renderer3D = new RendererThreeJS(container3D);
     this.renderer3D.buildWorld(this.spec, this.state);
-    
+
     this.renderer2D = new Renderer2D(canvasMini);
     this.audioManager = new AudioManager();
   }
@@ -167,7 +195,7 @@ class GameOrchestrator {
     // Global UI listeners
     document.getElementById('close-sheet-btn')?.addEventListener('click', () => this.characterSheet.close());
     document.getElementById('close-shop-btn')?.addEventListener('click', () => this.shopUI.close());
-    
+
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' || e.code === 'Escape') {
         this.characterSheet.close();
@@ -184,7 +212,7 @@ class GameOrchestrator {
     this.log("You stand on the chapel approach. Stock up at the outfitter before descending.", "info");
 
     requestAnimationFrame(() => this.renderer3D.onResize());
-    
+
     this.animationLoop = this.animationLoop.bind(this);
     requestAnimationFrame(this.animationLoop);
   }
@@ -208,7 +236,7 @@ class GameOrchestrator {
     const speed = 1 - Math.exp(-12 * delta);
     this.camera.x += (this.camera.targetX - this.camera.x) * speed;
     this.camera.y += (this.camera.targetY - this.camera.y) * speed;
-    
+
     let angleDiff = this.camera.targetAngle - this.camera.angle;
     while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
     while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
@@ -217,7 +245,7 @@ class GameOrchestrator {
     // Torch Lighting Renderer Hook
     const isTorchLit = this.state.torchLitUntil && this.state.torchLitUntil > Date.now();
     if (this.renderer3D.setTorchLight) {
-        this.renderer3D.setTorchLight(isTorchLit);
+      this.renderer3D.setTorchLight(isTorchLit);
     }
 
     this.renderer3D.render(this.camera);
@@ -238,9 +266,9 @@ class GameOrchestrator {
     let updated = false;
     let didMove = false;
 
-    if (action === 'MOVE_FORWARD') { updated = didMove = this.state.moveForward(); } 
-    else if (action === 'MOVE_BACKWARD') { updated = didMove = this.state.moveBackward(); } 
-    else if (action === 'ROTATE_LEFT') { this.state.rotate('LEFT'); updated = true; } 
+    if (action === 'MOVE_FORWARD') { updated = didMove = this.state.moveForward(); }
+    else if (action === 'MOVE_BACKWARD') { updated = didMove = this.state.moveBackward(); }
+    else if (action === 'ROTATE_LEFT') { this.state.rotate('LEFT'); updated = true; }
     else if (action === 'ROTATE_RIGHT') { this.state.rotate('RIGHT'); updated = true; }
 
     if (updated) {
@@ -265,7 +293,7 @@ class GameOrchestrator {
     // 2. Map Interaction Triggers
     const interaction = this.state.checkInteractionTrigger(currentX, currentY);
     if (interaction) {
-        this.log(`Map Event: ${interaction.description || 'You triggered an event.'}`, "warning");
+      this.log(`Map Event: ${interaction.description || 'You triggered an event.'}`, "warning");
     }
 
     // 3. Encounters
@@ -328,7 +356,7 @@ class GameOrchestrator {
         this.log("Pick lock failed.", "danger");
       }
       this.uiController.updateHUD();
-    } 
+    }
     else if (actionType === 'FIND_TRAP') {
       const target = this.state.getTrapInFront();
       if (!target) return this.log(`No traps here.`, "info");
@@ -338,7 +366,7 @@ class GameOrchestrator {
         this.log(`Success! Trap detected: ${target.name}.`, "warning");
       } else this.log(`Find traps failed.`, "info");
       this.uiController.updateHUD();
-    } 
+    }
     else if (actionType === 'DISARM_TRAP') {
       const target = this.state.getTrapInFront();
       if (!target) return;
@@ -359,14 +387,14 @@ class GameOrchestrator {
         this.log(`Success! Slips into shadows (Stealth Active).`, "success");
       } else this.log(`Hide in shadows failed.`, "warning");
       this.uiController.updateHUD();
-    } 
+    }
     else if (actionType === 'SCOUT_AHEAD') {
       const result = this.state.attemptScout();
       if (!result.success) return this.log(result.reason || `Scouting turned up nothing.`, "info");
       if (result.discoveries.length === 0) this.log(`The way ahead looks clear.`, "info");
       else result.discoveries.forEach(d => this.log(`Scouted ahead: ${d.name} detected.`, "warning"));
       this.uiController.updateHUD();
-    } 
+    }
     else if (actionType === 'PICKPOCKET_NPC') {
       if (!this.state.activeNpc) return;
       const result = this.state.attemptPickpocket(this.state.activeNpc);
@@ -380,19 +408,19 @@ class GameOrchestrator {
       if (result.brainBurnDamage > 0) this.log(`BRAIN BURN! Forced memory (-${result.cognitiveCost} Cog, ${result.brainBurnDamage} HP).`, "danger");
       else this.log(`Memorization complete. Cognitive burden -${result.cognitiveCost}.`, "warning");
       this.uiController.updateHUD(true);
-    } 
+    }
     else if (actionType === 'CAST_MAGE_SPELL') {
       const res = this.state.castMageSpell(payload);
       if (res.success) this.log(`Released ${res.spellName}.`, "success");
       else this.log(res.reason, "warning");
       this.uiController.updateHUD(true);
-    } 
+    }
     else if (actionType === 'STUDY_PRAYERS') {
       const result = this.state.studyClericPrayers();
       if (!result.success) return this.log(result.reason, "warning");
       this.log(`Dawn petition answered. Prayers granted anew.`, "success");
       this.uiController.updateHUD(true);
-    } 
+    }
     else if (actionType === 'CAST_CLERIC_PRAYER') {
       const res = this.state.castClericPrayer(payload);
       if (res.success) this.log(`Divine invocation! ${res.spellName}`, "success");
@@ -428,14 +456,14 @@ class GameOrchestrator {
     this.playSFX('button');
     const hero = this.state.party[hIdx];
     const existing = this.state.combat.queuedCommands[hIdx];
-    
+
     if (existing && existing.type === 'CAST' && cmdType !== 'CAST') return this.log(`${hero.name} is channeling — locked.`, "warning");
     if (cmdType === 'SHOOT' && !this.state.canHeroShoot(hero)) return this.log(`${hero.name} needs a ranged weapon.`, "warning");
     if (cmdType === 'ATTACK' && !this.state.canHeroMelee(hero)) return this.log(`${hero.name} needs a melee weapon.`, "warning");
 
     const selectEl = this.uiElements.partyContainer.querySelector(`.target-select[data-hero="${hIdx}"]`);
     const targetId = selectEl ? selectEl.value : null;
-    
+
     this.state.queueHeroCommand(hIdx, { type: cmdType, targetInstanceId: targetId, ...extra });
     this.uiController.updateHUD();
   }
@@ -516,8 +544,8 @@ class GameOrchestrator {
   }
 
   getLockInFront() {
-      const target = this.getInteractiveTargetInFront();
-      return (target && target.locked) ? target : null;
+    const target = this.getInteractiveTargetInFront();
+    return (target && target.locked) ? target : null;
   }
 
   checkTrapBeforeAction(target) {
@@ -555,7 +583,7 @@ class GameOrchestrator {
     const cx = this.state.player.x;
     const cy = this.state.player.y;
     const tileDef = this.spec.legend ? this.spec.legend[this.spec.map[cy][cx]] : null;
-    
+
     if (this.spec.map[cy][cx] === 1 || (tileDef && tileDef.walkable === false)) {
       return this.log("You can't camp here — no solid ground.", "warning");
     }
@@ -573,7 +601,7 @@ class GameOrchestrator {
     let elapsedMs = 0;
     const durationSec = this.spec.rest_duration_seconds || 12;
     const totalMs = durationSec * 1000;
-    
+
     const campModal = document.getElementById('camp-modal');
     if (campModal) campModal.style.display = 'flex';
 
@@ -585,7 +613,7 @@ class GameOrchestrator {
       if (elapsedMs >= totalMs) {
         clearInterval(timerInterval);
         const ambushEnc = this.state.checkRestAmbush();
-        
+
         this.audioManager.stopLoop('crickets');
         this.audioManager.stopLoop('campfire');
         this.renderer3D.removeCampfireModel();
@@ -629,24 +657,42 @@ class GameOrchestrator {
     const title = document.getElementById('interaction-title');
     const prompt = document.getElementById('interaction-prompt');
     const actions = document.getElementById('interaction-actions');
-    
+
     if (!modal || !title || !prompt || !actions) return;
-    
+
     const hero = this.state.party[levelUpEvent.heroIndex];
-    const atkDisplay = levelUpEvent.atkGain > 0 
+    const atkDisplay = levelUpEvent.atkGain > 0
       ? `+${levelUpEvent.atkGain.toFixed(2)} to-hit`
       : 'to-hit unchanged';
-    
+
+    // Evaluate if any new spells match this milestone level tier
+    const archetypes = this.classesSpec?.archetypes;
+    let newSpells = [];
+    if (archetypes) {
+      const tierSpells = hero.classKey === 'mage'
+        ? archetypes.mage?.vancian_magic?.spell_tiers?.[String(hero.level)] || []
+        : hero.classKey === 'cleric'
+          ? archetypes.cleric?.spells_available_by_tier?.[String(hero.level)] || []
+          : [];
+
+      newSpells = (hero.spells || []).filter(s => tierSpells.some(t => t.id === s.id));
+    }
+
+    const spellDisplayHtml = newSpells.length > 0
+      ? `<div style="margin-top: 8px; color: #d2a8ff; font-weight: bold;">📖 New spells/prayers learned: ${newSpells.map(s => s.name).join(', ')}</div>`
+      : '';
+
     title.textContent = `⭐ ${hero.name.toUpperCase()} ADVANCES ⭐`;
     prompt.innerHTML = `
       <div style="font-size: 14px; color: var(--accent-gold); margin-bottom: 8px;">REACHED LEVEL ${levelUpEvent.newLevel}</div>
       <div style="text-align: left; background: #0d1117; padding: 10px; border-radius: 4px; font-size: 12px; line-height: 1.5;">
         <div>HP: <b style="color: #3fb950;">${levelUpEvent.hpBefore} → ${levelUpEvent.hpAfter}</b> (+${levelUpEvent.hpGain})</div>
         <div>Attack Bonus: <b style="color: var(--text-parchment);">+${levelUpEvent.atkAfter.toFixed(2)}</b> (${atkDisplay})</div>
+        ${spellDisplayHtml}
       </div>
-      <div style="font-size: 11px; color: var(--text-muted); margin-top: 10px;">Check the Character Sheet anytime to review unlocked skills and mastery thresholds.</div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-top: 10px;">Check the Character Sheet anytime to review unlocked skills and spellbook status.</div>
     `;
-    
+
     actions.innerHTML = '';
     const btn = document.createElement('button');
     btn.className = 'action-tab primary';
