@@ -48,12 +48,16 @@ export class RendererThreeJS {
     this.container.appendChild(this.renderer.domElement);
 
     // 4. Dynamic Lighting
-    const ambientLight = new THREE.AmbientLight(0xddeeff, 0.7);
-    this.scene.add(ambientLight);
+    this.ambientLight = new THREE.AmbientLight(0xddeeff, 0.7);
+    this.scene.add(this.ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffeedd, 0.8);
-    dirLight.position.set(10, 25, 10);
-    this.scene.add(dirLight);
+    this.dirLight = new THREE.DirectionalLight(0xffeedd, 0.8);
+    this.dirLight.position.set(10, 25, 10);
+    this.scene.add(this.dirLight);
+
+    // Party Handheld Light Source (Torch or Arcane Light spell)
+    this.partyLight = new THREE.PointLight(0xff8833, 0, 10, 1.8);
+    this.scene.add(this.partyLight);
 
     // 5. Scene Groups
     this.worldGroup = new THREE.Group();
@@ -341,6 +345,8 @@ export class RendererThreeJS {
 
   buildWorld(spec, gameState) {
     this.clearWorld();
+    this.spec = spec;
+    this.gameState = gameState;
 
     if (spec.assets && spec.assets.campfire) {
       this.gltfLoader.load(spec.assets.campfire, (gltf) => {
@@ -700,9 +706,10 @@ export class RendererThreeJS {
   // Master Frame Render Loop & Billboard Orientations
   // ---------------------------------------------------------------------------
 
-  render(cameraState) {
+  render(cameraState, gameState = this.gameState) {
     const delta = this.clock.getDelta();
     const elapsedTime = this.clock.getElapsedTime();
+    const state = gameState || this.gameState;
 
     // 1. Advance Skeletal Animations only if mixers exist
     if (this.mixers.length > 0) {
@@ -773,12 +780,82 @@ export class RendererThreeJS {
       }
     }
 
-    // 6. Campfire Light Flicker
+    // 6. Atmosphere & Illumination System
+    if (state) {
+      const isWilderness = state.isWildernessTile ? state.isWildernessTile() : false;
+      const isDarkDungeon = state.isDarknessActive ? state.isDarknessActive() : false;
+      const lightSource = state.getActiveLightSource ? state.getActiveLightSource() : { active: false, type: null };
+
+      if (isWilderness) {
+        // Open wilderness: clear twilight atmosphere, gentle ambient light
+        this.scene.fog.density = 0.045;
+        this.scene.fog.color.setHex(0x0c1520);
+        this.scene.background.setHex(0x0c1520);
+        if (this.ambientLight) this.ambientLight.intensity = 0.75;
+        if (this.dirLight) this.dirLight.intensity = 0.75;
+        if (this.partyLight) this.partyLight.intensity = 0;
+      } else if (!isDarkDungeon) {
+        // Optional lighter dungeon mode (specified by adventure module)
+        this.scene.fog.density = 0.08;
+        this.scene.fog.color.setHex(0x0a1018);
+        this.scene.background.setHex(0x0a1018);
+        if (this.ambientLight) this.ambientLight.intensity = 0.60;
+        if (this.dirLight) this.dirLight.intensity = 0.50;
+        if (this.partyLight) this.partyLight.intensity = 0;
+      } else {
+        // Dark Dungeon / Ruins / Cave mode: requires torch or Arcane Light spell
+        if (cameraState) {
+          const ts = this.tileSize;
+          this.partyLight.position.set(cameraState.x * ts, 0.1, cameraState.y * ts);
+        }
+
+        if (lightSource.active && lightSource.type === 'arcane_light') {
+          // Arcane Light: eerie azure/cyan mystical glow with pulsing hum
+          const pulse = Math.sin(elapsedTime * 2.5) * 0.35 + Math.sin(elapsedTime * 5.2) * 0.15;
+          this.partyLight.color.setHex(0x5ce1e6);
+          this.partyLight.intensity = 2.6 + pulse;
+          this.partyLight.distance = 11.0;
+          this.partyLight.decay = 1.6;
+
+          this.scene.fog.density = 0.10;
+          this.scene.fog.color.setHex(0x03080e);
+          this.scene.background.setHex(0x03080e);
+          if (this.ambientLight) this.ambientLight.intensity = 0.15;
+          if (this.dirLight) this.dirLight.intensity = 0.05;
+        } else if (lightSource.active && lightSource.type === 'torch') {
+          // Torchlight: warm organic flame flicker & slight jitter
+          const flicker = Math.sin(elapsedTime * 14.0) * 0.30 + Math.sin(elapsedTime * 28.0) * 0.18 + (Math.random() * 0.12);
+          this.partyLight.color.setHex(0xff8a33);
+          this.partyLight.intensity = 2.4 + flicker;
+          this.partyLight.distance = 9.5;
+          this.partyLight.decay = 1.8;
+          // Slight handheld sway
+          this.partyLight.position.x += Math.sin(elapsedTime * 7) * 0.04;
+          this.partyLight.position.z += Math.cos(elapsedTime * 8) * 0.04;
+
+          this.scene.fog.density = 0.11;
+          this.scene.fog.color.setHex(0x050403);
+          this.scene.background.setHex(0x050403);
+          if (this.ambientLight) this.ambientLight.intensity = 0.12;
+          if (this.dirLight) this.dirLight.intensity = 0.04;
+        } else {
+          // Pitch darkness: heavy thick fog, faint silhouettes only
+          this.partyLight.intensity = 0;
+          this.scene.fog.density = 0.28;
+          this.scene.fog.color.setHex(0x010204);
+          this.scene.background.setHex(0x010204);
+          if (this.ambientLight) this.ambientLight.intensity = 0.04;
+          if (this.dirLight) this.dirLight.intensity = 0.0;
+        }
+      }
+    }
+
+    // 7. Campfire Light Flicker
     if (this.campLight) {
       this.campLight.intensity = 2.2 + Math.sin(elapsedTime * 12) * 0.4 + (Math.random() * 0.15);
     }
 
-    // 7. Update First-Person Camera
+    // 8. Update First-Person Camera
     if (cameraState) {
       const ts = this.tileSize;
       this.camera.position.set(cameraState.x * ts, 0, cameraState.y * ts);
@@ -789,7 +866,7 @@ export class RendererThreeJS {
       this.camera.lookAt(lookX, 0, lookZ);
     }
 
-    // 8. Render Scene
+    // 9. Render Scene
     this.renderer.render(this.scene, this.camera);
   }
 }

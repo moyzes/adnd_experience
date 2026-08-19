@@ -676,6 +676,55 @@
     .hero-card.level-up-glow {
       animation: heroLevelUpGlow 1.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
     }
+
+    /* Golden Level Up Action Button */
+    .tsr-level-up-btn {
+      width: 100%;
+      padding: 4px 6px;
+      font-family: 'Cinzel', serif;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      border-radius: 2px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s ease;
+      box-sizing: border-box;
+      margin-top: 4px;
+    }
+
+    .tsr-level-up-btn.active {
+      background: linear-gradient(180deg, #d29922 0%, #855800 100%);
+      border: 1px solid var(--accent-gold);
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(210, 153, 34, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      animation: levelUpPulse 1.5s infinite alternate;
+    }
+
+    .tsr-level-up-btn.active:hover {
+      background: linear-gradient(180deg, #e3b341 0%, #9e6a03 100%);
+      box-shadow: 0 0 14px rgba(227, 179, 65, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .tsr-level-up-btn.locked {
+      background: #161b22;
+      border: 1px dashed var(--border-iron);
+      color: var(--text-muted);
+      cursor: not-allowed;
+      opacity: 0.75;
+    }
+
+    @keyframes levelUpPulse {
+      0% {
+        box-shadow: 0 0 6px rgba(210, 153, 34, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        border-color: #d29922;
+      }
+      100% {
+        box-shadow: 0 0 14px rgba(243, 224, 140, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+        border-color: #f3e08c;
+      }
+    }
   </style>
 </head>
 
@@ -686,6 +735,33 @@
       <div class="panel-header" style="font-size: 15px; text-align: center; margin-bottom: 14px;">
         ADVANCED DUNGEONS & DRAGONS — EXPEDITION SETUP
       </div>
+
+      <div style="margin-bottom: 16px;">
+        <div
+          style="font-family: 'Cinzel', serif; font-size: 12px; font-weight: bold; color: var(--gold-tsr); margin-bottom: 6px;">
+          🗺️ Choose Adventure Module:</div>
+        <div id="module-choices" style="display: flex; flex-direction: column; gap: 6px;">
+          <label class="spell-option-label" style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+            <input type="radio" name="adventure-module" value="data/adventure_goblin_relic.json" checked style="margin-top: 3px;">
+            <div>
+              <b style="color: var(--gold-tsr);">The Stolen Relic of Greenfall Ruins</b> (New Expedition)
+              <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">
+                Hired by Lord Albright in Oakhaven village. Buy expedition gear at the village shop, trek through the pine wilderness, assault the goblin ruins, and return the Sun-Forged Relic of Dawn.
+              </div>
+            </div>
+          </label>
+          <label class="spell-option-label" style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+            <input type="radio" name="adventure-module" value="data/adventure.json" style="margin-top: 3px;">
+            <div>
+              <b style="color: var(--gold-tsr);">The Flooded Crypt of Saint Orlan</b>
+              <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">
+                Investigate the flooded crypt of Saint Orlan, rescue young Mira Vale, and recover the saint's bones from cultists.
+              </div>
+            </div>
+          </label>
+        </div>
+      </div>
+
       <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 14px; text-align: center;">
         Select exactly 2 spells/prayers for your Mage and Cleric to prepare for the module.
       </div>
@@ -711,13 +787,13 @@
 
   <div id="game-wrapper">
     <div id="left-main-panel" class="tsr-panel">
-      <div class="panel-header">The Kobold Lair — Unified Dialogue & Ethos Engine</div>
+      <div id="main-panel-title" class="panel-header">The Stolen Relic of Greenfall Ruins</div>
       <div id="view-3d-box">
         <div id="enemy-hp-overlay"></div>
         <div id="three-container"></div>
       </div>
       <div id="narrative-log">
-        > [System] Expedition initialized. The threshold of the Kobold Lair awaits...
+        > [System] Expedition initialized.
       </div>
       <div id="footer-controls-hint">W/S: Move | A/D: Turn | E: Interact | R: Rest</div>
     </div>
@@ -796,6 +872,18 @@
           style="color:var(--gold-tsr);">0</b> gp
       </div>
       <div id="shop-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+    </div>
+  </div>
+
+  <!-- Village Training & Level-Up Modal -->
+  <div id="level-up-modal"
+    style="display:none; position:fixed; inset:0; background:rgba(4,5,7,0.92); z-index:210; align-items:center; justify-content:center;">
+    <div class="modal-box" style="width: min(540px, 94vw); max-height: 88vh; overflow-y: auto; text-align: left; border-color: var(--accent-gold); box-shadow: 0 0 24px rgba(210,153,34,0.3);">
+      <div id="level-up-title" class="panel-header" style="font-size: 14px; margin-bottom: 12px;">
+        ⭐ HERO ADVANCEMENT
+      </div>
+      <div id="level-up-body" style="color: var(--parchment); font-size: 12px; margin-bottom: 14px;"></div>
+      <div id="level-up-actions" style="margin-top: 10px;"></div>
     </div>
   </div>
 

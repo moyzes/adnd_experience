@@ -1,0 +1,588 @@
+{
+  "id": "relic_of_greenfall",
+  "name": "The Stolen Relic of Greenfall Ruins",
+  "combat_tracks": [
+    "combat_1",
+    "combat_2",
+    "combat_3"
+  ],
+  "rest_duration_seconds": 12,
+  "briefing": "Lord Raymond Albright of Oakhaven has hired your company. A marauding band of forest goblins raided the village sanctum and stole the sacred Sun-Forged Relic of Dawn, retreating into the ancient wilderness ruins to the north. Equip your party at the village outfitter, journey through the haunted wilderness, breach the goblin-infested ruins, and return the relic safely to Lord Albright.",
+  "assets": {
+    "goblin": "assets/glb/basic_goblin.glb",
+    "goblin_ghoul": "assets/glb/goblin_ghoul.glb",
+    "skeleton": "assets/glb/skeleton_animated.glb",
+    "wizard": "assets/glb/strange_wizard.glb",
+    "kobold": "assets/glb/kobold.glb",
+    "giant_spider": "assets/glb/giant_spider.glb",
+    "chest": "assets/glb/chest.gltf"
+  },
+  "start": {
+    "x": 2,
+    "y": 13,
+    "facing": "NORTH"
+  },
+  "dungeon_y_max": 5,
+  "surface_y_min": 6,
+  "legend": {
+    "0": {
+      "name": "Cobblestone Floor",
+      "walkable": true
+    },
+    "1": {
+      "name": "Ancient Stone Wall",
+      "walkable": false
+    },
+    "2": {
+      "name": "Reinforced Iron Gate",
+      "walkable": false,
+      "interactive": true,
+      "locked": {
+        "methods": ["mechanical", "brute"],
+        "dc": 12
+      },
+      "trap": {
+        "name": "Goblin Tripwire Spring-Spear",
+        "dc": 12,
+        "damage": 8,
+        "saveCategory": "breath"
+      }
+    },
+    "3": {
+      "name": "Ornate Reliquary Chest",
+      "walkable": false,
+      "interactive": true,
+      "locked": {
+        "methods": ["mechanical", "brute", "read_magic"],
+        "dc": 13
+      },
+      "trap": {
+        "name": "Glyph of Sunfire",
+        "dc": 14,
+        "damage": 10,
+        "saveCategory": "spell"
+      }
+    },
+    "4": {
+      "name": "Wilderness Meadow & Trail",
+      "walkable": true
+    },
+    "5": {
+      "name": "Ancient Pine Tree",
+      "walkable": false
+    },
+    "6": {
+      "name": "Sanctuary Way-Shrine",
+      "walkable": true,
+      "interactive": true,
+      "action": "atonement"
+    },
+    "7": {
+      "name": "Trapped Spiked Corridor",
+      "walkable": true,
+      "trap": {
+        "name": "Goblin Caltrop & Dart Snare",
+        "dc": 13,
+        "damage": 9,
+        "saveCategory": "poison"
+      }
+    },
+    "8": {
+      "name": "Runic Sanctum Gate",
+      "walkable": false,
+      "interactive": true,
+      "locked": {
+        "methods": ["mechanical", "brute", "read_magic"],
+        "dc": 14
+      },
+      "trap": {
+        "name": "Volatile Rune",
+        "dc": 14,
+        "damage": 12,
+        "saveCategory": "spell"
+      }
+    },
+    "9": {
+      "name": "Oakhaven Village Outfitter",
+      "walkable": true,
+      "interactive": true,
+      "action": "shop",
+      "description": "The trade post of Oakhaven. Stacks of iron-tipped arrows, medicinal salves, smoked rations, and adventuring supplies for the wilderness expedition."
+    }
+  },
+  "shop": {
+    "tile": [4, 13],
+    "name": "Oakhaven Village Outfitter",
+    "radius": 1
+  },
+  "chests": {
+    "2,1": [
+      { "name": "Sun-Forged Relic of Dawn", "type": "quest" },
+      { "name": "Gold Pieces", "amount": 120, "type": "currency" },
+      { "name": "Healing Potion", "amount": 2, "type": "consumable" },
+      { "name": "Ancient Rubies", "amount": 1, "type": "treasure" }
+    ],
+    "12,1": [
+      { "name": "Healing Potion", "amount": 2, "type": "consumable" },
+      { "name": "Gold Pieces", "amount": 80, "type": "currency" },
+      { "name": "Holy Water", "amount": 1, "type": "consumable" }
+    ]
+  },
+  "map": [
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 3, 0, 1, 0, 0, 0, 0, 0, 1, 0, 3, 0, 1],
+    [1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1],
+    [1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1],
+    [1, 7, 7, 7, 1, 0, 1, 0, 1, 0, 1, 7, 7, 7, 1],
+    [1, 1, 1, 1, 1, 0, 1, 2, 1, 0, 1, 1, 1, 1, 1],
+    [5, 5, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 5, 5],
+    [5, 4, 4, 5, 4, 4, 4, 4, 4, 4, 4, 5, 4, 4, 5],
+    [5, 4, 5, 5, 4, 5, 4, 4, 4, 5, 4, 5, 5, 4, 5],
+    [5, 4, 4, 4, 4, 4, 4, 5, 4, 4, 4, 4, 4, 4, 5],
+    [5, 5, 4, 5, 4, 4, 4, 4, 4, 4, 4, 5, 4, 5, 5],
+    [1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1],
+    [1, 0, 0, 0, 1, 4, 4, 4, 4, 4, 1, 0, 0, 0, 1],
+    [1, 0, 0, 0, 9, 4, 4, 4, 4, 4, 9, 0, 0, 0, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+  ],
+  "entities": [
+    {
+      "type": "prop",
+      "id": "relic_chest_west",
+      "model": "chest",
+      "x": 2,
+      "y": 1,
+      "rotation": 0
+    },
+    {
+      "type": "prop",
+      "id": "ruins_chest_east",
+      "model": "chest",
+      "x": 12,
+      "y": 1,
+      "rotation": 0
+    }
+  ],
+  "npcs": {
+    "lord_albright": {
+      "id": "lord_albright",
+      "name": "Lord Raymond Albright",
+      "tile": [2, 12],
+      "initialNode": "node_patron_initial",
+      "questConditions": [
+        {
+          "requiresItem": "Sun-Forged Relic of Dawn",
+          "targetNode": "node_patron_relic_returned"
+        }
+      ],
+      "inventory_to_steal": [
+        { "name": "Albright Signet Ring", "type": "quest" },
+        { "name": "Gold Pieces", "type": "currency", "amount": 60 }
+      ]
+    },
+    "chieftain_graktar": {
+      "id": "chieftain_graktar",
+      "name": "Chieftain Grak'tar",
+      "tile": [7, 1],
+      "initialNode": "node_graktar_parley",
+      "inventory_to_steal": [
+        { "name": "Sun-Forged Relic of Dawn", "type": "quest" },
+        { "name": "Ancient Rubies", "type": "treasure", "amount": 2 }
+      ]
+    }
+  },
+  "monsters": {
+    "goblin_scout": {
+      "id": "goblin_scout",
+      "name": "Goblin Scout",
+      "glbModel": "assets/glb/basic_goblin.glb",
+      "rotationOffset": [0, 180, 0],
+      "positionOffset": [0, 0.1, 0],
+      "scale": 0.4,
+      "hp": 6,
+      "maxHp": 6,
+      "armorClass": 6,
+      "armorType": "leather",
+      "attackTarget": 11,
+      "damage": "1d4+1",
+      "damageType": "piercing",
+      "actionPhase": "FAST",
+      "moraleThreshold": 35,
+      "xpReward": 25
+    },
+    "goblin_warrior": {
+      "id": "goblin_warrior",
+      "name": "Goblin Warrior",
+      "glbModel": "assets/glb/basic_goblin.glb",
+      "rotationOffset": [0, 180, 0],
+      "positionOffset": [0, 0.1, 0],
+      "scale": 0.48,
+      "hp": 9,
+      "maxHp": 9,
+      "armorClass": 5,
+      "armorType": "leather",
+      "attackTarget": 12,
+      "damage": "1d6",
+      "damageType": "slashing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 45,
+      "xpReward": 45
+    },
+    "goblin_shaman": {
+      "id": "goblin_shaman",
+      "name": "Goblin Shaman",
+      "glbModel": "assets/glb/goblin_ghoul.glb",
+      "rotationOffset": [360, 180, 0],
+      "positionOffset": [0, 0, 0],
+      "scale": 0.12,
+      "hp": 12,
+      "maxHp": 12,
+      "armorClass": 6,
+      "armorType": "leather",
+      "attackTarget": 13,
+      "damage": "1d6+1",
+      "damageType": "slashing",
+      "actionPhase": "FAST",
+      "moraleThreshold": 50,
+      "xpReward": 120
+    },
+    "wilderness_spider": {
+      "id": "wilderness_spider",
+      "name": "Wilderness Spider",
+      "glbModel": "assets/glb/giant_spider.glb",
+      "rotationOffset": [0, 180, 0],
+      "positionOffset": [0, 0, 0],
+      "scale": 0.9,
+      "hp": 12,
+      "maxHp": 12,
+      "armorClass": 6,
+      "armorType": "leather",
+      "attackTarget": 12,
+      "damage": "1d6",
+      "damageType": "piercing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 40,
+      "xpReward": 140,
+      "special_attack": "poison",
+      "save_category": "poison",
+      "save_target": 13,
+      "poison_damage": 5
+    },
+    "ruins_skeleton": {
+      "id": "ruins_skeleton",
+      "name": "Ancient Ruins Sentinel",
+      "glbModel": "assets/glb/skeleton_animated.glb",
+      "rotationOffset": [0, 180, 0],
+      "positionOffset": [0, 0, 0],
+      "scale": 0.2,
+      "hp": 8,
+      "maxHp": 8,
+      "armorClass": 7,
+      "armorType": "leather",
+      "attackTarget": 12,
+      "damage": "1d6",
+      "damageType": "slashing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 100,
+      "xpReward": 65,
+      "creatureType": "undead",
+      "undeadTier": "weak"
+    },
+    "chieftain_graktar_mob": {
+      "id": "chieftain_graktar_mob",
+      "name": "Chieftain Grak'tar",
+      "glbModel": "assets/glb/basic_goblin.glb",
+      "rotationOffset": [0, 180, 0],
+      "positionOffset": [0, 0.15, 0],
+      "scale": 0.65,
+      "hp": 22,
+      "maxHp": 22,
+      "armorClass": 4,
+      "armorType": "chain",
+      "attackTarget": 14,
+      "damage": "1d8+2",
+      "damageType": "slashing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 60,
+      "xpReward": 350
+    }
+  },
+  "encounters": [
+    {
+      "id": "enc_wilderness_scouts",
+      "x": 7,
+      "y": 9,
+      "name": "Wilderness Clearing — Goblin Scouts",
+      "enemies": [
+        { "monsterId": "goblin_scout", "count": 2 }
+      ],
+      "onVictoryXp": 50
+    },
+    {
+      "id": "enc_forest_spider_nest",
+      "x": 4,
+      "y": 7,
+      "name": "Deep Forest Canopy — Spider Ambush",
+      "enemies": [
+        { "monsterId": "wilderness_spider", "count": 1 },
+        { "monsterId": "goblin_scout", "count": 1 }
+      ],
+      "onVictoryXp": 165
+    },
+    {
+      "id": "enc_ruins_threshold",
+      "x": 7,
+      "y": 6,
+      "name": "Ruins Threshold — Goblin Vanguard",
+      "enemies": [
+        { "monsterId": "goblin_warrior", "count": 2 },
+        { "monsterId": "goblin_scout", "count": 1 }
+      ],
+      "onVictoryXp": 115
+    },
+    {
+      "id": "enc_ruins_sanctum_guards",
+      "x": 7,
+      "y": 3,
+      "name": "Ruins Pillared Hall — Skeletal Sentinels & Shaman",
+      "enemies": [
+        { "monsterId": "ruins_skeleton", "count": 2 },
+        { "monsterId": "goblin_shaman", "count": 1 }
+      ],
+      "onVictoryXp": 250
+    },
+    {
+      "id": "enc_graktar_throne_battle",
+      "x": 7,
+      "y": 1,
+      "name": "Inner Sanctum — Chieftain Grak'tar & Elite Bodyguards",
+      "enemies": [
+        { "monsterId": "chieftain_graktar_mob", "count": 1 },
+        { "monsterId": "goblin_warrior", "count": 2 }
+      ],
+      "onVictoryXp": 440
+    }
+  ],
+  "dialogues": {
+    "lord_albright": {
+      "node_patron_initial": {
+        "text": "Greetings, brave sell-swords. I am Lord Raymond Albright, protector of Oakhaven. Under the cover of new moon, goblin savages descended from the northern crags, sacked our solar shrine, and stole our holy relic: The Sun-Forged Relic of Dawn. Without its blessing, our crops will wither and dark beasts will overrun the woods. I offer 250 Gold Pieces and the everlasting gratitude of Oakhaven if you venture through the wilderness into their ruined redoubt and recover the relic!",
+        "choices": [
+          {
+            "id": "choice_accept_quest",
+            "text": "\"We accept your contract, Lord Albright. The relic will be returned.\"",
+            "onSuccess": "node_patron_instructions",
+            "attitudeShift": 15
+          },
+          {
+            "id": "choice_fighter_bounty",
+            "text": "[Fighter] \"We are seasoned veterans. Tell us of their defenses and warlord.\"",
+            "specialtyClass": "Fighter",
+            "specialtyBonus": 3,
+            "attribute": "strength",
+            "onSuccess": "node_patron_tactical_intel",
+            "onFail": "node_patron_instructions",
+            "attitudeShift": 10
+          },
+          {
+            "id": "choice_cleric_faith",
+            "text": "[Cleric] \"Desecration of a solar shrine will not go unpunished. The light guides us.\"",
+            "specialtyClass": "Cleric",
+            "specialtyBonus": 3,
+            "attribute": "wisdom",
+            "onSuccess": "node_patron_blessing",
+            "onFail": "node_patron_instructions",
+            "attitudeShift": 25
+          },
+          {
+            "id": "choice_thief_supplies",
+            "text": "[Thief] \"A dangerous wilderness trek. Any advance provisions for the road?\"",
+            "specialtyClass": "Thief",
+            "specialtyBonus": 2,
+            "attribute": "dexterity",
+            "onSuccess": "node_patron_supplies",
+            "onFail": "node_patron_instructions",
+            "attitudeShift": 5
+          }
+        ]
+      },
+      "node_patron_instructions": {
+        "text": "Before you march through the northern palisade into the wilderness, visit our Outfitter stall across the square. Stock up on torches, iron spikes, arrows, and healing draughts. Follow the trail through the dense pine wilderness until you reach the ancient stone ruins. Beware their chieftain, Grak'tar!",
+        "choices": [
+          {
+            "id": "choice_parting",
+            "text": "\"We shall prepare and set off immediately.\"",
+            "onEnd": "stay_silent"
+          }
+        ]
+      },
+      "node_patron_tactical_intel": {
+        "text": "Splendid! Their chieftain is Grak'tar, a scarred brute wielding a heavy spiked cleaver. The goblins have set spike snares in the outer halls and reanimated old bones with their dark shamanism. Take these healing salves to aid your steel!",
+        "choices": [
+          {
+            "id": "choice_take_salve",
+            "text": "\"Thank you, my lord. We will make short work of them.\"",
+            "giveItem": { "name": "Healing Potion", "amount": 1 },
+            "onEnd": "stay_silent"
+          }
+        ]
+      },
+      "node_patron_blessing": {
+        "text": "May the radiant dawn shield your spirit, holy one! Take this vial of consecrated Holy Water from our remaining altar reserve. May it burn through their unholy sentinels.",
+        "choices": [
+          {
+            "id": "choice_take_holy_water",
+            "text": "\"The dawn will prevail over the shadows.\"",
+            "giveItem": { "name": "Holy Water", "amount": 1 },
+            "moral_tax": "holy_duty",
+            "onEnd": "stay_silent"
+          }
+        ]
+      },
+      "node_patron_supplies": {
+        "text": "Fair enough. An empty stomach makes for a poor sword-arm. Here are travel rations and a purse of 25 Gold to spend at the Outfitter stall.",
+        "choices": [
+          {
+            "id": "choice_take_rations_gold",
+            "text": "\"Much appreciated, Lord Albright.\"",
+            "giveItem": { "name": "Rations", "amount": 2 },
+            "giveGold": 25,
+            "onEnd": "stay_silent"
+          }
+        ]
+      },
+      "node_patron_relic_returned": {
+        "text": "By all the heavenly powers! The Sun-Forged Relic of Dawn radiates once more in your hands! You have braved the wilderness and shattered the goblin scourge! Oakhaven is saved!",
+        "choices": [
+          {
+            "id": "choice_turn_in_relic",
+            "text": "\"Here is your relic, Lord Albright. The goblin warlord will trouble you no more.\"",
+            "requiresItem": "Sun-Forged Relic of Dawn",
+            "takeItem": "Sun-Forged Relic of Dawn",
+            "giveGold": 250,
+            "questXP": 500,
+            "playSFX": "victory",
+            "onSuccess": "node_patron_epilogue"
+          }
+        ]
+      },
+      "node_patron_epilogue": {
+        "text": "The entire village cheers! Bells ring out across Oakhaven as the relic is placed upon the golden altar. As promised, here is your 250 Gold bounty and the highest honors of the realm. You are true champions of the realm!",
+        "choices": [
+          {
+            "id": "choice_celebrate",
+            "text": "\"Long live Oakhaven! (Expedition Victorious)\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      }
+    },
+    "chieftain_graktar": {
+      "node_graktar_parley": {
+        "text": "Hahaha! Soft-skinned village dogs dare enter Grak'tar's court? The shiny sun-trinket is ours now! It burns bright in our chest, and soon Grak'tar will burn your little village to cinder! What do you have to say before my boys feed on your marrow?",
+        "choices": [
+          {
+            "id": "choice_fighter_challenge",
+            "text": "[Fighter] \"Yield the relic, Grak'tar, or your head rolls upon this stone floor!\"",
+            "specialtyClass": "Fighter",
+            "specialtyBonus": 3,
+            "attribute": "strength",
+            "dc": 12,
+            "onSuccess": "node_graktar_intimidated",
+            "onFail": "node_graktar_combat"
+          },
+          {
+            "id": "choice_cleric_condemn",
+            "text": "[Cleric] \"The holy relic burns with sacred fire. Blasphemers cannot hold the light!\"",
+            "specialtyClass": "Cleric",
+            "specialtyBonus": 3,
+            "attribute": "wisdom",
+            "dc": 11,
+            "onSuccess": "node_graktar_scared_by_faith",
+            "onFail": "node_graktar_combat"
+          },
+          {
+            "id": "choice_mage_bluff",
+            "text": "[Mage] \"I have woven an arcane detonation into the relic. Touch it again and you turn to ash!\"",
+            "specialtyClass": "Mage",
+            "specialtyBonus": 2,
+            "attribute": "intelligence",
+            "dc": 12,
+            "onSuccess": "node_graktar_tricked",
+            "onFail": "node_graktar_combat"
+          },
+          {
+            "id": "choice_thief_gold_trade",
+            "text": "[Thief] \"Keep your lives and take 100 gold pieces for the relic instead.\"",
+            "cost": { "gold": 100 },
+            "onSuccess": "node_graktar_bribed",
+            "onFail": "node_graktar_combat"
+          },
+          {
+            "id": "choice_direct_attack",
+            "text": "\"Die, goblin filth! (Draw weapons!)\"",
+            "onSuccess": "node_graktar_combat"
+          }
+        ]
+      },
+      "node_graktar_intimidated": {
+        "text": "Grak'tar eyes your bloody steel and wavers... 'Y-you fight like demons! Take the burning relic from the west chest and go! Grak'tar will find other loot!' The warlord signals his bodyguards to step back.",
+        "choices": [
+          {
+            "id": "choice_take_relic_free",
+            "text": "\"A wise decision. Open the chest.\"",
+            "giveItem": "Sun-Forged Relic of Dawn",
+            "questXP": 300,
+            "onEnd": "despawn"
+          }
+        ]
+      },
+      "node_graktar_scared_by_faith": {
+        "text": "The cleric's holy symbol flashes with blinding solar rays! The goblins screech and clutch their blistered eyes! 'The light burns! Take the curse away!' Grak'tar drops the relic chest key and scrambles into the shadows!",
+        "choices": [
+          {
+            "id": "choice_claim_blessed_relic",
+            "text": "\"The light has triumphed.\"",
+            "giveItem": "Sun-Forged Relic of Dawn",
+            "questXP": 300,
+            "onEnd": "despawn"
+          }
+        ]
+      },
+      "node_graktar_tricked": {
+        "text": "Grak'tar gasps in panic! 'Magic bomb?! Cursed wizards!' The goblins flee into the dungeon corridors, leaving the reliquary chest wide open!",
+        "choices": [
+          {
+            "id": "choice_take_tricked_relic",
+            "text": "\"Never duel wits with a wizard.\"",
+            "giveItem": "Sun-Forged Relic of Dawn",
+            "questXP": 300,
+            "onEnd": "despawn"
+          }
+        ]
+      },
+      "node_graktar_bribed": {
+        "text": "Grak'tar grabs the bag of shining gold coins and bites one with a jagged grin. 'Grak'tar loves gold more than hot sun-stones! Deal! The relic is yours, soft-skins!'",
+        "choices": [
+          {
+            "id": "choice_take_bribed_relic",
+            "text": "\"Take your gold and begone.\"",
+            "giveItem": "Sun-Forged Relic of Dawn",
+            "questXP": 200,
+            "onEnd": "despawn"
+          }
+        ]
+      },
+      "node_graktar_combat": {
+        "text": "Grak'tar roars and brandishes his notched cleaver! 'Kill them all! Strip their armor! Feed them to the pit!'",
+        "choices": [
+          {
+            "id": "choice_fight_graktar",
+            "text": "[To Arms!] Engage Grak'tar and his goblin warband!",
+            "onEnd": "despawn"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -3,10 +3,12 @@
     "fighter": {
       "name": "Fighter",
       "group": "Warrior",
+      "hit_die": 10,
       "starting_hp": 12,
       "armor_class": 3,
       "attack_bonus": 2,
       "default_weapon": "Longsword",
+      "xp_table": [0, 2000, 4000, 8000, 16000, 32000, 64000, 125000, 250000, 500000],
       "attributes": {
         "strength": 16,
         "dexterity": 12,
@@ -23,10 +25,13 @@
     "thief": {
       "name": "Thief",
       "group": "Rogue",
+      "hit_die": 6,
       "starting_hp": 7,
       "armor_class": 6,
       "attack_bonus": 1,
       "default_weapon": "Short Sword",
+      "xp_table": [0, 1250, 2500, 5000, 10000, 20000, 40000, 70000, 110000, 160000],
+      "discretionary_skill_points_per_level": 15,
       "attributes": {
         "strength": 11,
         "dexterity": 17,
@@ -36,20 +41,22 @@
         "charisma": 10
       },
       "skills": {
-        "pick_locks": { "name": "Pick Locks", "type": "percentile", "base": 25, "perLevel": 5 },
-        "find_traps": { "name": "Find/Disarm Traps", "type": "percentile", "base": 20, "perLevel": 5 },
-        "pick_pockets": { "name": "Pick Pockets", "type": "percentile", "base": 30, "perLevel": 5 },
-        "hide_in_shadows": { "name": "Hide in Shadows", "type": "percentile", "base": 15, "perLevel": 5 },
-        "hear_noise": { "name": "Hear Noise", "type": "percentile", "base": 20, "perLevel": 5 }
+        "pick_locks": { "name": "Pick Locks", "type": "percentile", "base": 25, "perLevel": 0 },
+        "find_traps": { "name": "Find/Disarm Traps", "type": "percentile", "base": 20, "perLevel": 0 },
+        "pick_pockets": { "name": "Pick Pockets", "type": "percentile", "base": 30, "perLevel": 0 },
+        "hide_in_shadows": { "name": "Hide in Shadows", "type": "percentile", "base": 15, "perLevel": 0 },
+        "hear_noise": { "name": "Hear Noise", "type": "percentile", "base": 20, "perLevel": 0 }
       }
     },
     "cleric": {
       "name": "Cleric",
       "group": "Priest",
+      "hit_die": 8,
       "starting_hp": 10,
       "armor_class": 4,
       "attack_bonus": 1,
       "default_weapon": "Warhammer",
+      "xp_table": [0, 1500, 3000, 6000, 13000, 27500, 55000, 110000, 225000, 450000],
       "attributes": {
         "strength": 14,
         "dexterity": 9,
@@ -173,10 +180,12 @@
     "mage": {
       "name": "Mage",
       "group": "Wizard",
+      "hit_die": 4,
       "starting_hp": 6,
       "armor_class": 8,
       "attack_bonus": 0,
       "default_weapon": "Quarterstaff",
+      "xp_table": [0, 2500, 5000, 10000, 20000, 40000, 60000, 90000, 135000, 250000],
       "attributes": {
         "strength": 8,
         "dexterity": 14,
@@ -219,6 +228,15 @@
               "target": "self",
               "description": "Invisible barrier that turns aside blows.",
               "effect": { "type": "buff_ac", "amount": 2, "duration_rounds": 4 }
+            },
+            {
+              "id": "light",
+              "name": "Light",
+              "cognitive_load": 15,
+              "casting_time": "instant",
+              "target": "party",
+              "description": "Conjures a floating orb of eerie arcane radiance, piercing the dungeon gloom.",
+              "effect": { "type": "illumination", "duration_seconds": 240, "light_type": "arcane" }
             }
           ],
           "2": [

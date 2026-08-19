@@ -15,6 +15,17 @@ export class DialogueController {
 
         this.state.activeNpc = npcSpec;
 
+        // Dynamic quest node check (e.g. returning relic to patron)
+        if (npcSpec.questConditions) {
+            for (const cond of npcSpec.questConditions) {
+                if (cond.requiresItem && this.state.inventory.some(i => i.name === cond.requiresItem && (i.amount || 1) > 0)) {
+                    npcState.currentNode = cond.targetNode;
+                    npcState.completed = false;
+                    break;
+                }
+            }
+        }
+
         if (npcState.completed) {
             if (npcState.endBehavior === 'repeat_terminal' && npcState.currentNode) {
                 this.renderDialogueUI(npcId, npcState.currentNode);
@@ -90,6 +101,11 @@ export class DialogueController {
                 }
             }
 
+            if (choice.requiresItem) {
+                const hasReqItem = this.state.inventory.some(i => i.name === choice.requiresItem && (i.amount || 1) > 0);
+                if (!hasReqItem) canAfford = false;
+            }
+
             return {
                 text: `${choice.text}${bonusText}`,
                 disabled: !canAfford,
@@ -115,8 +131,6 @@ export class DialogueController {
                 if (goldItem) goldItem.amount -= choice.cost.gold;
 
                 if (choice.briberyInsulted) {
-                    // The module author has flagged this NPC/context as one where money offends.
-                    // No roll — this is narrative certainty, decided by the story, not the dice.
                     npcState.attitude = Math.max(-100, npcState.attitude - (choice.insultSeverity || 25));
                     this.callbacks.log(`${npcSpec.name} recoils — gold was the wrong offer here.`, "danger");
                 } else {
@@ -131,6 +145,38 @@ export class DialogueController {
                 }
                 this.callbacks.log(`Gave away ${choice.cost.rations} ration(s).`, "info");
             }
+        }
+
+        if (choice.takeItem) {
+            this.state.removePartyItem(choice.takeItem, choice.takeAmount || 1);
+            this.callbacks.log(`Handed over: ${choice.takeItem}.`, "info");
+        }
+
+        if (choice.giveItem) {
+            const item = typeof choice.giveItem === 'string' ? { name: choice.giveItem, amount: 1 } : choice.giveItem;
+            this.state.addPartyItem(item.name, item.amount || 1);
+            this.callbacks.log(`🎁 Acquired Item: ${item.name}!`, "success");
+            if (!choice.playSFX && this.callbacks.playSFX) {
+                this.callbacks.playSFX('reward');
+            }
+        }
+
+        if (choice.giveGold) {
+            this.state.addPartyItem("Gold Pieces", choice.giveGold);
+            this.callbacks.log(`💰 Acquired ${choice.giveGold} Gold Pieces!`, "success");
+            if (this.callbacks.playSFX) this.callbacks.playSFX('coins');
+        }
+
+        if (choice.questXP) {
+            const levelUps = this.state.awardQuestXP(choice.questXP);
+            this.callbacks.log(`⭐ Gained +${choice.questXP} Quest XP!`, "success");
+            if (levelUps && levelUps.length > 0 && this.callbacks.onLevelUp) {
+                this.callbacks.onLevelUp(levelUps);
+            }
+        }
+
+        if (choice.playSFX && this.callbacks.playSFX) {
+            this.callbacks.playSFX(choice.playSFX);
         }
 
         if (choice.moral_tax) {

@@ -111,8 +111,10 @@ export class CombatController {
             } else if (evt.eventType === 'SPELL_CAST') {
                 if (evt.spellId === 'sleep') {
                     this.callbacks.playSFX('sleep');
-                } else if (evt.spellId === 'shield') {
+                } else if (evt.spellId === 'shield' || evt.spellId === 'bless') {
                     this.callbacks.playSFX('bless');
+                } else if (evt.spellId === 'cure_wounds' || evt.spellId === 'cure_serious' || evt.spellId === 'heal') {
+                    this.callbacks.playSFX('cure_wounds');
                 } else if (evt.spellId === 'magic_missile') {
                     this.callbacks.playSFX('magic_missile');
                 } else {
@@ -164,12 +166,14 @@ export class CombatController {
                 this.callbacks.onPartyWiped();
             }
         } else if (victory) {
+            this.state.combat.active = false;
             this.stopCombatMusic();
             if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
                 this.renderer3D.clearEncounterMonsters();
             }
             const currentEnc = this.state.spec.encounters.find(e => e.id === this.state.combat.encounterId);
             if (currentEnc) currentEnc.completed = true;
+            this.state.combat.encounterId = null;
 
             // Trigger level-up fanfare modal and audio cues here
             if (levelUps && levelUps.length > 0 && this.callbacks.onLevelUp) {
@@ -177,6 +181,9 @@ export class CombatController {
             }
 
             this.callbacks.log(`Area secured! Return to exploration stance.`, "success");
+            if (this.callbacks.onCombatEnd) {
+                this.callbacks.onCombatEnd();
+            }
         } else {
             this.callbacks.playSFX('combat_turn');
             if (resolveBtn) {
@@ -188,6 +195,6 @@ export class CombatController {
         }
 
         this.state.isDirty = true;
-        this.callbacks.updateHUD();
+        this.callbacks.updateHUD(true);
     }
 }

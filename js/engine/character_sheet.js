@@ -70,29 +70,52 @@ export class CharacterSheetUI {
     if (hero.classKey === 'mage') {
       const heldLoad = (hero.spells || []).filter(s => !s.spent).reduce((sum, s) => sum + (s.cognitive_load || 0), 0);
       const erasedCount = (hero.spells || []).filter(s => s.spent).length;
-      const spellsList = hero.spells.map(s => `<li style="color: ${s.spent ? '#484f58' : '#d2a8ff'}; text-decoration: ${s.spent ? 'line-through' : 'none'}; margin-bottom: 2px;">[L${s.level}] ${s.name} — load ${s.cognitive_load || '?'} (${s.spent ? 'Erased' : 'Held in mind'})</li>`).join('');
+      const spellsList = (hero.spells || []).map((s, idx) => {
+        if (s.spent) {
+          return `<li style="color: #484f58; text-decoration: line-through; margin-bottom: 3px; font-size: 11px;">[L${s.level}] ${s.name} — load ${s.cognitive_load || '?'} (Erased)</li>`;
+        }
+        const isCastableOffCombat = !this.state.combat.active && hero.hp > 0 && (s.id === 'light' || (s.effect && s.effect.type === 'illumination'));
+        const castBtn = isCastableOffCombat
+          ? `<button class="action-tab sheet-cast-mage-spell-btn" data-index="${idx}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Cast</button>`
+          : '';
+        return `<li style="color: #d2a8ff; margin-bottom: 3px; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+          <span>[L${s.level}] <b>${s.name}</b> <span style="color:var(--text-muted);font-size:10px;">(load ${s.cognitive_load || '?'})</span></span>
+          ${castBtn}
+        </li>`;
+      }).join('');
       specializedHTML = `
       <div style="background: #161b22; padding: 10px; border: 1px solid var(--border-steel); border-radius: 4px; margin-bottom: 12px; font-size: 12px;">
         <div style="color: var(--accent-gold); font-weight: bold; margin-bottom: 6px; font-size: 13px;">⚡ Vancian Arcane Metrics</div>
         <div>Cognition: <b style="color:#d2a8ff;">${hero.cognition}/${hero.maxCognition}</b> <span style="color:var(--text-muted);font-size:10px;">(held burden ${heldLoad})</span></div>
         <div style="margin-top: 6px;">Prepared constructs:</div>
-        <ul style="margin: 4px 0 0 18px; padding: 0;">${spellsList}</ul>
+        <ul style="margin: 4px 0 0 4px; padding: 0; list-style: none;">${spellsList}</ul>
         <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <button id="sheet-study-grimoire-btn" class="action-tab" style="padding:4px 10px;font-size:10px;" ${erasedCount === 0 ? 'disabled' : ''}>📖 Study Grimoire</button>
+          <button id="sheet-study-grimoire-btn" class="action-tab" style="padding:4px 10px;font-size:10px;" ${erasedCount === 0 || hero.hp <= 0 ? 'disabled' : ''}>📖 Study Grimoire</button>
           <span style="color:var(--text-muted);font-size:10px;">Reloads erased spells.</span>
         </div>
       </div>`;
     } else if (hero.classKey === 'cleric') {
       const invokedCount = (hero.spells || []).filter(s => s.spent).length;
-      const prayersList = hero.spells.map(s => `<li style="color: ${s.spent ? '#484f58' : '#58a6ff'}; text-decoration: ${s.spent ? 'line-through' : 'none'}; margin-bottom: 2px;">[L${s.level}] ${s.name} (${s.spent ? 'Invoked' : 'Granted'})</li>`).join('');
+      const prayersList = (hero.spells || []).map((s, idx) => {
+        if (s.spent) {
+          return `<li style="color: #484f58; text-decoration: line-through; margin-bottom: 3px; font-size: 11px;">[L${s.level}] ${s.name} (Invoked)</li>`;
+        }
+        const invokeBtn = !this.state.combat.active && hero.hp > 0 && hero.divineFavor > 0 && !hero.absoluteSilence
+          ? `<button class="action-tab sheet-cast-prayer-btn" data-index="${idx}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Invoke</button>`
+          : '';
+        return `<li style="color: #58a6ff; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+          <span>[L${s.level}] <b>${s.name}</b> <span style="color:var(--text-muted);font-size:10px;">(${s.description || 'Granted'})</span></span>
+          ${invokeBtn}
+        </li>`;
+      }).join('');
       specializedHTML = `
       <div style="background: #161b22; padding: 10px; border: 1px solid var(--border-steel); border-radius: 4px; margin-bottom: 12px; font-size: 12px;">
         <div style="color: var(--accent-gold); font-weight: bold; margin-bottom: 6px; font-size: 13px;">✨ Divine Communion Metrics</div>
         <div>Divine Favor: <b style="color:#58a6ff;">${hero.divineFavor}%</b> | Status: <b>${hero.ethosStatus}</b></div>
         <div style="margin-top: 6px;">Daily allotment:</div>
-        <ul style="margin: 4px 0 0 18px; padding: 0;">${prayersList}</ul>
+        <ul style="margin: 4px 0 0 4px; padding: 0; list-style: none;">${prayersList}</ul>
         <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <button id="sheet-study-prayers-btn" class="action-tab" style="padding:4px 10px;font-size:10px;" ${invokedCount === 0 || hero.divineFavor <= 0 ? 'disabled' : ''}>🙏 Petition Deity</button>
+          <button id="sheet-study-prayers-btn" class="action-tab" style="padding:4px 10px;font-size:10px;" ${invokedCount === 0 || hero.divineFavor <= 0 || hero.hp <= 0 ? 'disabled' : ''}>🙏 Petition Deity</button>
           <span style="color:var(--text-muted);font-size:10px;">No favor cost. Rest then petition to reopen slots.</span>
         </div>
       </div>`;
@@ -188,7 +211,20 @@ export class CharacterSheetUI {
       ${partyUsableRows}
     </div>`;
 
-    this.contentEl.innerHTML = statsHTML + combatHTML + skillsHTML + specializedHTML + gearHTML;
+    let levelUpBanner = '';
+    if (hero.canLevelUp) {
+      const canTrain = this.state.canPartyTrain();
+      levelUpBanner = `
+      <div style="background: rgba(210,153,34,0.15); border: 1px solid var(--accent-gold); border-radius: 4px; padding: 8px 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <b style="color: var(--accent-gold);">⭐ Ready for Advancement (Level ${hero.level + 1})</b>
+          <div style="font-size: 10px; color: var(--text-muted);">${canTrain ? 'Mentors and training facilities are accessible here in town!' : 'Return to town or village to complete formal training.'}</div>
+        </div>
+        <button id="sheet-level-up-btn" class="action-tab primary" style="padding: 4px 12px; font-size: 11px; font-weight: bold;" ${canTrain ? '' : 'disabled'}>⭐ TRAIN NOW</button>
+      </div>`;
+    }
+
+    this.contentEl.innerHTML = levelUpBanner + statsHTML + combatHTML + skillsHTML + specializedHTML + gearHTML;
     
     this.bindEvents();
     
@@ -196,6 +232,18 @@ export class CharacterSheetUI {
   }
 
   bindEvents() {
+    const sheetLvlBtn = this.contentEl.querySelector('#sheet-level-up-btn');
+    if (sheetLvlBtn) {
+      sheetLvlBtn.addEventListener('click', () => {
+        this.close();
+        const heroName = this.titleEl.textContent.split(' — ')[0].trim();
+        const hIdx = this.state.party.findIndex(p => p.name.toUpperCase() === heroName);
+        if (hIdx !== -1 && this.context.onLevelUpClick) {
+          this.context.onLevelUpClick(hIdx);
+        }
+      });
+    }
+
     this.contentEl.querySelectorAll('.equip-weapon-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const hIdx = parseInt(btn.getAttribute('data-hero-index'));
@@ -245,6 +293,22 @@ export class CharacterSheetUI {
         if (cleric) this.open(cleric.name);
       });
     }
+
+    this.contentEl.querySelectorAll('.sheet-cast-prayer-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sIdx = parseInt(btn.getAttribute('data-index'), 10);
+        this.context.onUIAction('CAST_CLERIC_PRAYER', sIdx);
+      });
+    });
+
+    this.contentEl.querySelectorAll('.sheet-cast-mage-spell-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sIdx = parseInt(btn.getAttribute('data-index'), 10);
+        this.context.onUIAction('CAST_MAGE_SPELL', sIdx);
+        const mage = this.state.party.find(p => p.classKey === 'mage');
+        if (mage) this.open(mage.name);
+      });
+    });
   }
 
   close() {

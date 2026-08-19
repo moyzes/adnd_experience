@@ -9,16 +9,14 @@ import { UIController } from './engine/ui_controller.js';
 import { DialogueController } from './engine/dialogue_controller.js';
 import { CharacterSheetUI } from './engine/character_sheet.js';
 import { ShopUI } from './engine/shop_ui.js';
+import { LevelUpUI } from './engine/level_up_ui.js';
 
 /**
  * Bootstraps application data, initializes setup screen options,
  * and handles the transition from setup into the main game orchestrator.
  */
 async function init() {
-  const [adventureData, classesData] = await Promise.all([
-    loadJSON('data/adventure.json'),
-    loadJSON('data/classes.json')
-  ]);
+  const classesData = await loadJSON('data/classes.json');
 
   const mageChoicesContainer = document.getElementById('mage-spells-choices');
   const clericChoicesContainer = document.getElementById('cleric-spells-choices');
@@ -45,7 +43,7 @@ async function init() {
       </label>`;
   });
 
-  document.getElementById('start-adventure-btn').addEventListener('click', () => {
+  document.getElementById('start-adventure-btn').addEventListener('click', async () => {
     const selectedMageIds = Array.from(document.querySelectorAll('input[name="mage-spell"]:checked')).map(cb => cb.value);
     const selectedClericIds = Array.from(document.querySelectorAll('input[name="cleric-spell"]:checked')).map(cb => cb.value);
 
@@ -53,6 +51,9 @@ async function init() {
       alert("Please select exactly 2 starting spells for the Mage and 2 prayers for the Cleric!");
       return;
     }
+
+    const selectedModulePath = document.querySelector('input[name="adventure-module"]:checked')?.value || 'data/adventure_goblin_relic.json';
+    const adventureData = await loadJSON(selectedModulePath);
 
     const chosenMageSpells = mageSpellTier1.filter(s => selectedMageIds.includes(s.id));
     const chosenClericSpells = clericSpellTier1.filter(s => selectedClericIds.includes(s.id));
@@ -80,6 +81,8 @@ class GameOrchestrator {
     this.bindUIElements();
     this.initializeState(chosenMageSpells, chosenClericSpells);
     this.initializeEngine();
+    this.currentAmbientTrack = null;
+
     this.bindControllers();
   }
 
@@ -135,25 +138,37 @@ class GameOrchestrator {
 
     this.renderer2D = new Renderer2D(canvasMini);
     this.audioManager = new AudioManager();
+    if (this.spec.audio) {
+      AudioManager.registerCustomAudio(this.spec.audio);
+    }
   }
 
   bindControllers() {
-    // 1. Isolated Character Sheet UI Module
+    // 1. Level-Up & Training UI Module
+    this.levelUpUI = new LevelUpUI(this.state, {
+      playSFX: (id) => this.playSFX(id),
+      log: (msg, type) => this.log(msg, type),
+      updateHUD: () => this.uiController.updateHUD(true),
+      flashLevelUpCard: (idx) => this.flashLevelUpCard(idx)
+    });
+
+    // 2. Isolated Character Sheet UI Module
     this.characterSheet = new CharacterSheetUI(this.state, {
       playSFX: (id) => this.playSFX(id),
       log: (msg, type) => this.log(msg, type),
       updateHUD: () => this.uiController.updateHUD(),
-      onUIAction: (action, payload) => this.handleUIAction(action, payload)
+      onUIAction: (action, payload) => this.handleUIAction(action, payload),
+      onLevelUpClick: (hIdx) => this.levelUpUI.open(hIdx)
     });
 
-    // 2. Isolated Shop UI Module
+    // 3. Isolated Shop UI Module
     this.shopUI = new ShopUI(this.state, {
       playSFX: (id) => this.playSFX(id),
       log: (msg, type) => this.log(msg, type),
       updateHUD: () => this.uiController.updateHUD()
     });
 
-    // 3. Combat Controller with Level-Up & Fanfare Callbacks
+    // 4. Combat Controller with Level-Up Notification Callbacks
     this.combatController = new CombatController(this.state, this.renderer3D, {
       log: (msg, type) => this.log(msg, type),
       updateHUD: () => this.uiController.updateHUD(),
@@ -163,31 +178,42 @@ class GameOrchestrator {
       flashHeroCard: (idx) => this.flashHeroCardRed(idx),
       applyVisualCombatHp: (enemies, heroHp) => this.uiController.applyVisualCombatHp(enemies, heroHp),
       onPartyWiped: () => this.showGameOver(),
+      onCombatEnd: () => this.updateEnvironmentAudio(),
       onLevelUp: (levelUps) => {
-        levelUps.forEach((evt, idx) => {
-          setTimeout(() => {
-            this.playSFX('level_up');
-            this.flashLevelUpCard(evt.heroIndex);
-            this.showLevelUpModal(evt);
-          }, idx * 500);
+        if (!levelUps || levelUps.length === 0) return;
+        this.playSFX('level_up');
+        levelUps.forEach(evt => {
+          this.flashLevelUpCard(evt.heroIndex);
+          this.log(`⭐ ${evt.heroName} has earned enough experience for Level ${evt.newLevel}! Visit a town or village mentor to train.`, "success");
         });
+        this.uiController.updateHUD(true);
       }
     });
 
-    // 4. Main UI HUD Controller
+    // 5. Main UI HUD Controller
     this.uiController = new UIController(this.state, this.renderer2D, this.uiElements, {
       onOpenSheet: (heroName) => this.characterSheet.open(heroName),
       onCommand: (hIdx, cmdType, extra) => this.handleCombatCommandQueue(hIdx, cmdType, extra),
       onTargetChange: (hIdx, targetId) => this.handleTargetChange(hIdx, targetId),
       onGlobalAction: (actionType) => this.handleGlobalAction(actionType),
-      onUIAction: (actionType, payload) => this.handleUIAction(actionType, payload)
+      onUIAction: (actionType, payload) => this.handleUIAction(actionType, payload),
+      onLevelUpClick: (hIdx) => this.levelUpUI.open(hIdx)
     });
 
-    // 5. Dialogue & Input Controllers
+    // 6. Dialogue & Input Controllers
     this.dialogueController = new DialogueController(this.spec, this.state, this.uiController, {
       log: (msg, type) => this.log(msg, type),
       updateHUD: () => this.uiController.updateHUD(),
-      playSFX: (id) => this.playSFX(id)
+      playSFX: (id) => this.playSFX(id),
+      onLevelUp: (levelUps) => {
+        if (!levelUps || levelUps.length === 0) return;
+        this.playSFX('level_up');
+        levelUps.forEach(evt => {
+          this.flashLevelUpCard(evt.heroIndex);
+          this.log(`⭐ ${evt.heroName} has earned enough experience for Level ${evt.newLevel}! Visit a town or village mentor to train.`, "success");
+        });
+        this.uiController.updateHUD(true);
+      }
     });
 
     new InputController((action) => this.handleInput(action));
@@ -200,6 +226,7 @@ class GameOrchestrator {
       if (e.key === 'Escape' || e.code === 'Escape') {
         this.characterSheet.close();
         this.shopUI.close();
+        this.levelUpUI.close();
       }
     });
   }
@@ -207,9 +234,15 @@ class GameOrchestrator {
   start() {
     this.uiController.initPartyDOM();
     this.uiController.updateHUD();
+    this.updateEnvironmentAudio();
 
+    if (this.spec.name) {
+      const titleEl = document.getElementById('main-panel-title');
+      if (titleEl) titleEl.textContent = this.spec.name;
+    }
     if (this.spec.briefing) this.log(this.spec.briefing, "info");
-    this.log("You stand on the chapel approach. Stock up at the outfitter before descending.", "info");
+    const shopName = (this.spec.shop && this.spec.shop.name) || 'The Outfitter';
+    this.log(`Expedition underway. Visit ${shopName} to stock up on gear before heading into danger.`, "info");
 
     requestAnimationFrame(() => this.renderer3D.onResize());
 
@@ -248,7 +281,7 @@ class GameOrchestrator {
       this.renderer3D.setTorchLight(isTorchLit);
     }
 
-    this.renderer3D.render(this.camera);
+    this.renderer3D.render(this.camera, this.state);
 
     if (this.state.isDirty) {
       this.uiController.updateHUD();
@@ -278,7 +311,23 @@ class GameOrchestrator {
       this.camera.targetY = this.state.player.y;
       this.camera.targetAngle = this.facingToAngle(this.state.player.facing);
 
-      if (didMove) this.processMovementTriggers();
+      if (didMove) {
+        this.processMovementTriggers();
+        this.updateEnvironmentAudio();
+      }
+    }
+  }
+
+  updateEnvironmentAudio() {
+    if (this.state.combat.active) return;
+    const isWilderness = this.state.isWildernessTile();
+    const desired = isWilderness ? 'wilderness' : 'dungeon';
+    if (this.currentAmbientTrack !== desired) {
+      if (this.currentAmbientTrack) {
+        this.audioManager.stopLoop(this.currentAmbientTrack);
+      }
+      this.audioManager.playLoop(desired);
+      this.currentAmbientTrack = desired;
     }
   }
 
@@ -327,7 +376,8 @@ class GameOrchestrator {
     // 5. Shops
     const shopTile = this.state.getShopTile();
     if (shopTile && shopTile[0] === currentX && shopTile[1] === currentY) {
-      this.log("Thorn Outfitter stall. Press 🏪 Outfitter to trade.", "info");
+      const shopName = (this.spec.shop && this.spec.shop.name) || 'Outfitter stall';
+      this.log(`${shopName}. Press 🏪 Outfitter to trade.`, "info");
     }
   }
 
@@ -343,7 +393,13 @@ class GameOrchestrator {
   }
 
   handleUIAction(actionType, payload) {
+    const fighter = this.state.party.find(p => p.classKey === 'fighter');
+    const thief = this.state.party.find(p => p.classKey === 'thief');
+    const cleric = this.state.party.find(p => p.classKey === 'cleric');
+    const mage = this.state.party.find(p => p.classKey === 'mage');
+
     if (actionType === 'PICK_LOCK') {
+      if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
       const target = this.getLockInFront();
       if (!target || this.checkTrapBeforeAction(target)) return;
       const result = this.state.attemptPickLock(target.type);
@@ -358,6 +414,7 @@ class GameOrchestrator {
       this.uiController.updateHUD();
     }
     else if (actionType === 'FIND_TRAP') {
+      if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
       const target = this.state.getTrapInFront();
       if (!target) return this.log(`No traps here.`, "info");
       const result = this.state.attemptFindTrap(target);
@@ -368,6 +425,7 @@ class GameOrchestrator {
       this.uiController.updateHUD();
     }
     else if (actionType === 'DISARM_TRAP') {
+      if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
       const target = this.state.getTrapInFront();
       if (!target) return;
       const result = this.state.attemptDisarmTrap(target);
@@ -381,6 +439,7 @@ class GameOrchestrator {
       this.uiController.updateHUD();
     }
     else if (actionType === 'HIDE_SHADOWS') {
+      if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
       const result = this.state.attemptHideInShadows();
       if (result.success) {
         this.playSFX('hide'); this.playSFX('reward');
@@ -389,6 +448,7 @@ class GameOrchestrator {
       this.uiController.updateHUD();
     }
     else if (actionType === 'SCOUT_AHEAD') {
+      if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
       const result = this.state.attemptScout();
       if (!result.success) return this.log(result.reason || `Scouting turned up nothing.`, "info");
       if (result.discoveries.length === 0) this.log(`The way ahead looks clear.`, "info");
@@ -396,6 +456,7 @@ class GameOrchestrator {
       this.uiController.updateHUD();
     }
     else if (actionType === 'PICKPOCKET_NPC') {
+      if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
       if (!this.state.activeNpc) return;
       const result = this.state.attemptPickpocket(this.state.activeNpc);
       if (result.success) this.log(`Pickpocketed ${result.stolenItem.name}!`, "success");
@@ -403,6 +464,7 @@ class GameOrchestrator {
       this.uiController.updateHUD();
     }
     else if (actionType === 'STUDY_GRIMOIRE') {
+      if (!mage || mage.hp <= 0) return this.log("The mage is incapacitated.", "warning");
       const result = this.state.studyGrimoire();
       if (!result.success) return this.log(result.reason, "warning");
       if (result.brainBurnDamage > 0) this.log(`BRAIN BURN! Forced memory (-${result.cognitiveCost} Cog, ${result.brainBurnDamage} HP).`, "danger");
@@ -410,27 +472,36 @@ class GameOrchestrator {
       this.uiController.updateHUD(true);
     }
     else if (actionType === 'CAST_MAGE_SPELL') {
+      if (!mage || mage.hp <= 0) return this.log("The mage is incapacitated.", "warning");
       const res = this.state.castMageSpell(payload);
-      if (res.success) this.log(`Released ${res.spellName}.`, "success");
-      else this.log(res.reason, "warning");
+      if (res.success) {
+        this.playSFX('magic_missile');
+        this.log(res.log || `Released ${res.spellName}.`, "success");
+      } else {
+        this.log(res.reason, "warning");
+      }
       this.uiController.updateHUD(true);
     }
     else if (actionType === 'STUDY_PRAYERS') {
+      if (!cleric || cleric.hp <= 0) return this.log("The cleric is incapacitated.", "warning");
       const result = this.state.studyClericPrayers();
       if (!result.success) return this.log(result.reason, "warning");
       this.log(`Dawn petition answered. Prayers granted anew.`, "success");
       this.uiController.updateHUD(true);
     }
     else if (actionType === 'CAST_CLERIC_PRAYER') {
-      const res = this.state.castClericPrayer(payload);
-      if (res.success) this.log(`Divine invocation! ${res.spellName}`, "success");
-      else this.log(res.reason, "warning");
-      this.uiController.updateHUD(true);
+      if (!cleric || cleric.hp <= 0) return this.log("The cleric is incapacitated.", "warning");
+      if (typeof payload === 'object' && payload !== null) {
+        this.handleCastClericPrayerOffCombat(payload.spellIndex, payload.targetHeroIndex);
+      } else {
+        this.handleCastClericPrayerOffCombat(payload);
+      }
     }
     else if (actionType === 'BASH_DOOR') {
+      if (!fighter || fighter.hp <= 0) return this.log("The fighter is incapacitated and cannot bash.", "warning");
       const target = this.getLockInFront();
       if (!target || this.checkTrapBeforeAction(target)) return;
-      const result = this.state.attemptBash(this.state.party.find(p => p.classKey === 'fighter'));
+      const result = this.state.attemptBash(fighter);
       this.playSFX('sheet');
       if (result.success) {
         this.state.unlockTarget(target.x, target.y, target.type);
@@ -441,9 +512,10 @@ class GameOrchestrator {
       this.uiController.updateHUD();
     }
     else if (actionType === 'READ_MAGIC') {
+      if (!mage || mage.hp <= 0) return this.log("The mage is incapacitated.", "warning");
       const target = this.getLockInFront();
       if (!target || this.checkTrapBeforeAction(target)) return;
-      const result = this.state.attemptReadMagic(this.state.party.find(p => p.classKey === 'mage'), target);
+      const result = this.state.attemptReadMagic(mage, target);
       if (result.success) {
         this.state.unlockTarget(target.x, target.y, target.type);
         this.log("Arcane runes deciphered! The seal fades.", "success");
@@ -471,6 +543,118 @@ class GameOrchestrator {
   handleTargetChange(hIdx, targetId) {
     const currentCmd = this.state.combat.queuedCommands[hIdx] || { type: 'ATTACK' };
     this.state.queueHeroCommand(hIdx, { ...currentCmd, targetInstanceId: targetId });
+  }
+
+  handleCastClericPrayerOffCombat(spellIndex, targetHeroIndex = null) {
+    if (this.state.combat.active) return;
+    const cleric = this.state.party.find(p => p.classKey === 'cleric');
+    if (!cleric) return this.log("No cleric in party.", "warning");
+    if (cleric.hp <= 0) return this.log("The cleric is incapacitated and cannot invoke prayers.", "danger");
+    if (cleric.divineFavor <= 0 || cleric.absoluteSilence) return this.log("Absolute Silence — no divine power flows.", "warning");
+
+    const spell = cleric.spells && cleric.spells[spellIndex];
+    if (!spell || spell.spent) return this.log("That prayer was already invoked today.", "warning");
+
+    const effect = spell.effect || {};
+
+    // For single-target healing spells (like Cure Light Wounds, Cure Serious Wounds, Heal)
+    if (effect.type === 'heal') {
+      // If target is explicitly provided
+      if (targetHeroIndex != null) {
+        const res = this.state.castClericPrayer(spellIndex, targetHeroIndex);
+        if (res.success) {
+          this.audioManager.play('cure_wounds');
+          const revivedMsg = res.wasIncapacitated ? ' Revived from incapacitation!' : '';
+          this.log(`✨ ${cleric.name} invokes ${spell.name} on ${res.targetHeroName}, restoring ${res.hpHealed} HP (${res.currentHp}/${res.maxHp})!${revivedMsg}`, "success");
+          this.uiController.updateHUD(true);
+          if (this.characterSheet && this.characterSheet.modal && this.characterSheet.modal.style.display !== 'none') {
+            this.characterSheet.open(res.targetHeroName);
+          }
+        } else {
+          this.log(res.reason || "The prayer could not be completed.", "warning");
+        }
+        return;
+      }
+
+      // Check if all party members are already at full health
+      const woundedMembers = this.state.party.filter(h => h.hp < h.maxHp);
+      if (woundedMembers.length === 0) {
+        return this.log(`All party members are already at full health. Save ${spell.name} for when blood is spilled.`, "warning");
+      }
+
+      // Prompt the player to select which hero to heal
+      const choices = this.state.party.map((hero, idx) => {
+        const isFull = hero.hp >= hero.maxHp;
+        const isInc = hero.hp <= 0;
+        const status = isInc ? ' [Incapacitated]' : isFull ? ' [Full Health]' : ` [HP: ${hero.hp}/${hero.maxHp}]`;
+        const icon = hero.classKey === 'fighter' ? '🛡️' : hero.classKey === 'thief' ? '🗡️' : hero.classKey === 'cleric' ? '✨' : '🔮';
+        return {
+          text: `${icon} ${hero.name} — ${status}`,
+          disabled: isFull,
+          callback: () => {
+            const res = this.state.castClericPrayer(spellIndex, idx);
+            if (res.success) {
+              this.audioManager.play('cure_wounds');
+              const revivedMsg = res.wasIncapacitated ? ' Revived from incapacitation!' : '';
+              this.log(`✨ ${cleric.name} invokes ${spell.name} on ${hero.name}, restoring ${res.hpHealed} HP (${res.currentHp}/${res.maxHp})!${revivedMsg}`, "success");
+              this.uiController.updateHUD(true);
+              if (this.characterSheet && this.characterSheet.modal && this.characterSheet.modal.style.display !== 'none') {
+                this.characterSheet.open(hero.name);
+              }
+            } else {
+              this.log(res.reason || "The prayer failed.", "warning");
+            }
+          }
+        };
+      });
+
+      choices.push({
+        text: '❌ Cancel',
+        callback: () => {
+          this.log(`The invocation of ${spell.name} is held back.`, "info");
+        }
+      });
+
+      this.uiController.showInteractionModal({
+        title: `✨ ${cleric.name} — ${spell.name}`,
+        prompt: `Select a party member to bestow with divine healing (+${effect.amount || 15} HP):`,
+        choices
+      });
+      return;
+    }
+
+    // For party healing spells (like Holy Blessing)
+    if (effect.type === 'party_heal') {
+      const res = this.state.castClericPrayer(spellIndex);
+      if (res.success) {
+        this.audioManager.play('cure_wounds');
+        if (res.totalHealed > 0) {
+          this.log(`✨ ${cleric.name} invokes ${spell.name} — party recovers ${res.totalHealed} HP total!`, "success");
+        } else {
+          this.log(`✨ ${cleric.name} invokes ${spell.name} across the party!`, "success");
+        }
+        this.uiController.updateHUD(true);
+        if (this.characterSheet && this.characterSheet.modal && this.characterSheet.modal.style.display !== 'none') {
+          this.characterSheet.open(cleric.name);
+        }
+      } else {
+        this.log(res.reason || "The prayer failed.", "warning");
+      }
+      return;
+    }
+
+    // For buff/other prayers
+    const res = this.state.castClericPrayer(spellIndex);
+    if (res.success) {
+      this.audioManager.play('bless');
+      this.log(`✨ Divine invocation! ${res.spellName}`, "success");
+      this.uiController.updateHUD(true);
+      if (this.characterSheet && this.characterSheet.modal && this.characterSheet.modal.style.display !== 'none') {
+        this.characterSheet.open(cleric.name);
+      }
+    } else {
+      this.log(res.reason || "The prayer failed.", "warning");
+    }
   }
 
   // ===========================================================================
@@ -650,60 +834,6 @@ class GameOrchestrator {
       card.classList.add('level-up-glow');
       setTimeout(() => card.classList.remove('level-up-glow'), 1800);
     }
-  }
-
-  showLevelUpModal(levelUpEvent) {
-    const modal = document.getElementById('interaction-modal');
-    const title = document.getElementById('interaction-title');
-    const prompt = document.getElementById('interaction-prompt');
-    const actions = document.getElementById('interaction-actions');
-
-    if (!modal || !title || !prompt || !actions) return;
-
-    const hero = this.state.party[levelUpEvent.heroIndex];
-    const atkDisplay = levelUpEvent.atkGain > 0
-      ? `+${levelUpEvent.atkGain.toFixed(2)} to-hit`
-      : 'to-hit unchanged';
-
-    // Evaluate if any new spells match this milestone level tier
-    const archetypes = this.classesSpec?.archetypes;
-    let newSpells = [];
-    if (archetypes) {
-      const tierSpells = hero.classKey === 'mage'
-        ? archetypes.mage?.vancian_magic?.spell_tiers?.[String(hero.level)] || []
-        : hero.classKey === 'cleric'
-          ? archetypes.cleric?.spells_available_by_tier?.[String(hero.level)] || []
-          : [];
-
-      newSpells = (hero.spells || []).filter(s => tierSpells.some(t => t.id === s.id));
-    }
-
-    const spellDisplayHtml = newSpells.length > 0
-      ? `<div style="margin-top: 8px; color: #d2a8ff; font-weight: bold;">📖 New spells/prayers learned: ${newSpells.map(s => s.name).join(', ')}</div>`
-      : '';
-
-    title.textContent = `⭐ ${hero.name.toUpperCase()} ADVANCES ⭐`;
-    prompt.innerHTML = `
-      <div style="font-size: 14px; color: var(--accent-gold); margin-bottom: 8px;">REACHED LEVEL ${levelUpEvent.newLevel}</div>
-      <div style="text-align: left; background: #0d1117; padding: 10px; border-radius: 4px; font-size: 12px; line-height: 1.5;">
-        <div>HP: <b style="color: #3fb950;">${levelUpEvent.hpBefore} → ${levelUpEvent.hpAfter}</b> (+${levelUpEvent.hpGain})</div>
-        <div>Attack Bonus: <b style="color: var(--text-parchment);">+${levelUpEvent.atkAfter.toFixed(2)}</b> (${atkDisplay})</div>
-        ${spellDisplayHtml}
-      </div>
-      <div style="font-size: 11px; color: var(--text-muted); margin-top: 10px;">Check the Character Sheet anytime to review unlocked skills and spellbook status.</div>
-    `;
-
-    actions.innerHTML = '';
-    const btn = document.createElement('button');
-    btn.className = 'action-tab primary';
-    btn.style.width = '100%';
-    btn.style.padding = '12px';
-    btn.textContent = 'ACKNOWLEDGE';
-    btn.addEventListener('click', () => {
-      modal.style.display = 'none';
-    });
-    actions.appendChild(btn);
-    modal.style.display = 'flex';
   }
 
   // ===========================================================================

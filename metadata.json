@@ -1,0 +1,8 @@
+{
+  "name": "Grid RPG Engine - AD&D 2nd Edition",
+  "description": "AD&D 2nd Edition dungeon crawler engine featuring first-person 3D view, party management, turn-based combat, and interactive exploration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

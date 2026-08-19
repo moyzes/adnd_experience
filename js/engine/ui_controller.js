@@ -44,6 +44,7 @@ export class UIController {
                   </div>
                   <div class="hp-bar-bg"><div id="hero-hp-fill-${index}" class="hp-bar-fill"></div></div>
                   <div id="hero-secondary-${index}"></div>
+                  <div id="hero-levelup-${index}"></div>
                 </div>
                 <div id="hero-actions-${index}"></div>
             `;
@@ -54,6 +55,7 @@ export class UIController {
                 hpText: document.getElementById(`hero-hp-text-${index}`),
                 hpFill: document.getElementById(`hero-hp-fill-${index}`),
                 secondary: document.getElementById(`hero-secondary-${index}`),
+                levelUp: document.getElementById(`hero-levelup-${index}`),
                 actions: document.getElementById(`hero-actions-${index}`),
                 avatar: document.getElementById(`hero-avatar-${index}`)
             });
@@ -77,8 +79,9 @@ export class UIController {
         const lockTarget = this.state.getLockInFront();
         const trapInFront = this.state.getTrapInFront();
 
+        const partySig = this.state.party.map(h => `${h.canLevelUp ? 1 : 0}_${h.hp}_${h.level}`).join('_');
         // Build a lightweight signature of contextual UI triggers to prevent unnecessary DOM reconstruction on every step
-        const currentSig = `${this.state.combat.active}_${this.state.player.x}_${this.state.player.y}_${this.state.player.facing}_${lockTarget ? lockTarget.x : ''}_${trapInFront ? trapInFront.detected : ''}_${this.state.activeNpc ? this.state.activeNpc.id : ''}`;
+        const currentSig = `${this.state.combat.active}_${this.state.player.x}_${this.state.player.y}_${this.state.player.facing}_${lockTarget ? lockTarget.x : ''}_${trapInFront ? trapInFront.detected : ''}_${this.state.activeNpc ? this.state.activeNpc.id : ''}_${partySig}`;
 
         if (!force && this.lastSig === currentSig && !this.state.combat.active) {
             // Context hasn't changed during exploration movement; skip heavy innerHTML DOM rebuilding
@@ -103,6 +106,7 @@ export class UIController {
                 const cache = this.hudCache.heroes[index];
                 const isInc = hero.hp <= 0;
 
+                if (cache.levelUp) cache.levelUp.innerHTML = '';
                 cache.card.className = isInc ? 'hero-card incapacitated' : 'hero-card';
                 const avatarMap = { fighter: '🛡️', thief: '🗡️', cleric: '✨', mage: '🔮' };
                 cache.avatar.textContent = avatarMap[hero.classKey] || '👤';
@@ -283,9 +287,26 @@ export class UIController {
                     secondaryMetricBar = `<div class="metric-label"><span>Divine Favor</span><span>${hero.divineFavor}%</span></div><div class="status-bar-bg"><div class="favor-fill" style="width: ${favorPct}%;"></div></div>`;
                 }
 
-                if (lockTarget) {
-                    if (hero.classKey === 'fighter' && lockTarget.methods.includes('brute')) cardActions += `<button id="bash-btn" class="tsr-sq-btn">${this.SVG_ICONS.BASH}<span class="btn-word">Bash</span></button>`;
-                    if (hero.classKey === 'mage' && lockTarget.methods.includes('arcane')) cardActions += `<button id="read-magic-btn" class="tsr-sq-btn">${this.SVG_ICONS.READ}<span class="btn-word">Read</span></button>`;
+                if (lockTarget && !isInc) {
+                    if (hero.classKey === 'fighter' && lockTarget.methods?.includes('brute')) {
+                        cardActions = `<div class="card-actions-grid"><button id="bash-btn" class="tsr-sq-btn">${this.SVG_ICONS.BASH}<span class="btn-word">Bash</span></button></div>`;
+                    }
+                    if (hero.classKey === 'mage' && lockTarget.methods?.includes('arcane')) {
+                        cardActions += `<button id="read-magic-btn" class="tsr-sq-btn">${this.SVG_ICONS.READ}<span class="btn-word">Read</span></button>`;
+                    }
+                }
+
+                if (cache.levelUp) {
+                    if (hero.canLevelUp && !isInc) {
+                        const canTrain = this.state.canPartyTrain();
+                        if (canTrain) {
+                            cache.levelUp.innerHTML = `<button class="tsr-level-up-btn active" data-hero-index="${index}">⭐ LEVEL UP (Train)</button>`;
+                        } else {
+                            cache.levelUp.innerHTML = `<button class="tsr-level-up-btn locked" data-hero-index="${index}" disabled title="Return to town or village to train">⭐ LEVEL UP (Need Village)</button>`;
+                        }
+                    } else {
+                        cache.levelUp.innerHTML = '';
+                    }
                 }
 
                 cache.secondary.innerHTML = secondaryMetricBar;
@@ -296,6 +317,15 @@ export class UIController {
 
     initListeners() {
         this.elements.partyContainer.addEventListener('click', (e) => {
+            const lvlBtn = e.target.closest('.tsr-level-up-btn');
+            if (lvlBtn && !lvlBtn.disabled) {
+                const hIdx = parseInt(lvlBtn.getAttribute('data-hero-index'), 10);
+                if (this.callbacks.onLevelUpClick) {
+                    this.callbacks.onLevelUpClick(hIdx);
+                }
+                return;
+            }
+
             const nameEl = e.target.closest('.hero-name-click');
             if (nameEl) {
                 this.callbacks.onOpenSheet(nameEl.getAttribute('data-hero-name'));

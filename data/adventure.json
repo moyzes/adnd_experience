@@ -21,6 +21,8 @@
     "y": 13,
     "facing": "NORTH"
   },
+  "dungeon_y_max": 12,
+  "surface_y_min": 13,
   "legend": {
     "0": {
       "name": "Flooded Flagstone",

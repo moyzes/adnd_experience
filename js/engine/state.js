@@ -37,7 +37,9 @@ export class GameState {
     'Dagger': { id: 'dagger', kind: 'weapon', scope: 'personal', description: 'Small blade, easily concealed.', stackable: false, usable: false, price: 2 },
     'Warhammer': { id: 'warhammer', kind: 'weapon', scope: 'personal', description: 'Bludgeoning weapon favored by clerics.', stackable: false, usable: false, price: 8 },
     'Quarterstaff': { id: 'quarterstaff', kind: 'weapon', scope: 'personal', description: 'Simple wooden staff.', stackable: false, usable: false, price: 2 },
-    'Short Sword': { id: 'short_sword', kind: 'weapon', scope: 'personal', description: 'Light blade preferred by thieves.', stackable: false, usable: false, price: 8 }
+    'Short Sword': { id: 'short_sword', kind: 'weapon', scope: 'personal', description: 'Light blade preferred by thieves.', stackable: false, usable: false, price: 8 },
+    'Sun-Forged Relic of Dawn': { id: 'sun_relic', kind: 'quest', scope: 'party', description: 'A gleaming solar artifact consecrated in ancient times. Recovered from the goblin ruins.', stackable: false, usable: false, price: null },
+    'Ancient Rubies': { id: 'rubies', kind: 'treasure', scope: 'party', description: 'Glittering gemstones plundered by the goblins.', stackable: true, usable: false, price: null }
   };
 
   /** Attack Bonus Growth per class, purely dependent on current level. */
@@ -117,7 +119,77 @@ export class GameState {
       channelingCast: null       // Track multi-turn casting
     };
 
+    this.torchLitUntil = 0;
+    this.lightSpellUntil = 0;
+
     this.onLog = null; // UI Event Delegate Hook
+  }
+
+  /**
+   * Illumination and Dungeon Darkness Queries
+   */
+  getActiveLightSource() {
+    const now = Date.now();
+    if (this.lightSpellUntil && this.lightSpellUntil > now) {
+      const remainingMs = this.lightSpellUntil - now;
+      return {
+        active: true,
+        type: 'arcane_light',
+        remainingMs,
+        remainingSeconds: Math.ceil(remainingMs / 1000)
+      };
+    }
+    if (this.torchLitUntil && this.torchLitUntil > now) {
+      const remainingMs = this.torchLitUntil - now;
+      return {
+        active: true,
+        type: 'torch',
+        remainingMs,
+        remainingSeconds: Math.ceil(remainingMs / 1000)
+      };
+    }
+    return { active: false, type: null, remainingMs: 0, remainingSeconds: 0 };
+  }
+
+  isWildernessTile(x = this.player.x, y = this.player.y) {
+    if (y < 0 || y >= this.spec.map.length || x < 0 || x >= this.spec.map[0].length) return false;
+    const tileId = this.spec.map[y][x];
+    const legendEntry = this.spec.legend && this.spec.legend[String(tileId)];
+    if (legendEntry && (legendEntry.zone === 'wilderness' || legendEntry.zone === 'surface' || legendEntry.zone === 'village' || legendEntry.wilderness === true)) {
+      return true;
+    }
+    if (tileId === 4 || tileId === 5) return true;
+    if (this.spec.surface_y_min !== undefined && y >= this.spec.surface_y_min) return true;
+    if (this.spec.dungeon_y_max !== undefined && y > this.spec.dungeon_y_max) return true;
+    return false;
+  }
+
+  isDarknessActive(x = this.player.x, y = this.player.y) {
+    if (this.spec.dark_dungeon === false || this.spec.darkness === false) return false;
+    if (this.isWildernessTile(x, y)) return false;
+
+    // Check legend metadata for the current tile
+    if (y >= 0 && y < this.spec.map.length && x >= 0 && x < this.spec.map[0].length) {
+      const tileId = this.spec.map[y][x];
+      const legendEntry = this.spec.legend && this.spec.legend[String(tileId)];
+      if (legendEntry) {
+        if (legendEntry.darkness === false || legendEntry.lit === true || legendEntry.action === 'shop' || legendEntry.action === 'atonement') {
+          return false;
+        }
+      }
+    }
+
+    // Check adventure level bounds
+    if (this.spec.surface_y_min !== undefined && y >= this.spec.surface_y_min) return false;
+    if (this.spec.dungeon_y_max !== undefined && y > this.spec.dungeon_y_max) return false;
+    if (this.spec.dungeon_y_min !== undefined && y < this.spec.dungeon_y_min) return false;
+
+    return true;
+  }
+
+  canPartySeeAhead() {
+    if (!this.isDarknessActive()) return true;
+    return this.getActiveLightSource().active;
   }
 
   /**
@@ -137,6 +209,9 @@ export class GameState {
       inventory = [{ name: 'Short Bow', amount: 1 }];
     }
 
+    const xpTable = archetype.xp_table || (classKey === 'thief' ? [0, 1250, 2500, 5000, 10000, 20000, 40000, 70000, 110000, 160000] : classKey === 'cleric' ? [0, 1500, 3000, 6000, 13000, 27500, 55000, 110000, 225000, 450000] : classKey === 'fighter' ? [0, 2000, 4000, 8000, 16000, 32000, 64000, 125000, 250000, 500000] : [0, 2500, 5000, 10000, 20000, 40000, 60000, 90000, 135000, 250000]);
+    const nextLevelXp = xpTable[1] || 2000;
+
     const member = {
       name: customName,
       classKey: classKey,
@@ -144,7 +219,8 @@ export class GameState {
       group: archetype.group,
       level: 1,
       xp: 0,
-      nextLevelXp: 500,
+      nextLevelXp: nextLevelXp,
+      canLevelUp: false,
       hp: archetype.starting_hp,
       maxHp: archetype.starting_hp,
       armorClass: archetype.armor_class || 5,
@@ -207,6 +283,50 @@ export class GameState {
   // ===========================================================================
   // PROGRESSION & STAT RESOLUTION
   // ===========================================================================
+
+  /**
+   * Retrieves the XP threshold needed for the next level from archetype specs or defaults.
+   */
+  getXPForNextLevel(classKey, currentLevel) {
+    const archetype = this.classesSpec?.archetypes?.[classKey];
+    const defaultTables = {
+      thief:   [0, 1250, 2500, 5000, 10000, 20000, 40000, 70000, 110000, 160000],
+      cleric:  [0, 1500, 3000, 6000, 13000, 27500, 55000, 110000, 225000, 450000],
+      fighter: [0, 2000, 4000, 8000, 16000, 32000, 64000, 125000, 250000, 500000],
+      mage:    [0, 2500, 5000, 10000, 20000, 40000, 60000, 90000, 135000, 250000]
+    };
+    const table = archetype?.xp_table || defaultTables[classKey] || defaultTables.fighter;
+    if (currentLevel < table.length) {
+      return table[currentLevel];
+    }
+    return Math.round(table[table.length - 1] * Math.pow(2, currentLevel - table.length + 1));
+  }
+
+  /**
+   * Calculates Constitution HP modifier according to AD&D 2e rules.
+   */
+  getConHpModifier(hero) {
+    const con = hero.attributes?.constitution || 10;
+    const isWarrior = hero.classKey === 'fighter';
+    if (con <= 3) return -2;
+    if (con <= 6) return -1;
+    if (con <= 14) return 0;
+    if (con === 15) return 1;
+    if (con === 16) return 2;
+    if (con === 17) return isWarrior ? 3 : 2;
+    if (con >= 18) return isWarrior ? 4 : 2;
+    return 0;
+  }
+
+  /**
+   * Checks whether the party is in town/village/wilderness where training mentors reside.
+   */
+  canPartyTrain() {
+    if (this.combat.active) return false;
+    if (this.isWildernessTile()) return true;
+    if (this.isNearShop()) return true;
+    return false;
+  }
 
   /** * Calculates attack bonus exclusively from level growth. Pure function. 
    */
@@ -287,11 +407,18 @@ export class GameState {
   // INVENTORY MANAGEMENT
   // ===========================================================================
 
-  isKnownWeapon(weaponName) { return !!GameState.WEAPON_CATALOG[weaponName]; }
-  getItemDef(name) { return GameState.ITEM_CATALOG[name] || null; }
+  isKnownWeapon(weaponName) {
+    if (this.spec.weapons && this.spec.weapons[weaponName]) return true;
+    return !!GameState.WEAPON_CATALOG[weaponName];
+  }
+
+  getItemDef(name) {
+    if (this.spec.items && this.spec.items[name]) return this.spec.items[name];
+    return GameState.ITEM_CATALOG[name] || null;
+  }
   
   isRangedWeapon(weaponName) {
-    const def = GameState.WEAPON_CATALOG[weaponName];
+    const def = (this.spec.weapons && this.spec.weapons[weaponName]) || GameState.WEAPON_CATALOG[weaponName];
     return !!(def && def.category === 'ranged');
   }
 
@@ -408,7 +535,7 @@ export class GameState {
     if (def.useEffect === 'light') {
       this.removePartyItem(itemName, 1);
       this.torchLitUntil = Date.now() + 3 * 60 * 1000;
-      return { success: true, log: `A torch is lit. The darkness retreats for a while.` };
+      return { success: true, log: `🔥 A torch is lit! Warm, flickering flames push back the dungeon darkness for 3 minutes.` };
     }
 
     if (def.useEffect === 'repair_tools') {
@@ -509,6 +636,7 @@ export class GameState {
       }
     });
 
+    const isDarkAmbush = this.isDarknessActive() && !this.canPartySeeAhead();
     this.combat = {
       active: true,
       round: 1,
@@ -517,11 +645,20 @@ export class GameState {
       queuedCommands: {},
       previousCommands: {},
       channelingCast: null,
-      surpriseRound: !!encSpec.scouted,
-      alertedRound: !!encSpec.alerted
+      surpriseRound: !isDarkAmbush && !!encSpec.scouted,
+      alertedRound: isDarkAmbush || !!encSpec.alerted
     };
 
-    this.addLog(`⚔️ COMBAT ENGAGED! ${encSpec.name} (${spawnedEnemies.length} hostiles present).`, "danger");
+    if (isDarkAmbush) {
+      this.addLog(`🌑 AMBUSHED IN THE DARK! Without a torch or light spell, the enemies strike from the gloom!`, "danger");
+    } else {
+      const light = this.getActiveLightSource();
+      if (light.active) {
+        const srcName = light.type === 'arcane_light' ? 'Arcane Light' : 'Torchlight';
+        this.addLog(`🔥 ${srcName} reveals ${encSpec.name} ahead, preventing a dark ambush!`, "info");
+      }
+      this.addLog(`⚔️ COMBAT ENGAGED! ${encSpec.name} (${spawnedEnemies.length} hostiles present).`, "danger");
+    }
     return true;
   }
 
@@ -1011,102 +1148,196 @@ export class GameState {
     this.combat.round += 1;
     if (victory) {
       this.combat.active = false;
-      this.awardQuestXP(totalXp || 0);
+      if (totalXp > 0) {
+        this.awardQuestXP(totalXp);
+      }
     }
   }
 
-  grantLevelUpSpells(hero) {
-    if (hero.classKey === 'mage') {
-      const tiers = this.classesSpec.archetypes.mage.vancian_magic.spell_tiers;
-      if (!tiers) return;
-      let newSpells = [];
-      if (hero.level === 3) newSpells = tiers["2"] || [];
-      if (hero.level === 6) newSpells = tiers["3"] || [];
-      if (hero.level === 9) newSpells = tiers["4"] || [];
-      
-      newSpells.forEach(spellDef => {
-        if (!hero.spells.some(s => s.id === spellDef.id)) {
-          hero.spells.push({
-            id: spellDef.id,
-            name: spellDef.name,
-            level: spellDef.level || 1,
-            cognitive_load: spellDef.cognitive_load || 20,
-            casting_time: spellDef.casting_time || 'normal',
-            target: spellDef.target || 'enemy',
-            effect: spellDef.effect ? { ...spellDef.effect } : null,
-            description: spellDef.description || '',
-            spent: false
-          });
-          this.addLog(`✨ ARCANE MILESTONE! ${hero.name} has comprehended ${spellDef.name}!`, "success");
-        }
-      });
-    } else if (hero.classKey === 'cleric') {
-      const tiers = this.classesSpec.archetypes.cleric.spells_available_by_tier;
-      if (!tiers) return;
-      let newSpells = [];
-      if (hero.level === 3) newSpells = tiers["2"] || [];
-      if (hero.level === 6) newSpells = tiers["3"] || [];
-      if (hero.level === 9) newSpells = tiers["4"] || [];
-      
-      newSpells.forEach(spellDef => {
-        if (!hero.spells.some(s => s.id === spellDef.id)) {
-          hero.spells.push({
-            id: spellDef.id,
-            name: spellDef.name,
-            level: spellDef.level || 1,
-            target: spellDef.target || 'ally',
-            effect: spellDef.effect ? { ...spellDef.effect } : null,
-            description: spellDef.description || '',
-            spent: false
-          });
-          this.addLog(`✨ DIVINE REVELATION! ${hero.name} is granted prayer: ${spellDef.name}!`, "success");
-        }
-      });
-    }
-  }
-
+  /**
+   * Awards quest / combat XP divided equally among living party members.
+   * Marks heroes as eligible for level-up rather than auto-advancing them in the dungeon.
+   */
   awardQuestXP(amount) {
-    const levelUps = [];
+    if (!amount || amount <= 0) return [];
 
-    this.party.forEach(hero => {
-      const hpBefore = hero.maxHp;
-      const atkBefore = hero.attackBonus || 1;
-      
-      hero.xp = (hero.xp || 0) + amount;
-      while (hero.xp >= hero.nextLevelXp && hero.level < 10) {
-        hero.level += 1;
-        hero.nextLevelXp = Math.round(hero.nextLevelXp * 2.2);
-        
-        const hpBonus = hero.classKey === 'fighter' ? 15 : hero.classKey === 'cleric' ? 10 : 8;
-        hero.maxHp += hpBonus;
-        hero.hp = Math.min(hero.maxHp, hero.hp + hpBonus);
+    // Only living heroes earn XP; dead/incapacitated heroes do not earn XP
+    const livingHeroes = this.party.filter(hero => hero.hp > 0);
+    if (livingHeroes.length === 0) return [];
 
-        if (hero.classKey === 'mage') {
-          hero.maxCognition = (hero.maxCognition || 100) + 5;
+    const share = Math.max(1, Math.floor(amount / livingHeroes.length));
+    const newlyReadyHeroes = [];
+
+    livingHeroes.forEach(hero => {
+      hero.xp = (hero.xp || 0) + share;
+      if (hero.xp >= hero.nextLevelXp && hero.level < 10) {
+        if (!hero.canLevelUp) {
+          hero.canLevelUp = true;
+          newlyReadyHeroes.push(hero);
+          this.addLog(`⭐ ${hero.name} has gained enough experience (${hero.xp}/${hero.nextLevelXp} XP) to advance to Level ${hero.level + 1}! Return to the village to train and advance.`, "success");
         }
-
-        const atkGrowth = GameState.ATTACK_BONUS_GROWTH[hero.classKey] ?? 0.5;
-        const newAtk = (hero.attackBonus || 1) + atkGrowth;
-
-        levelUps.push({
-          heroName: hero.name,
-          heroIndex: this.party.indexOf(hero),
-          newLevel: hero.level,
-          hpBefore: hpBefore,
-          hpAfter: hero.maxHp,
-          hpGain: hpBonus,
-          atkBefore: atkBefore,
-          atkAfter: newAtk,
-          atkGain: atkGrowth,
-          classKey: hero.classKey
-        });
-
-        this.grantLevelUpSpells(hero);
-        this.addLog(`LEVEL UP! ${hero.name} reached Level ${hero.level}! (+${hpBonus} HP)`, "success");
       }
     });
 
-    return levelUps;
+    return newlyReadyHeroes;
+  }
+
+  /**
+   * Prepares the options and rolled metrics for a hero's training advancement modal.
+   */
+  calculateLevelUpOptions(heroIndex) {
+    const hero = this.party[heroIndex];
+    if (!hero) return null;
+
+    const archetype = this.classesSpec?.archetypes?.[hero.classKey] || {};
+    const hitDie = archetype.hit_die || (hero.classKey === 'fighter' ? 10 : hero.classKey === 'cleric' ? 8 : hero.classKey === 'thief' ? 6 : 4);
+    const conMod = this.getConHpModifier(hero);
+    const nextLevel = hero.level + 1;
+    const rolledDie = Math.floor(Math.random() * hitDie) + 1;
+    const calculatedHpGain = Math.max(1, rolledDie + conMod);
+    const atkGrowth = GameState.ATTACK_BONUS_GROWTH[hero.classKey] ?? 0.5;
+
+    // Available unlearned spells for Casters
+    let availableSpells = [];
+    if (hero.classKey === 'mage') {
+      const spellTiers = archetype.vancian_magic?.spell_tiers || {};
+      Object.entries(spellTiers).forEach(([tierStr, spells]) => {
+        const tierNum = parseInt(tierStr, 10);
+        // Spells available up to the unlocked tier (tier 1 at L1, tier 2 at L3, tier 3 at L6, tier 4 at L9)
+        const maxAllowedTier = nextLevel >= 9 ? 4 : nextLevel >= 6 ? 3 : nextLevel >= 3 ? 2 : 1;
+        if (tierNum <= maxAllowedTier) {
+          spells.forEach(s => {
+            if (!hero.spells.some(hs => hs.id === s.id)) {
+              availableSpells.push({ ...s, tier: tierNum });
+            }
+          });
+        }
+      });
+    } else if (hero.classKey === 'cleric') {
+      const spellTiers = archetype.spells_available_by_tier || {};
+      Object.entries(spellTiers).forEach(([tierStr, spells]) => {
+        const tierNum = parseInt(tierStr, 10);
+        const maxAllowedTier = nextLevel >= 9 ? 4 : nextLevel >= 6 ? 3 : nextLevel >= 3 ? 2 : 1;
+        if (tierNum <= maxAllowedTier) {
+          spells.forEach(s => {
+            if (!hero.spells.some(hs => hs.id === s.id)) {
+              availableSpells.push({ ...s, tier: tierNum });
+            }
+          });
+        }
+      });
+    }
+
+    return {
+      heroIndex,
+      heroName: hero.name,
+      className: hero.className,
+      classKey: hero.classKey,
+      currentLevel: hero.level,
+      nextLevel,
+      hitDie,
+      rolledDie,
+      conMod,
+      hpGain: calculatedHpGain,
+      currentHp: hero.hp,
+      currentMaxHp: hero.maxHp,
+      atkGrowth,
+      currentAtk: hero.attackBonus || 1,
+      thiefPoints: hero.classKey === 'thief' ? (archetype.discretionary_skill_points_per_level || 15) : 0,
+      skills: hero.skills ? JSON.parse(JSON.stringify(hero.skills)) : {},
+      availableSpells
+    };
+  }
+
+  /**
+   * Applies the finalized training advancement choices made by the player.
+   */
+  applyLevelUp(heroIndex, choices) {
+    const hero = this.party[heroIndex];
+    if (!hero) return { success: false, reason: "Hero not found." };
+    if (!hero.canLevelUp) return { success: false, reason: "Hero is not ready to level up." };
+
+    const oldLevel = hero.level;
+    const hpGain = choices.hpGain || 5;
+    const atkGrowth = GameState.ATTACK_BONUS_GROWTH[hero.classKey] ?? 0.5;
+
+    hero.level += 1;
+    hero.nextLevelXp = this.getXPForNextLevel(hero.classKey, hero.level);
+    hero.canLevelUp = (hero.xp >= hero.nextLevelXp && hero.level < 10);
+
+    // Apply HP
+    hero.maxHp += hpGain;
+    hero.hp = Math.min(hero.maxHp, hero.hp + hpGain);
+
+    // Apply Attack Bonus
+    hero.attackBonus = (hero.attackBonus || 1) + atkGrowth;
+
+    // Apply Thief Discretionary Points
+    if (hero.classKey === 'thief' && choices.skillAllocations) {
+      Object.entries(choices.skillAllocations).forEach(([skillKey, pts]) => {
+        if (hero.skills && hero.skills[skillKey] && pts > 0) {
+          hero.skills[skillKey].base = Math.min(99, (hero.skills[skillKey].base || 0) + pts);
+        }
+      });
+    }
+
+    // Apply Mage cognition boost & selected spells
+    if (hero.classKey === 'mage') {
+      hero.maxCognition = (hero.maxCognition || 100) + 10;
+      hero.cognition = hero.maxCognition;
+      if (choices.newSpells && Array.isArray(choices.newSpells)) {
+        choices.newSpells.forEach(spellDef => {
+          if (!hero.spells.some(s => s.id === spellDef.id)) {
+            hero.spells.push({
+              id: spellDef.id,
+              name: spellDef.name,
+              level: spellDef.level || 1,
+              cognitive_load: spellDef.cognitive_load || 20,
+              casting_time: spellDef.casting_time || 'normal',
+              target: spellDef.target || 'enemy',
+              effect: spellDef.effect ? { ...spellDef.effect } : null,
+              description: spellDef.description || '',
+              spent: false
+            });
+          }
+        });
+      }
+    }
+
+    // Apply Cleric divine favor boost & selected prayers
+    if (hero.classKey === 'cleric') {
+      hero.maxDivineFavor = (hero.maxDivineFavor || 100) + 5;
+      hero.divineFavor = hero.maxDivineFavor;
+      if (choices.newSpells && Array.isArray(choices.newSpells)) {
+        choices.newSpells.forEach(spellDef => {
+          if (!hero.spells.some(s => s.id === spellDef.id)) {
+            hero.spells.push({
+              id: spellDef.id,
+              name: spellDef.name,
+              level: spellDef.level || 1,
+              target: spellDef.target || 'ally',
+              effect: spellDef.effect ? { ...spellDef.effect } : null,
+              description: spellDef.description || '',
+              spent: false
+            });
+          }
+        });
+      }
+    }
+
+    this.addLog(`⭐ ${hero.name} has finished intensive training in town and attained Level ${hero.level}! (+${hpGain} HP, +${atkGrowth.toFixed(2)} to-hit)`, "success");
+
+    return {
+      success: true,
+      heroName: hero.name,
+      heroIndex,
+      oldLevel,
+      newLevel: hero.level,
+      hpGain,
+      maxHp: hero.maxHp,
+      attackBonus: hero.attackBonus,
+      classKey: hero.classKey
+    };
   }
 
   // ===========================================================================
@@ -1380,8 +1611,15 @@ export class GameState {
     const key = `${x},${y}`;
     if (this.openedChests.has(key)) return null;
     this.openedChests.add(key);
-    const generatedLoot = [{ name: "Potion of Healing", type: "consumable" }, { name: "Gold Pieces", amount: 75, type: "currency" }];
-    this.inventory.push(...generatedLoot);
+    let generatedLoot = null;
+    if (this.spec.chests && this.spec.chests[key]) {
+      generatedLoot = JSON.parse(JSON.stringify(this.spec.chests[key]));
+    } else {
+      generatedLoot = [{ name: "Healing Potion", type: "consumable" }, { name: "Gold Pieces", amount: 75, type: "currency" }];
+    }
+    generatedLoot.forEach(item => {
+      this.addPartyItem(item.name, item.amount || 1);
+    });
     return generatedLoot;
   }
 
@@ -1558,13 +1796,103 @@ export class GameState {
     return { success: true, restored, status: cleric.ethosStatus, divineFavor: cleric.divineFavor };
   }
 
-  castClericPrayer(spellIndex) {
+  castClericPrayer(spellIndex, targetHeroIndex = null) {
     const cleric = this.party.find(p => p.classKey === 'cleric');
     if (!cleric) return { success: false, reason: "No cleric in party." };
+    if (cleric.hp <= 0) return { success: false, reason: "The cleric is incapacitated and cannot invoke prayers." };
     if (cleric.divineFavor <= 0 || cleric.absoluteSilence) return { success: false, reason: "Absolute Silence — no divine power flows." };
     if (!cleric.spells[spellIndex] || cleric.spells[spellIndex].spent) return { success: false, reason: "That prayer was already invoked today." };
     
     const spell = cleric.spells[spellIndex];
+    const effect = spell.effect || {};
+
+    if (effect.type === 'heal') {
+      let target = null;
+      let targetIdx = targetHeroIndex;
+
+      // If no target index provided, auto-select the most wounded hero
+      if (targetIdx == null || targetIdx < 0 || targetIdx >= this.party.length) {
+        let lowestHpRatio = 1.0;
+        let candidateIdx = null;
+        this.party.forEach((h, i) => {
+          if (h.hp < h.maxHp) {
+            const ratio = h.hp / h.maxHp;
+            if (ratio < lowestHpRatio) {
+              lowestHpRatio = ratio;
+              candidateIdx = i;
+            }
+          }
+        });
+        if (candidateIdx === null) {
+          return { success: false, reason: "All party members are already at full health." };
+        }
+        targetIdx = candidateIdx;
+      }
+
+      target = this.party[targetIdx];
+      if (!target) return { success: false, reason: "Invalid target ally." };
+      if (target.hp >= target.maxHp) {
+        return { success: false, reason: `${target.name} is already at full health.` };
+      }
+
+      const healAmt = effect.amount || 15;
+      const before = target.hp;
+      target.hp = Math.min(target.maxHp, target.hp + healAmt);
+      const actualHealed = target.hp - before;
+      spell.spent = true;
+
+      return {
+        success: true,
+        spellName: spell.name,
+        spellId: spell.id,
+        effect: spell.effect,
+        target: spell.target,
+        targetHeroIndex: targetIdx,
+        targetHeroName: target.name,
+        hpHealed: actualHealed,
+        currentHp: target.hp,
+        maxHp: target.maxHp,
+        wasIncapacitated: before <= 0
+      };
+    } else if (effect.type === 'party_heal') {
+      let totalHealed = 0;
+      const healedMembers = [];
+      this.party.forEach((h, i) => {
+        if (h.hp < h.maxHp) {
+          const healAmt = effect.amount || 20;
+          const before = h.hp;
+          h.hp = Math.min(h.maxHp, h.hp + healAmt);
+          const gained = h.hp - before;
+          totalHealed += gained;
+          healedMembers.push({ name: h.name, gained, hp: h.hp, maxHp: h.maxHp });
+        }
+      });
+      spell.spent = true;
+      return {
+        success: true,
+        spellName: spell.name,
+        spellId: spell.id,
+        effect: spell.effect,
+        target: spell.target,
+        totalHealed,
+        healedMembers
+      };
+    } else if (effect.type === 'buff_attack') {
+      this.party.forEach(h => {
+        if (h.hp > 0) {
+          h.tempAttackBonus = effect.amount || 1;
+          h.tempAttackRounds = effect.duration_rounds || 4;
+        }
+      });
+      spell.spent = true;
+      return { success: true, spellName: spell.name, spellId: spell.id, effect: spell.effect, target: spell.target };
+    } else if (effect.type === 'buff_ac') {
+      cleric.tempAcBonus = effect.amount || 2;
+      cleric.tempAcRounds = effect.duration_rounds || 3;
+      spell.spent = true;
+      return { success: true, spellName: spell.name, spellId: spell.id, effect: spell.effect, target: spell.target };
+    }
+
     spell.spent = true;
     return { success: true, spellName: spell.name, spellId: spell.id, effect: spell.effect, target: spell.target };
   }
@@ -1577,13 +1905,32 @@ export class GameState {
 
   castMageSpell(spellIndex) {
     const mage = this.party.find(p => p.classKey === 'mage');
-    if (!mage || !mage.spells[spellIndex] || mage.spells[spellIndex].spent) return { success: false, reason: "Spell already spent or invalid!" };
+    if (!mage) return { success: false, reason: "No mage in party." };
+    if (mage.hp <= 0) return { success: false, reason: "The mage is incapacitated!" };
+    if (!mage.spells[spellIndex] || mage.spells[spellIndex].spent) return { success: false, reason: "Spell already spent or invalid!" };
     
     const spell = mage.spells[spellIndex];
     const load = spell.cognitive_load || 20;
     const refund = Math.floor(load * 0.8);
     spell.spent = true;
     mage.cognition = Math.min(mage.maxCognition, mage.cognition + refund);
+
+    if (spell.id === 'light' || (spell.effect && spell.effect.type === 'illumination')) {
+      const durationSeconds = spell.effect?.duration_seconds || 240;
+      this.lightSpellUntil = Date.now() + durationSeconds * 1000;
+      return {
+        success: true,
+        spellName: spell.name,
+        spellId: spell.id,
+        isLightSpell: true,
+        refund,
+        residualBurn: load - refund,
+        currentCognition: mage.cognition,
+        effect: spell.effect,
+        target: spell.target,
+        log: `✨ ${mage.name} casts Arcane Light! An eerie sphere of radiant luminescence hovers above the party for 4 minutes.`
+      };
+    }
     
     return { success: true, spellName: spell.name, spellId: spell.id, refund, residualBurn: load - refund, currentCognition: mage.cognition, effect: spell.effect, target: spell.target };
   }

@@ -17,9 +17,10 @@ export class ShopUI {
     }
     if (!this.state.isNearShop()) {
       const tile = this.state.getShopTile();
+      const shopName = (this.state.spec.shop && this.state.spec.shop.name) || 'The Outfitter';
       return this.context.log(
         tile
-          ? `The Thorn Outfitter keeps a stall at the chapel approach (minimap: gold tile near the entrance). Walk there to trade.`
+          ? `${shopName} is located nearby (minimap: gold tile). Walk there to trade.`
           : `There is no outfitter nearby.`,
         "warning"
       );

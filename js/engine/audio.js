@@ -39,22 +39,44 @@ export class AudioManager {
     victory: '/assets/audio/victory.mp3',
 
     // Magic / divine
+    cure_wounds: '/assets/audio/cure_wounds.mp3',
     magic_missile: '/assets/audio/magic_missile.mp3',
     sleep: '/assets/audio/sleep.mp3',
     bless: '/assets/audio/bless.mp3',
     turn_undead: '/assets/audio/turn_undead.mp3',
+    relic: '/assets/audio/relic.mp3',
+    goblin: '/assets/audio/goblin.mp3',
+    level_up: '/assets/audio/level_up.mp3',
+    monster_grunt: '/assets/audio/monster-grunts.mp3',
+    ranged: '/assets/audio/ranged.mp3',
+    sword_missed: '/assets/audio/sword_missed.mp3',
+    combat_turn_1: '/assets/audio/combat_turn-1.mp3',
   };
 
   /**
-   * Looping / long tracks — combat music, camp ambient, etc.
+   * Looping / long tracks — combat music, camp ambient, dungeon environments, etc.
    */
   static BGM = {
     combat_1: '/assets/audio/combat_1.mp3',
     combat_2: '/assets/audio/combat_2.mp3',
     combat_3: '/assets/audio/combat_3.mp3',
+    dungeon: '/assets/audio/dungeon.mp3',
+    wilderness: '/assets/audio/wilderness.mp3',
     campfire: '/assets/audio/campfire.mp3',
     crickets: '/assets/audio/crickets.mp3',
+    ambience_1: '/assets/audio/ambience_1.mp3',
+    wilderness_1: '/assets/audio/wilderness_1.mp3',
+    dark_forest: '/assets/audio/dark_forest.mp3',
+    ruin_dungeon_1: '/assets/audio/ruin_dungeon_1.mp3',
   };
+
+  /**
+   * Allows an adventure module JSON spec to register custom SFX or BGM tracks declaratively.
+   */
+  static registerCustomAudio(customAudio = {}) {
+    if (customAudio.sfx) Object.assign(AudioManager.SFX, customAudio.sfx);
+    if (customAudio.bgm) Object.assign(AudioManager.BGM, customAudio.bgm);
+  }
 
   constructor() {
     this.sfxVolume = 0.85;
