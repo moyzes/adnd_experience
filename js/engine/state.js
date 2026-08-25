@@ -1,3 +1,5 @@
+import { resolveSavingThrow } from './saving_throws.js';
+
 /**
  * GameState acts as the central data store and rules engine for the dungeon crawler.
  * It manages player position, party metrics, skill resolution (d100 tradecraft for Thieves,
@@ -1085,12 +1087,46 @@ export class GameState {
         if (adjustedRoll <= effectiveTarget) {
           const rawDmg = this.rollMonsterDamage(mob.damage);
           simHeroHp[finalHeroIndex] = Math.max(0, simHeroHp[finalHeroIndex] - rawDmg);
-          const isDead = simHeroHp[finalHeroIndex] <= 0;
+          let isDead = simHeroHp[finalHeroIndex] <= 0;
 
           let logText = redirected ? `💥 ${mob.name} strikes at ${targetHero.name} — ${finalHero.name} interposes and takes ${rawDmg} damage!` : `💥 ${mob.name} strikes ${finalHero.name} for ${rawDmg} damage!`;
           castInterrupted[finalHeroIndex] = true;
 
           combatEvents.push({ eventType: 'HERO_HIT', sourceName: mob.name, targetHeroIndex: finalHeroIndex, targetHeroName: finalHero.name, damage: rawDmg, isDead: isDead, redirected: redirected, logText: logText, logType: 'danger' });
+
+          // Saving throw trigger for monsters with venom, paralyzation, breath, or spells
+          if (!isDead && (mob.special_attack || mob.save_category)) {
+            const saveCat = mob.save_category || (mob.special_attack === 'poison' ? 'poison' : 'spell');
+            const saveSub = mob.special_attack || 'poison';
+            const saveRes = this.checkSavingThrow(finalHero, saveCat, saveSub);
+            
+            if (saveRes.success) {
+              combatEvents.push({
+                eventType: 'SAVE_SUCCESS',
+                savingThrow: saveRes,
+                targetHeroIndex: finalHeroIndex,
+                targetHeroName: finalHero.name,
+                sourceName: mob.name,
+                logText: `⚡ SAVING THROW: ${saveRes.narrative} (d20=${saveRes.roll} vs target ${saveRes.target})`,
+                logType: 'success'
+              });
+            } else {
+              const extraDmg = mob.poison_damage || mob.special_damage || 4;
+              simHeroHp[finalHeroIndex] = Math.max(0, simHeroHp[finalHeroIndex] - extraDmg);
+              isDead = simHeroHp[finalHeroIndex] <= 0;
+              combatEvents.push({
+                eventType: 'SAVE_FAILURE',
+                savingThrow: saveRes,
+                targetHeroIndex: finalHeroIndex,
+                targetHeroName: finalHero.name,
+                damage: extraDmg,
+                isDead: isDead,
+                sourceName: mob.name,
+                logText: `💀 FAILED SAVE: ${saveRes.narrative} (Takes +${extraDmg} toxic damage!)`,
+                logType: 'danger'
+              });
+            }
+          }
         } else {
           combatEvents.push({
             eventType: 'MONSTER_MISS', sourceName: mob.name, targetHeroName: redirected ? finalHero.name : targetHero.name,
@@ -1534,18 +1570,23 @@ export class GameState {
   triggerTrap(trapDef) {
     const totalDamage = trapDef.damage || 15;
     const category = trapDef.saveCategory || 'breath';
+    const subCategory = trapDef.subCategory || trapDef.name;
     const activeMembers = this.party.filter(p => p.hp > 0);
     if (activeMembers.length === 0) return { totalDamage, category, damagePerPlayer: 0, results: [] };
 
     const damagePerPlayer = Math.ceil(totalDamage / activeMembers.length);
     const results = activeMembers.map(member => {
-      const save = this.checkSavingThrow(member, category);
+      const save = this.checkSavingThrow(member, category, subCategory);
       const damage = save.success ? Math.ceil(damagePerPlayer / 2) : damagePerPlayer;
       member.hp = Math.max(0, member.hp - damage);
       return { heroName: member.name, heroIndex: this.party.indexOf(member), save, damage, isDead: member.hp <= 0 };
     });
 
     return { totalDamage, category, damagePerPlayer, results };
+  }
+
+  checkSavingThrow(hero, category, subCategory = null, dcBonus = 0) {
+    return resolveSavingThrow(hero, category, subCategory, dcBonus);
   }
 
   attemptPickLock(targetType) {

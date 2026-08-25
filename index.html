@@ -725,6 +725,166 @@
         border-color: #f3e08c;
       }
     }
+
+    /* XP Progress Bar on Hero Card */
+    .xp-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 8.5px;
+      color: var(--accent-gold);
+      margin-top: 3px;
+      margin-bottom: 1px;
+      line-height: 1.2;
+      letter-spacing: 0.02em;
+    }
+
+    .xp-bar-bg {
+      background: #0e1014;
+      height: 3px;
+      border: 1px solid #1a1e27;
+      margin-bottom: 3px;
+      overflow: hidden;
+      border-radius: 1px;
+    }
+
+    .xp-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #b8860b 0%, #d29922 60%, #f0883e 100%);
+      box-shadow: 0 0 4px rgba(210, 153, 34, 0.4);
+      transition: width 0.35s ease-out;
+    }
+
+    /* Cinematic Saving Throw Main Screen Banner */
+    #saving-throw-cue-banner {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-12px);
+      width: min(92%, 480px);
+      background: linear-gradient(180deg, rgba(16, 20, 28, 0.97) 0%, rgba(8, 10, 14, 0.98) 100%);
+      border: 2px solid var(--gold-tsr);
+      outline: 1px solid #363e4d;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.95), 0 0 16px rgba(212, 175, 55, 0.35);
+      border-radius: 3px;
+      padding: 10px 14px;
+      z-index: 1000;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      box-sizing: border-box;
+    }
+
+    #saving-throw-cue-banner.active {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    #saving-throw-cue-banner.pass {
+      border-color: #3fb950;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.95), 0 0 22px rgba(63, 185, 80, 0.45);
+    }
+
+    #saving-throw-cue-banner.fail {
+      border-color: #f85149;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.95), 0 0 22px rgba(248, 81, 73, 0.55);
+    }
+
+    .st-cue-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-chiseled);
+      padding-bottom: 4px;
+      margin-bottom: 6px;
+    }
+
+    .st-cue-title {
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      color: var(--gold-tsr);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .st-cue-cat {
+      font-size: 9px;
+      font-family: 'Cinzel', serif;
+      color: var(--text-muted);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    .st-cue-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 10.5px;
+    }
+
+    .st-cue-hero {
+      font-family: 'Cinzel', serif;
+      font-weight: 700;
+      color: var(--parchment-light);
+    }
+
+    .st-cue-roll {
+      font-family: 'Source Code Pro', monospace;
+      font-size: 9.5px;
+      background: #0d1117;
+      padding: 2px 6px;
+      border-radius: 2px;
+      border: 1px solid var(--border-iron);
+      color: var(--gold-hover);
+    }
+
+    .st-cue-outcome {
+      font-family: 'Cinzel', serif;
+      font-size: 9.5px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      padding: 2px 8px;
+      border-radius: 2px;
+      text-transform: uppercase;
+    }
+
+    .st-cue-outcome.pass {
+      background: #1b4332;
+      color: #7ee787;
+      border: 1px solid #2d6a4f;
+      box-shadow: 0 0 10px rgba(82, 183, 136, 0.4);
+    }
+
+    .st-cue-outcome.fail {
+      background: #3a0000;
+      color: #ff7b72;
+      border: 1px solid #8b0000;
+      box-shadow: 0 0 10px rgba(255, 123, 114, 0.4);
+    }
+
+    .st-cue-narrative {
+      font-family: 'Cinzel', serif;
+      font-style: italic;
+      font-size: 10.5px;
+      line-height: 1.45;
+      color: var(--parchment);
+      background: rgba(0, 0, 0, 0.4);
+      padding: 6px 9px;
+      border-left: 3px solid var(--gold-tsr);
+      border-radius: 0 2px 2px 0;
+    }
+
+    #saving-throw-cue-banner.pass .st-cue-narrative {
+      border-left-color: #3fb950;
+    }
+
+    #saving-throw-cue-banner.fail .st-cue-narrative {
+      border-left-color: #f85149;
+    }
   </style>
 </head>
 
@@ -742,9 +902,18 @@
           🗺️ Choose Adventure Module:</div>
         <div id="module-choices" style="display: flex; flex-direction: column; gap: 6px;">
           <label class="spell-option-label" style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
-            <input type="radio" name="adventure-module" value="data/adventure_goblin_relic.json" checked style="margin-top: 3px;">
+            <input type="radio" name="adventure-module" value="data/adventure_shadows_blackstone.json" checked style="margin-top: 3px;">
             <div>
-              <b style="color: var(--gold-tsr);">The Stolen Relic of Greenfall Ruins</b> (New Expedition)
+              <b style="color: var(--gold-tsr);">The Shadow of Blackstone Keep</b> <span style="color: #3fb950; font-size: 9.5px; font-weight: bold; margin-left: 4px;">⭐ [Level Up & Training Patrons]</span>
+              <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">
+                Commissioned by Baron Justinian Vane in Highstone Hamlet. Train with dedicated class mentors (Garrison, Spire, Temple, Thieves' Guild), traverse the moors, conquer the sunken crypts, and defeat Malakor the Despoiler to level up!
+              </div>
+            </div>
+          </label>
+          <label class="spell-option-label" style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+            <input type="radio" name="adventure-module" value="data/adventure_goblin_relic.json" style="margin-top: 3px;">
+            <div>
+              <b style="color: var(--gold-tsr);">The Stolen Relic of Greenfall Ruins</b>
               <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">
                 Hired by Lord Albright in Oakhaven village. Buy expedition gear at the village shop, trek through the pine wilderness, assault the goblin ruins, and return the Sun-Forged Relic of Dawn.
               </div>
@@ -789,6 +958,20 @@
     <div id="left-main-panel" class="tsr-panel">
       <div id="main-panel-title" class="panel-header">The Stolen Relic of Greenfall Ruins</div>
       <div id="view-3d-box">
+        <div id="saving-throw-cue-banner">
+          <div class="st-cue-header">
+            <span class="st-cue-title">⚡ SAVING THROW</span>
+            <span id="st-cue-cat" class="st-cue-cat">VS. POISON / DEATH</span>
+          </div>
+          <div class="st-cue-meta">
+            <span id="st-cue-hero" class="st-cue-hero">HERO NAME</span>
+            <span id="st-cue-roll" class="st-cue-roll">d20: 18 vs Target 13</span>
+            <span id="st-cue-outcome" class="st-cue-outcome pass">SAVED</span>
+          </div>
+          <div id="st-cue-narrative" class="st-cue-narrative">
+            Heroic narrative text here...
+          </div>
+        </div>
         <div id="enemy-hp-overlay"></div>
         <div id="three-container"></div>
       </div>

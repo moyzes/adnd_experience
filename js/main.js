@@ -176,6 +176,7 @@ class GameOrchestrator {
       playCombatBgm: (tracks) => this.audioManager.playCombatBgm(tracks),
       stopCombatBgm: () => this.audioManager.stopCombatBgm(),
       flashHeroCard: (idx) => this.flashHeroCardRed(idx),
+      showSavingThrowCue: (st) => this.uiController.showSavingThrowCue(st),
       applyVisualCombatHp: (enemies, heroHp) => this.uiController.applyVisualCombatHp(enemies, heroHp),
       onPartyWiped: () => this.showGameOver(),
       onCombatEnd: () => this.updateEnvironmentAudio(),
@@ -205,6 +206,7 @@ class GameOrchestrator {
       log: (msg, type) => this.log(msg, type),
       updateHUD: () => this.uiController.updateHUD(),
       playSFX: (id) => this.playSFX(id),
+      onLevelUpClick: (hIdx) => this.levelUpUI.open(hIdx),
       onLevelUp: (levelUps) => {
         if (!levelUps || levelUps.length === 0) return;
         this.playSFX('level_up');
@@ -740,15 +742,24 @@ class GameOrchestrator {
       this.playSFX('backstab'); setTimeout(() => this.playSFX('falling'), 500);
 
       const trap = this.state.triggerTrap(target.tileDef.trap);
-      this.log(`TRAP TRIGGERED! The ${target.tileDef.name} unleashes ${target.tileDef.trap.name}!`, "danger");
+      this.log(`⚠️ TRAP TRIGGERED! The ${target.tileDef.name} unleashes ${target.tileDef.trap.name}!`, "danger");
 
-      trap.results.forEach(r => {
-        const verdict = r.save.success
-          ? `saves vs. ${trap.category} — takes ${r.damage} damage (halved)`
-          : `fails the save vs. ${trap.category} — takes ${r.damage} damage!`;
-        this.log(`${r.heroName} ${verdict}`, r.save.success ? "warning" : "danger");
+      trap.results.forEach((r, idx) => {
+        const modStr = r.save.abilityMod ? (r.save.abilityMod > 0 ? `+${r.save.abilityMod}` : `${r.save.abilityMod}`) : '';
+        const rollDetail = `(d20=${r.save.roll}${modStr} vs Target ${r.save.target})`;
+        
+        if (r.save.success) {
+          this.log(`⚡ SAVING THROW: ${r.save.narrative} ${rollDetail} [${r.damage} dmg]`, "success");
+        } else {
+          this.log(`💀 FAILED SAVE: ${r.save.narrative} ${rollDetail} [${r.damage} dmg]`, "danger");
+        }
+
+        if (idx === 0 || !r.save.success) {
+          this.uiController.showSavingThrowCue(r.save);
+        }
+
         this.flashHeroCardRed(r.heroIndex);
-        if (r.isDead) this.log(`${r.heroName} collapses!`, "danger");
+        if (r.isDead) this.log(`💀 ${r.heroName} collapses from fatal trauma!`, "danger");
       });
 
       this.uiController.updateHUD();

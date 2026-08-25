@@ -43,6 +43,11 @@ export class UIController {
                     <span id="hero-hp-text-${index}" style="font-size: 10px;"></span>
                   </div>
                   <div class="hp-bar-bg"><div id="hero-hp-fill-${index}" class="hp-bar-fill"></div></div>
+                  <div class="xp-row">
+                    <span>LVL <b id="hero-lvl-val-${index}">${hero.level || 1}</b></span>
+                    <span id="hero-xp-text-${index}">XP: ${hero.xp || 0}/${hero.nextLevelXp || 2000}</span>
+                  </div>
+                  <div class="xp-bar-bg"><div id="hero-xp-fill-${index}" class="xp-bar-fill"></div></div>
                   <div id="hero-secondary-${index}"></div>
                   <div id="hero-levelup-${index}"></div>
                 </div>
@@ -54,6 +59,9 @@ export class UIController {
                 card,
                 hpText: document.getElementById(`hero-hp-text-${index}`),
                 hpFill: document.getElementById(`hero-hp-fill-${index}`),
+                lvlVal: document.getElementById(`hero-lvl-val-${index}`),
+                xpText: document.getElementById(`hero-xp-text-${index}`),
+                xpFill: document.getElementById(`hero-xp-fill-${index}`),
                 secondary: document.getElementById(`hero-secondary-${index}`),
                 levelUp: document.getElementById(`hero-levelup-${index}`),
                 actions: document.getElementById(`hero-actions-${index}`),
@@ -113,6 +121,15 @@ export class UIController {
                 cache.hpText.textContent = `HP: ${hero.hp}/${hero.maxHp}`;
                 cache.hpText.style.color = isInc ? '#f85149' : '#3fb950';
                 cache.hpFill.style.width = `${Math.max(0, Math.round((hero.hp / hero.maxHp) * 100))}%`;
+
+                const curXp = hero.xp || 0;
+                const targetXp = hero.nextLevelXp || 2000;
+                const prevLevelXp = (hero.level > 1 && hero.xpTable && hero.xpTable[hero.level - 1]) ? hero.xpTable[hero.level - 1] : 0;
+                const xpProgress = Math.min(100, Math.max(0, Math.round(((curXp - prevLevelXp) / Math.max(1, targetXp - prevLevelXp)) * 100)));
+
+                if (cache.lvlVal) cache.lvlVal.textContent = hero.level || 1;
+                if (cache.xpText) cache.xpText.textContent = `XP: ${curXp}/${targetXp}`;
+                if (cache.xpFill) cache.xpFill.style.width = `${xpProgress}%`;
 
                 // Keep secondary metrics visible in combat (cognition / divine favor / tools)
                 if (hero.classKey === 'mage' && hero.maxCognition) {
@@ -242,11 +259,24 @@ export class UIController {
                 cache.hpText.style.color = isInc ? '#f85149' : '#3fb950';
                 cache.hpFill.style.width = `${Math.max(0, Math.round((hero.hp / hero.maxHp) * 100))}%`;
 
+                const curXp = hero.xp || 0;
+                const targetXp = hero.nextLevelXp || 2000;
+                const prevLevelXp = (hero.level > 1 && hero.xpTable && hero.xpTable[hero.level - 1]) ? hero.xpTable[hero.level - 1] : 0;
+                const xpProgress = Math.min(100, Math.max(0, Math.round(((curXp - prevLevelXp) / Math.max(1, targetXp - prevLevelXp)) * 100)));
+
+                if (cache.lvlVal) cache.lvlVal.textContent = hero.level || 1;
+                if (cache.xpText) cache.xpText.textContent = `XP: ${curXp}/${targetXp}`;
+                if (cache.xpFill) cache.xpFill.style.width = `${xpProgress}%`;
+
                 if (isInc) {
                     cardActions = `<div class="incapacitated-badge">💀 INCAPACITATED</div>`;
                 } else if (hero.classKey === 'fighter') {
                     secondaryMetricBar = `<div class="metric-label"><span>Tactical Guard</span><span>100%</span></div><div class="status-bar-bg"><div class="guard-fill" style="width: 100%;"></div></div>`;
-                    cardActions = `<div style="font-size: 9px; color: var(--text-muted); padding-top: 6px;">Ready (Melee Stance)</div>`;
+                    if (lockTarget && lockTarget.methods?.includes('brute')) {
+                        cardActions = `<div class="card-actions-grid"><button id="bash-btn" class="tsr-sq-btn">${this.SVG_ICONS.BASH}<span class="btn-word">Bash</span></button></div>`;
+                    } else {
+                        cardActions = `<div style="font-size: 9px; color: var(--text-muted); padding-top: 6px;">Ready (Melee Stance)</div>`;
+                    }
                 } else if (hero.classKey === 'thief') {
                     let disarmBtnHTML = trapInFront && trapInFront.detected ? `<button id="disarm-trap-btn" class="tsr-sq-btn">${this.SVG_ICONS.DISARM}<span class="btn-word">Disarm</span></button>` : '';
                     const pickLockBtnHTML = lockTarget && lockTarget.methods?.includes('mechanical') ? `<button id="pick-lock-btn" class="tsr-sq-btn">${this.SVG_ICONS.PICK}<span class="btn-word">Pick</span></button>` : '';
@@ -262,12 +292,15 @@ export class UIController {
   <button id="hide-shadows-btn" class="tsr-sq-btn ${hero.isStealth ? 'queued' : ''}">${this.SVG_ICONS.HIDE}<span class="btn-word">Hide</span></button>
 </div>`;
                 } else if (hero.classKey === 'mage') {
-                    const spellsButtonsHTML = (hero.spells || []).map((s, idx) => {
+                    let spellsButtonsHTML = (hero.spells || []).map((s, idx) => {
                         if (s.spent) {
                             return `<button class="tsr-sq-btn spell-action disabled" disabled title="${s.name} (erased)">${this.SVG_ICONS.CAST}<span class="btn-word">${(s.name || '').split(' ')[0]}</span></button>`;
                         }
                         return `<button class="tsr-sq-btn mage-spell-btn spell-action" data-index="${idx}" title="${s.name}">${this.SVG_ICONS.CAST}<span class="btn-word">${(s.name || '').split(' ')[0]}</span></button>`;
                     }).join('');
+                    if (lockTarget && lockTarget.methods?.includes('arcane')) {
+                        spellsButtonsHTML += `<button id="read-magic-btn" class="tsr-sq-btn">${this.SVG_ICONS.READ}<span class="btn-word">Read</span></button>`;
+                    }
                     cardActions = `<div class="card-actions-grid">${spellsButtonsHTML || '<span style="font-size:9px;color:var(--text-muted);">No constructs held</span>'}</div>`;
                     const cogPct = Math.round((hero.cognition / hero.maxCognition) * 100);
                     secondaryMetricBar = `<div class="metric-label"><span>Cognition</span><span>${hero.cognition}/${hero.maxCognition}</span></div><div class="status-bar-bg"><div class="cognition-fill" style="width: ${cogPct}%;"></div></div>`;
@@ -285,15 +318,6 @@ export class UIController {
                     }
                     const favorPct = Math.round((hero.divineFavor / hero.maxDivineFavor) * 100);
                     secondaryMetricBar = `<div class="metric-label"><span>Divine Favor</span><span>${hero.divineFavor}%</span></div><div class="status-bar-bg"><div class="favor-fill" style="width: ${favorPct}%;"></div></div>`;
-                }
-
-                if (lockTarget && !isInc) {
-                    if (hero.classKey === 'fighter' && lockTarget.methods?.includes('brute')) {
-                        cardActions = `<div class="card-actions-grid"><button id="bash-btn" class="tsr-sq-btn">${this.SVG_ICONS.BASH}<span class="btn-word">Bash</span></button></div>`;
-                    }
-                    if (hero.classKey === 'mage' && lockTarget.methods?.includes('arcane')) {
-                        cardActions += `<button id="read-magic-btn" class="tsr-sq-btn">${this.SVG_ICONS.READ}<span class="btn-word">Read</span></button>`;
-                    }
                 }
 
                 if (cache.levelUp) {
@@ -493,6 +517,38 @@ export class UIController {
                 cache.card.classList.remove('incapacitated');
             }
         });
+    }
+
+    showSavingThrowCue(st) {
+        if (!st) return;
+        const banner = document.getElementById('saving-throw-cue-banner');
+        if (!banner) return;
+
+        const catEl = document.getElementById('st-cue-cat');
+        const heroEl = document.getElementById('st-cue-hero');
+        const rollEl = document.getElementById('st-cue-roll');
+        const outcomeEl = document.getElementById('st-cue-outcome');
+        const narrativeEl = document.getElementById('st-cue-narrative');
+
+        if (catEl) catEl.textContent = st.categoryLabel || `VS. ${st.category}`;
+        if (heroEl) heroEl.textContent = st.heroName || 'HERO';
+        if (rollEl) rollEl.textContent = `d20: ${st.roll}${st.abilityMod ? (st.abilityMod > 0 ? `+${st.abilityMod}` : st.abilityMod) : ''} vs Target ${st.target}`;
+        
+        if (outcomeEl) {
+            outcomeEl.textContent = st.success ? '✨ SAVED' : '💀 FAILED';
+            outcomeEl.className = `st-cue-outcome ${st.success ? 'pass' : 'fail'}`;
+        }
+
+        if (narrativeEl) {
+            narrativeEl.textContent = `"${st.narrative}"`;
+        }
+
+        banner.className = `active ${st.success ? 'pass' : 'fail'}`;
+
+        if (this._stTimeout) clearTimeout(this._stTimeout);
+        this._stTimeout = setTimeout(() => {
+            banner.className = '';
+        }, 4500);
     }
 
     showInteractionModal({ title, prompt, choices }) {

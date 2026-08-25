@@ -1,0 +1,914 @@
+{
+  "id": "shadows_of_blackstone",
+  "name": "The Shadow of Blackstone Keep",
+  "combat_tracks": [
+    "combat_1",
+    "combat_2",
+    "combat_3"
+  ],
+  "rest_duration_seconds": 12,
+  "briefing": "Baron Justinian Vane of Highstone Hamlet summons your company. Beneath the ruined Blackstone Keep, the Ashen Hand cult has broken the ancient seals. Necromancer Malakor the Despoiler raises an army of ghouls and skeletal champions to lay waste to the borderlands. Visit your class mentors at the Military Garrison, Arcane Spire, Sunfire Temple, and Thieves' Guild in the village to prepare. Then breach the sunken warrens, disarm the deadly crypt traps, and destroy Malakor before his shadow consumes Highstone!",
+  "assets": {
+    "wizard": "assets/glb/strange_wizard.glb",
+    "cultist": "assets/glb/cultist.glb",
+    "skeleton": "assets/glb/skeleton_animated.glb",
+    "goblin": "assets/glb/basic_goblin.glb",
+    "ghoul": "assets/glb/goblin_ghoul.glb",
+    "giant_spider": "assets/glb/giant_spider.glb",
+    "kobold": "assets/glb/kobold.glb",
+    "assassin": "assets/glb/assassin.glb",
+    "chest": "assets/glb/chest.gltf",
+    "campfire": "assets/glb/campfire.glb"
+  },
+  "start": {
+    "x": 7,
+    "y": 14,
+    "facing": "NORTH"
+  },
+  "dungeon_y_max": 7,
+  "surface_y_min": 8,
+  "legend": {
+    "0": {
+      "name": "Flagstone Corridor",
+      "walkable": true
+    },
+    "1": {
+      "name": "Blackstone Wall",
+      "walkable": false
+    },
+    "2": {
+      "name": "Reinforced Iron Gate",
+      "walkable": false,
+      "interactive": true,
+      "locked": {
+        "methods": ["mechanical", "brute"],
+        "dc": 12
+      },
+      "trap": {
+        "name": "Crushing Block Deadfall",
+        "dc": 12,
+        "damage": 10,
+        "saveCategory": "breath"
+      }
+    },
+    "3": {
+      "name": "Crypt Reliquary Chest",
+      "walkable": false,
+      "interactive": true,
+      "locked": {
+        "methods": ["mechanical", "brute", "read_magic"],
+        "dc": 13
+      },
+      "trap": {
+        "name": "Explosive Shadow Runes",
+        "dc": 14,
+        "damage": 12,
+        "saveCategory": "spell"
+      }
+    },
+    "4": {
+      "name": "Highstone Cobblestone & Moors",
+      "walkable": true
+    },
+    "5": {
+      "name": "Ancient Pine Tree",
+      "walkable": false
+    },
+    "6": {
+      "name": "Sanctuary Way-Shrine (Atonement)",
+      "walkable": true,
+      "interactive": true,
+      "action": "atonement"
+    },
+    "7": {
+      "name": "Poisoned Dart Floor Trap",
+      "walkable": true,
+      "trap": {
+        "name": "Ashen Dart Battery",
+        "dc": 13,
+        "damage": 9,
+        "saveCategory": "poison"
+      }
+    },
+    "8": {
+      "name": "Arcane Runic Sanctum Gate",
+      "walkable": false,
+      "interactive": true,
+      "locked": {
+        "methods": ["mechanical", "brute", "read_magic"],
+        "dc": 14
+      },
+      "trap": {
+        "name": "Volatile Abyssal Glyph",
+        "dc": 15,
+        "damage": 14,
+        "saveCategory": "spell"
+      }
+    },
+    "9": {
+      "name": "Grimm's Village Outfitter",
+      "walkable": true,
+      "interactive": true,
+      "action": "shop",
+      "description": "The armory and supply post of Highstone. Racks of broadheads, steel shields, vials of holy water, healing salves, and lockpicking picks."
+    }
+  },
+  "shop": {
+    "tile": [7, 13],
+    "name": "Grimm's Village Outfitter",
+    "radius": 1
+  },
+  "chests": {
+    "2,1": [
+      { "name": "Ashen Crown of Binding", "type": "quest" },
+      { "name": "Gold Pieces", "amount": 250, "type": "currency" },
+      { "name": "Healing Potion", "amount": 3, "type": "consumable" },
+      { "name": "Ancient Rubies", "amount": 2, "type": "treasure" }
+    ],
+    "12,1": [
+      { "name": "Saint Vane's Blessed Greatsword", "type": "quest" },
+      { "name": "Gold Pieces", "amount": 180, "type": "currency" },
+      { "name": "Holy Water", "amount": 2, "type": "consumable" }
+    ],
+    "2,5": [
+      { "name": "Healing Potion", "amount": 2, "type": "consumable" },
+      { "name": "Gold Pieces", "amount": 90, "type": "currency" },
+      { "name": "Silver Ingot", "amount": 2, "type": "treasure" }
+    ],
+    "12,5": [
+      { "name": "Healing Potion", "amount": 2, "type": "consumable" },
+      { "name": "Gold Pieces", "amount": 110, "type": "currency" },
+      { "name": "Scroll of Arcane Light", "amount": 1, "type": "consumable" }
+    ]
+  },
+  "map": [
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 3, 0, 1, 0, 0, 0, 0, 0, 1, 0, 3, 0, 1],
+    [1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1],
+    [1, 1, 8, 1, 1, 0, 1, 0, 1, 0, 1, 1, 8, 1, 1],
+    [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+    [1, 0, 3, 0, 1, 0, 1, 2, 1, 0, 1, 0, 3, 0, 1],
+    [1, 7, 7, 7, 1, 0, 1, 0, 1, 0, 1, 7, 7, 7, 1],
+    [1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1],
+    [5, 5, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 5, 5],
+    [5, 4, 4, 5, 4, 4, 4, 4, 4, 4, 4, 5, 4, 4, 5],
+    [5, 4, 5, 5, 4, 5, 4, 4, 4, 5, 4, 5, 5, 4, 5],
+    [5, 4, 4, 4, 4, 4, 4, 6, 4, 4, 4, 4, 4, 4, 5],
+    [1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1],
+    [1, 0, 0, 0, 1, 0, 0, 9, 0, 0, 1, 0, 0, 0, 1],
+    [1, 0, 0, 0, 4, 4, 4, 4, 4, 4, 4, 0, 0, 0, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+  ],
+  "entities": [
+    {
+      "type": "prop",
+      "id": "reliquary_chest_west",
+      "model": "chest",
+      "x": 2,
+      "y": 1,
+      "rotation": 0
+    },
+    {
+      "type": "prop",
+      "id": "reliquary_chest_east",
+      "model": "chest",
+      "x": 12,
+      "y": 1,
+      "rotation": 0
+    },
+    {
+      "type": "prop",
+      "id": "warren_chest_west",
+      "model": "chest",
+      "x": 2,
+      "y": 5,
+      "rotation": 0
+    },
+    {
+      "type": "prop",
+      "id": "warren_chest_east",
+      "model": "chest",
+      "x": 12,
+      "y": 5,
+      "rotation": 0
+    }
+  ],
+  "npcs": {
+    "baron_vane": {
+      "id": "baron_vane",
+      "name": "Baron Justinian Vane",
+      "tile": [1, 14],
+      "initialNode": "node_vane_briefing",
+      "questConditions": [
+        {
+          "requiresItem": "Ashen Crown of Binding",
+          "targetNode": "node_vane_crown_returned"
+        }
+      ],
+      "inventory_to_steal": [
+        { "name": "Highstone Signet Ring", "type": "quest" },
+        { "name": "Gold Pieces", "type": "currency", "amount": 100 }
+      ]
+    },
+    "captain_valerius": {
+      "id": "captain_valerius",
+      "name": "Captain Valerius (Fighter Mentor)",
+      "tile": [3, 13],
+      "initialNode": "node_valerius_greet",
+      "inventory_to_steal": [
+        { "name": "Masterwork Whetstone", "type": "treasure" },
+        { "name": "Gold Pieces", "type": "currency", "amount": 40 }
+      ]
+    },
+    "archmage_cynthia": {
+      "id": "archmage_cynthia",
+      "name": "Archmage Cynthia Ravenwing (Mage Mentor)",
+      "tile": [5, 13],
+      "initialNode": "node_cynthia_greet",
+      "inventory_to_steal": [
+        { "name": "Astral Resonance Crystal", "type": "treasure" },
+        { "name": "Gold Pieces", "type": "currency", "amount": 50 }
+      ]
+    },
+    "priestess_kaelen": {
+      "id": "priestess_kaelen",
+      "name": "High Priestess Kaelen (Cleric Mentor)",
+      "tile": [9, 13],
+      "initialNode": "node_kaelen_greet",
+      "inventory_to_steal": [
+        { "name": "Consecrated Dawn Chime", "type": "treasure" },
+        { "name": "Holy Water", "type": "consumable", "amount": 1 }
+      ]
+    },
+    "master_jax": {
+      "id": "master_jax",
+      "name": "Master Jax 'Quick-Fingers' (Thief Mentor)",
+      "tile": [11, 13],
+      "initialNode": "node_jax_greet",
+      "inventory_to_steal": [
+        { "name": "Skeleton Keyblank", "type": "treasure" },
+        { "name": "Gold Pieces", "type": "currency", "amount": 65 }
+      ]
+    },
+    "malakor_boss": {
+      "id": "malakor_boss",
+      "name": "Malakor the Despoiler",
+      "tile": [7, 1],
+      "initialNode": "node_malakor_parley",
+      "inventory_to_steal": [
+        { "name": "Ashen Crown of Binding", "type": "quest" },
+        { "name": "Ancient Rubies", "type": "treasure", "amount": 3 }
+      ]
+    }
+  },
+  "monsters": {
+    "ashen_cultist": {
+      "id": "ashen_cultist",
+      "name": "Ashen Cultist",
+      "glbModel": "assets/glb/cultist.glb",
+      "rotationOffset": [0, 180, 0],
+      "positionOffset": [0, 0, 0],
+      "scale": 0.45,
+      "hp": 9,
+      "maxHp": 9,
+      "armorClass": 6,
+      "armorType": "leather",
+      "attackTarget": 12,
+      "damage": "1d6",
+      "damageType": "slashing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 45,
+      "xpReward": 75
+    },
+    "dread_spider": {
+      "id": "dread_spider",
+      "name": "Dread Shadow Spider",
+      "glbModel": "assets/glb/giant_spider.glb",
+      "rotationOffset": [0, 180, 0],
+      "positionOffset": [0, 0, 0],
+      "scale": 0.85,
+      "hp": 14,
+      "maxHp": 14,
+      "armorClass": 6,
+      "armorType": "leather",
+      "attackTarget": 12,
+      "damage": "1d6+1",
+      "damageType": "piercing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 40,
+      "xpReward": 175,
+      "special_attack": "poison",
+      "save_category": "poison",
+      "save_target": 13,
+      "poison_damage": 6
+    },
+    "skeletal_sentinel": {
+      "id": "skeletal_sentinel",
+      "name": "Blackstone Skeletal Sentinel",
+      "glbModel": "assets/glb/skeleton_animated.glb",
+      "rotationOffset": [0, 180, 0],
+      "positionOffset": [0, 0, 0],
+      "scale": 0.2,
+      "hp": 10,
+      "maxHp": 10,
+      "armorClass": 7,
+      "armorType": "leather",
+      "attackTarget": 12,
+      "damage": "1d6",
+      "damageType": "slashing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 100,
+      "xpReward": 90,
+      "creatureType": "undead",
+      "undeadTier": "weak"
+    },
+    "tomb_ghoul": {
+      "id": "tomb_ghoul",
+      "name": "Warren Tomb Ghoul",
+      "glbModel": "assets/glb/goblin_ghoul.glb",
+      "rotationOffset": [360, 180, 0],
+      "positionOffset": [0, 0, 0],
+      "scale": 0.12,
+      "hp": 15,
+      "maxHp": 15,
+      "armorClass": 6,
+      "armorType": "leather",
+      "attackTarget": 13,
+      "damage": "1d6+2",
+      "damageType": "slashing",
+      "actionPhase": "FAST",
+      "moraleThreshold": 75,
+      "xpReward": 220,
+      "creatureType": "undead",
+      "undeadTier": "medium",
+      "special_attack": "paralyzation",
+      "save_category": "poison",
+      "save_target": 14,
+      "poison_damage": 4
+    },
+    "kobold_sapper": {
+      "id": "kobold_sapper",
+      "name": "Kobold Sapper",
+      "glbModel": "assets/glb/kobold.glb",
+      "rotationOffset": [0, 180, 0],
+      "positionOffset": [0, 0, 0],
+      "scale": 0.45,
+      "hp": 8,
+      "maxHp": 8,
+      "armorClass": 6,
+      "armorType": "leather",
+      "attackTarget": 11,
+      "damage": "1d4+1",
+      "damageType": "piercing",
+      "actionPhase": "FAST",
+      "moraleThreshold": 35,
+      "xpReward": 60
+    },
+    "ashen_necromancer": {
+      "id": "ashen_necromancer",
+      "name": "Ashen Necromancer",
+      "glbModel": "assets/glb/strange_wizard.glb",
+      "rotationOffset": [0, 180, 0],
+      "positionOffset": [0, 0, 0],
+      "scale": 0.5,
+      "hp": 18,
+      "maxHp": 18,
+      "armorClass": 5,
+      "armorType": "leather",
+      "attackTarget": 13,
+      "damage": "1d8+1",
+      "damageType": "slashing",
+      "actionPhase": "FAST",
+      "moraleThreshold": 60,
+      "xpReward": 280
+    },
+    "malakor_mob": {
+      "id": "malakor_mob",
+      "name": "Malakor the Despoiler",
+      "glbModel": "assets/glb/cultist.glb",
+      "rotationOffset": [0, 180, 0],
+      "positionOffset": [0, 0.1, 0],
+      "scale": 0.65,
+      "hp": 32,
+      "maxHp": 32,
+      "armorClass": 4,
+      "armorType": "chain",
+      "attackTarget": 15,
+      "damage": "1d10+2",
+      "damageType": "slashing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 80,
+      "xpReward": 550,
+      "special_attack": "death_magic",
+      "save_category": "spell",
+      "save_target": 14,
+      "poison_damage": 8
+    }
+  },
+  "encounters": [
+    {
+      "id": "enc_moors_patrol",
+      "x": 7,
+      "y": 10,
+      "name": "Whispering Moors — Ashen Cultist Scouts",
+      "enemies": [
+        { "monsterId": "ashen_cultist", "count": 2 }
+      ],
+      "onVictoryXp": 150
+    },
+    {
+      "id": "enc_spider_chasm",
+      "x": 4,
+      "y": 9,
+      "name": "Pine Hollow — Dread Spider Ambush",
+      "enemies": [
+        { "monsterId": "dread_spider", "count": 1 },
+        { "monsterId": "ashen_cultist", "count": 1 }
+      ],
+      "onVictoryXp": 250
+    },
+    {
+      "id": "enc_keep_threshold",
+      "x": 7,
+      "y": 8,
+      "name": "Blackstone Gatehouse — Skeletal Legionnaires",
+      "enemies": [
+        { "monsterId": "skeletal_sentinel", "count": 2 },
+        { "monsterId": "ashen_cultist", "count": 1 }
+      ],
+      "onVictoryXp": 255
+    },
+    {
+      "id": "enc_sunken_warrens",
+      "x": 7,
+      "y": 5,
+      "name": "Sunken Warrens — Tomb Ghouls & Kobold Sappers",
+      "enemies": [
+        { "monsterId": "tomb_ghoul", "count": 1 },
+        { "monsterId": "kobold_sapper", "count": 2 }
+      ],
+      "onVictoryXp": 340
+    },
+    {
+      "id": "enc_sanctum_shadow_guard",
+      "x": 7,
+      "y": 3,
+      "name": "Sanctum Antechamber — Ashen Necromancer & Skeletal Guard",
+      "enemies": [
+        { "monsterId": "ashen_necromancer", "count": 1 },
+        { "monsterId": "skeletal_sentinel", "count": 2 }
+      ],
+      "onVictoryXp": 460
+    },
+    {
+      "id": "enc_malakor_throne_battle",
+      "x": 7,
+      "y": 1,
+      "name": "Throne of Shadows — Malakor & Dread Bodyguards",
+      "enemies": [
+        { "monsterId": "malakor_mob", "count": 1 },
+        { "monsterId": "tomb_ghoul", "count": 1 },
+        { "monsterId": "ashen_cultist", "count": 1 }
+      ],
+      "onVictoryXp": 845
+    }
+  ],
+  "dialogues": {
+    "baron_vane": {
+      "node_vane_briefing": {
+        "text": "Welcome to Highstone Manor, brave adventurers. I am Baron Justinian Vane. Dark portents shroud our lands. Malakor the Despoiler, an apostate necromancer exiled a decade ago, has returned to the sunken crypts of Blackstone Keep. His cultists have unsealed the subterranean tombs, raising the restless dead and enslaving venomous shadow beasts. If he claims the Ashen Crown of Binding, Highstone will burn. I pledge 350 Gold Pieces and the highest lands of the barony if you purge Blackstone Keep and return the crown to me!",
+        "choices": [
+          {
+            "id": "choice_accept_quest",
+            "text": "\"We accept your commission, Baron Vane. Blackstone Keep will be cleansed.\"",
+            "onSuccess": "node_vane_mentors_advice",
+            "attitudeShift": 15
+          },
+          {
+            "id": "choice_fighter_tactics",
+            "text": "[Fighter] \"Tell us of Malakor's defenses, martial strength, and gate armaments.\"",
+            "specialtyClass": "Fighter",
+            "specialtyBonus": 3,
+            "attribute": "strength",
+            "onSuccess": "node_vane_fighter_intel",
+            "onFail": "node_vane_mentors_advice",
+            "attitudeShift": 10
+          },
+          {
+            "id": "choice_cleric_consecration",
+            "text": "[Cleric] \"The restless dead desecrate these holy grounds. We shall restore sacred peace.\"",
+            "specialtyClass": "Cleric",
+            "specialtyBonus": 3,
+            "attribute": "wisdom",
+            "onSuccess": "node_vane_cleric_blessing",
+            "onFail": "node_vane_mentors_advice",
+            "attitudeShift": 20
+          },
+          {
+            "id": "choice_thief_stipend",
+            "text": "[Thief] \"A subterranean assault requires specialized tools and hazard pay up front.\"",
+            "specialtyClass": "Thief",
+            "specialtyBonus": 2,
+            "attribute": "dexterity",
+            "onSuccess": "node_vane_thief_supplies",
+            "onFail": "node_vane_mentors_advice",
+            "attitudeShift": 5
+          }
+        ]
+      },
+      "node_vane_mentors_advice": {
+        "text": "Before you march across the Whispering Moors, consult the mentors residing here in Highstone. Captain Valerius at the Garrison will hone your steel; Archmage Cynthia at the Spire studies the arcane seals; High Priestess Kaelen at the Temple tends to divine favors; and Master Jax in the cellar den knows the secrets of locks and traps. When you earn renown and experience in the field, return to them to complete your training!",
+        "choices": [
+          {
+            "id": "choice_set_forth",
+            "text": "\"We shall visit our mentors and prepare for battle.\"",
+            "onEnd": "stay_silent"
+          }
+        ]
+      },
+      "node_vane_fighter_intel": {
+        "text": "Stout words! Malakor's vanguard utilizes reinforced iron portcullises and crushing deadfall traps. Take this draught of fortified healing from my personal armory to bolster your frontline!",
+        "choices": [
+          {
+            "id": "choice_take_potion",
+            "text": "\"Our blades will not falter.\"",
+            "giveItem": { "name": "Healing Potion", "amount": 2 },
+            "onEnd": "stay_silent"
+          }
+        ]
+      },
+      "node_vane_cleric_blessing": {
+        "text": "Your faith gives our people hope! Take these vials of consecrated Holy Water from our chapel reserves. Let the sacred dawn scorch Malakor's ghouls.",
+        "choices": [
+          {
+            "id": "choice_take_holy_water",
+            "text": "\"May the light guide our wrath.\"",
+            "giveItem": { "name": "Holy Water", "amount": 2 },
+            "moral_tax": "holy_duty",
+            "onEnd": "stay_silent"
+          }
+        ]
+      },
+      "node_vane_thief_supplies": {
+        "text": "A shrewd pragmatist. Here are travel rations and 40 Gold Pieces to procure lockpicks and supplies at Grimm's Outfitter across the square.",
+        "choices": [
+          {
+            "id": "choice_take_gold_rations",
+            "text": "\"A fair contract. We will get the job done.\"",
+            "giveItem": { "name": "Rations", "amount": 3 },
+            "giveGold": 40,
+            "onEnd": "stay_silent"
+          }
+        ]
+      },
+      "node_vane_crown_returned": {
+        "text": "By the gods of our fathers! You hold the Ashen Crown of Binding! The necromancer's power is broken, and Blackstone Keep is cleansed! The borderlands owe you an eternal debt of gratitude!",
+        "choices": [
+          {
+            "id": "choice_turn_in_crown",
+            "text": "\"Malakor has fallen. Here is the Ashen Crown, Baron Vane.\"",
+            "requiresItem": "Ashen Crown of Binding",
+            "takeItem": "Ashen Crown of Binding",
+            "giveGold": 350,
+            "questXP": 1200,
+            "playSFX": "victory",
+            "onSuccess": "node_vane_epilogue"
+          }
+        ]
+      },
+      "node_vane_epilogue": {
+        "text": "The bells of Highstone chime in glorious celebration! Feast fires are lit, and your deeds will be sung in every tavern from here to the capital. You have proven yourselves true heroes of the realm!",
+        "choices": [
+          {
+            "id": "choice_triumph",
+            "text": "\"For Highstone and the realm! (Expedition Completed)\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      }
+    },
+    "captain_valerius": {
+      "node_valerius_greet": {
+        "text": "Hail, warrior! I am Captain Valerius of the Highstone Garrison. The road to Blackstone Keep is lined with heavily armored skeletal warriors and savage ghouls. In combat, hold your tactical melee stance and strike where their joints are weak. When you have proven your valor and accumulated 2,000 XP in battle, step up to the training post and we shall refine your weapon mastery and hit dice!",
+        "choices": [
+          {
+            "id": "choice_fighter_train",
+            "text": "[Fighter] \"I am ready for martial drills and level-up training!\"",
+            "trainClass": "fighter",
+            "onSuccess": "node_valerius_spar",
+            "onFail": "node_valerius_more_xp"
+          },
+          {
+            "id": "choice_fighter_advice",
+            "text": "\"What advice do you have for breaching the dungeon gates?\"",
+            "onSuccess": "node_valerius_doors"
+          },
+          {
+            "id": "choice_leave_valerius",
+            "text": "\"Thank you, Captain. We shall return after blood is drawn.\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      },
+      "node_valerius_spar": {
+        "text": "Splendid form! Your grip is firm, your footwork balanced, and your combat matrix sharpened. You do honor to the warrior tradition!",
+        "choices": [
+          {
+            "id": "choice_valerius_done",
+            "text": "\"Thank you, Drillmaster.\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      },
+      "node_valerius_more_xp": {
+        "text": "You have the fire, but you need more real battlefield experience against the enemy. Slay Malakor's minions in the warrens and return when you cross the 2,000 XP threshold!",
+        "choices": [
+          {
+            "id": "choice_valerius_back",
+            "text": "\"Understood. Back to the field.\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      },
+      "node_valerius_doors": {
+        "text": "Those old iron portcullises are heavy. A strong fighter can bash through them with brute force, though it will alert nearby hostiles. Alternatively, let your thief pick the mechanism or your mage read the arcane bindings.",
+        "choices": [
+          {
+            "id": "choice_valerius_thanks",
+            "text": "\"Good tactical counsel.\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      }
+    },
+    "archmage_cynthia": {
+      "node_cynthia_greet": {
+        "text": "Greetings, seekers of knowledge. I am Archmage Cynthia Ravenwing of the Arcane Spire. Malakor has laced Blackstone Keep with volatile explosive runes and glyphs of warding. A disciplined mind must manage cognition carefully. When your mage has accumulated 2,500 XP through deciphering runes and arcane combat, return to this spire to scribe newly mastered spell constructs into your grimoire!",
+        "choices": [
+          {
+            "id": "choice_mage_train",
+            "text": "[Mage] \"I seek to expand my cognition and scribe higher spell constructs!\"",
+            "trainClass": "mage",
+            "onSuccess": "node_cynthia_spellbook",
+            "onFail": "node_cynthia_more_xp"
+          },
+          {
+            "id": "choice_cynthia_glyphs",
+            "text": "\"How should we counter Malakor's explosive runes?\"",
+            "onSuccess": "node_cynthia_lore"
+          },
+          {
+            "id": "choice_leave_cynthia",
+            "text": "\"We shall explore the ruins and return with arcane lore.\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      },
+      "node_cynthia_spellbook": {
+        "text": "Magnificent! The astral pathways align with your mind. Your cognition expands, and new Vancian geometries are yours to command!",
+        "choices": [
+          {
+            "id": "choice_cynthia_done",
+            "text": "\"Knowledge is our greatest weapon.\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      },
+      "node_cynthia_more_xp": {
+        "text": "Your intellect is keen, but your astral resonance requires greater field testing (2,500 XP required). Overcome the trials of Blackstone Keep and return to me.",
+        "choices": [
+          {
+            "id": "choice_cynthia_back",
+            "text": "\"We shall return once our power deepens.\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      },
+      "node_cynthia_lore": {
+        "text": "Runic doors and ward chests will trigger catastrophic blasts if forced carelessly. A prepared mage can invoke 'Read Magic' to safely decipher the ward matrix without setting off the rune!",
+        "choices": [
+          {
+            "id": "choice_cynthia_thanks",
+            "text": "\"We will inspect every chest with care.\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      }
+    },
+    "priestess_kaelen": {
+      "node_kaelen_greet": {
+        "text": "May the Radiant Dawn illuminate your spirit. I am High Priestess Kaelen. Malakor’s necromancy defiles the ancient crypts beneath Blackstone. Turn your holy symbol against the walking dead and keep your party blessed. When you reach 1,500 XP through sacred service, return to our altar for holy anointing, expanded divine favor, and higher prayer circles!",
+        "choices": [
+          {
+            "id": "choice_cleric_train",
+            "text": "[Cleric] \"I seek divine vigil and formal prayer training!\"",
+            "trainClass": "cleric",
+            "onSuccess": "node_kaelen_anointing",
+            "onFail": "node_kaelen_more_xp"
+          },
+          {
+            "id": "choice_kaelen_undead",
+            "text": "\"What undead horrors stalk the warrens?\"",
+            "onSuccess": "node_kaelen_lore"
+          },
+          {
+            "id": "choice_leave_kaelen",
+            "text": "\"Bless us as we venture into darkness.\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      },
+      "node_kaelen_anointing": {
+        "text": "The divine presence fills your vessel! Your communion with the dawn deepens, granting you new prayer circles and unyielding spiritual resolve.",
+        "choices": [
+          {
+            "id": "choice_kaelen_done",
+            "text": "\"Praise the Dawn.\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      },
+      "node_kaelen_more_xp": {
+        "text": "Your faith is steadfast, but divine grace blossoms through sacred trials (1,500 XP required). Cleanse the undead in the crypts and return for your anointing.",
+        "choices": [
+          {
+            "id": "choice_kaelen_back",
+            "text": "\"We shall cleanse the crypts in the dawn's name.\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      },
+      "node_kaelen_lore": {
+        "text": "Skeletons are mindless and easily turned or crushed with bludgeoning weapons. Ghouls, however, carry a paralyzing venom in their claws. If clawed, pray your fortitude and saving throws hold true!",
+        "choices": [
+          {
+            "id": "choice_kaelen_thanks",
+            "text": "\"We shall be vigilant against their venom.\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      }
+    },
+    "master_jax": {
+      "node_jax_greet": {
+        "text": "Keep your voice down and step into the shadows, friend. I'm Jax. The keep is a deathtrap: spring-blade deadfalls, poison dart floors, and double-tumbler locks on every reliquary. You'll need keen eyes and quiet boots. When you score 1,250 XP from disarming traps and looting chests, come see me down here to allocate your 15 discretionary skill points!",
+        "choices": [
+          {
+            "id": "choice_thief_train",
+            "text": "[Thief] \"I'm ready to allocate my tradecraft skill points!\"",
+            "trainClass": "thief",
+            "onSuccess": "node_jax_skills",
+            "onFail": "node_jax_more_xp"
+          },
+          {
+            "id": "choice_jax_traps",
+            "text": "\"Any tips for the poisoned dart corridors?\"",
+            "onSuccess": "node_jax_trap_tip"
+          },
+          {
+            "id": "choice_leave_jax",
+            "text": "\"Watch the shadows, Jax.\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      },
+      "node_jax_skills": {
+        "text": "Aha! That's the deft touch of a master rogue. Your lockpicking and trap sense are second to none!",
+        "choices": [
+          {
+            "id": "choice_jax_done",
+            "text": "\"Quiet as a shadow.\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      },
+      "node_jax_more_xp": {
+        "text": "You've got quick fingers, kid, but you need more field loot under your belt (1,250 XP required). Disarm some traps, crack some dungeon chests, and come back to me.",
+        "choices": [
+          {
+            "id": "choice_jax_back",
+            "text": "\"I'll go find some locks to pick.\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      },
+      "node_jax_trap_tip": {
+        "text": "Watch the pressure plates along the western corridor. Use 'Find Traps' before rushing across, and keep your tools oiled. If you trigger one, duck fast and pray your reflexes beat the poison!",
+        "choices": [
+          {
+            "id": "choice_jax_thanks",
+            "text": "\"Good looking out.\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      }
+    },
+    "malakor_boss": {
+      "node_malakor_parley": {
+        "text": "Fools! You march into the Throne of Shadows and think steel and rustic prayers can stay the Ashen Hand? The Ashen Crown of Binding rests upon my brow! The spirits of Blackstone belong to me, and your corpses will serve as my legion's foundation! What last words do you have before the abyss claims your souls?",
+        "choices": [
+          {
+            "id": "choice_fighter_challenge",
+            "text": "[Fighter] \"Your crown falls with your head, necromancer! Face true steel!\"",
+            "specialtyClass": "Fighter",
+            "specialtyBonus": 3,
+            "attribute": "strength",
+            "dc": 13,
+            "onSuccess": "node_malakor_shaken",
+            "onFail": "node_malakor_combat"
+          },
+          {
+            "id": "choice_cleric_condemn",
+            "text": "[Cleric] \"By the Radiant Dawn, your unholy blasphemies are cast down into eternal light!\"",
+            "specialtyClass": "Cleric",
+            "specialtyBonus": 3,
+            "attribute": "wisdom",
+            "dc": 12,
+            "onSuccess": "node_malakor_blinded",
+            "onFail": "node_malakor_combat"
+          },
+          {
+            "id": "choice_mage_unravel",
+            "text": "[Mage] \"I have already analyzed your binding formula. Your shadow crown is unraveling!\"",
+            "specialtyClass": "Mage",
+            "specialtyBonus": 3,
+            "attribute": "intelligence",
+            "dc": 13,
+            "onSuccess": "node_malakor_outsmarted",
+            "onFail": "node_malakor_combat"
+          },
+          {
+            "id": "choice_thief_strike",
+            "text": "[Thief] \"While you were monologuing, I severed your warding talismans!\"",
+            "specialtyClass": "Thief",
+            "specialtyBonus": 3,
+            "attribute": "dexterity",
+            "dc": 12,
+            "onSuccess": "node_malakor_severed",
+            "onFail": "node_malakor_combat"
+          },
+          {
+            "id": "choice_direct_battle",
+            "text": "\"Enough talk! To arms! (Attack!)\"",
+            "onSuccess": "node_malakor_combat"
+          }
+        ]
+      },
+      "node_malakor_shaken": {
+        "text": "Malakor recoils as your furious war-cry echoes through the vault! The necromancer's focus stammers, weakening his dread aura! 'Impertinent worms! Slay them!'",
+        "choices": [
+          {
+            "id": "choice_strike_shaken",
+            "text": "[Attack with Advantage!] Strike down the shaken necromancer!",
+            "questXP": 300,
+            "onEnd": "despawn"
+          }
+        ]
+      },
+      "node_malakor_blinded": {
+        "text": "Holy sunlight erupts from the cleric's holy symbol, searing Malakor's flesh! The necromancer shrieks and drops to one knee as the dark crown smokes! 'The light... burns my soul!'",
+        "choices": [
+          {
+            "id": "choice_strike_blinded",
+            "text": "[Smite Evil!] Finish the blinded necromancer!",
+            "questXP": 350,
+            "onEnd": "despawn"
+          }
+        ]
+      },
+      "node_malakor_outsmarted": {
+        "text": "Arcane sparks shower from Malakor's staff as your counter-spell destabilizes his shadow shield! 'Curse your meddling wizardry!' he snarls in sheer disbelief!",
+        "choices": [
+          {
+            "id": "choice_strike_unraveled",
+            "text": "[Cast Final Construct!] Unleash full arcane fury!",
+            "questXP": 350,
+            "onEnd": "despawn"
+          }
+        ]
+      },
+      "node_malakor_severed": {
+        "text": "In a flash of steel, the thief snatches the Ashen Crown right from Malakor's altar! 'My crown! Kill the thief!' Malakor roars in frantic panic!",
+        "choices": [
+          {
+            "id": "choice_claim_crown_combat",
+            "text": "[Battle!] Protect the crown and eliminate Malakor!",
+            "giveItem": "Ashen Crown of Binding",
+            "questXP": 400,
+            "onEnd": "despawn"
+          }
+        ]
+      },
+      "node_malakor_combat": {
+        "text": "Malakor raises his skull-tipped staff as dark energy surges around him! 'Minions of the Ashen Hand, tear their flesh from their bones!'",
+        "choices": [
+          {
+            "id": "choice_fight_boss",
+            "text": "[Engage!] Fight Malakor and his dread court!",
+            "onEnd": "despawn"
+          }
+        ]
+      }
+    }
+  }
+}

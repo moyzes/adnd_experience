@@ -188,7 +188,26 @@ export class DialogueController {
         }
 
         let success = true;
-        if (choice.dc || choice.attribute) {
+        if (choice.trainClass) {
+            const heroIdx = this.state.party.findIndex(p => p.classKey.toLowerCase() === choice.trainClass.toLowerCase());
+            if (heroIdx !== -1) {
+                const targetHero = this.state.party[heroIdx];
+                if (targetHero.canLevelUp) {
+                    success = true;
+                    this.state.activeNpc = null;
+                    this.state.activeSpeaker = null;
+                    if (this.callbacks.onLevelUpClick) {
+                        this.callbacks.onLevelUpClick(heroIdx);
+                    }
+                    this.callbacks.updateHUD();
+                    return;
+                } else {
+                    success = false;
+                    const reqXP = this.state.getXPForNextLevel(targetHero.classKey, targetHero.level + 1);
+                    this.callbacks.log(`${targetHero.name} has ${targetHero.xp} / ${reqXP} XP. More field experience is required before training can be completed.`, "warning");
+                }
+            }
+        } else if (choice.dc || choice.attribute) {
             const isThief = speaker.classKey === 'thief';
             const skillKey = choice.id ? choice.id.replace('choice_', '') : null;
             const skill = speaker.skills && skillKey ? speaker.skills[skillKey] : null;

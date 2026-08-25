@@ -29,17 +29,16 @@ export class RendererThreeJS {
     // its full (possibly ultrawide) proportions. Whichever container
     // dimension is the constraint, the other gets scaled down to match.
     const { width, height } = this.#getConstrainedSize();
-    this.camera = new THREE.PerspectiveCamera(75, this.aspectRatio, 0.1, 1000);
+    this.camera = new THREE.PerspectiveCamera(75, this.aspectRatio, 0.1, 100);
 
     // 3. WebGL Renderer
-    // Phase 1 performance: fill-rate is the dominant cost.
-    // renderScale decouples GPU render resolution from the 4:3 display box.
-    // Cost is quadratic — 0.65 ≈ 58% fewer shaded pixels vs 1.0.
-    // antialias:false is a large free win on most GPUs; edges stay acceptable
-    // at this scale because the final canvas is already letterboxed.
-    this.renderScale = 0.65;
-    this.renderer = new THREE.WebGLRenderer({ antialias: false });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25) * this.renderScale);
+    // Enabled antialias and proper pixelRatio to ensure rock-solid temporal stability
+    // without sub-pixel crawling, flickering or polygon edge shimmer.
+    this.renderer = new THREE.WebGLRenderer({ 
+      antialias: true, 
+      powerPreference: 'high-performance' 
+    });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.0));
 
     // updateStyle = true: the canvas gets a real w x h pixel size in its
     // inline style (the 4:3 box), and the flex-centered #three-container
@@ -363,6 +362,14 @@ export class RendererThreeJS {
     const doorTexture = this.createDungeonDoorTexture();
     const doorMaterial = new THREE.MeshStandardMaterial({ map: doorTexture, roughness: 0.6 });
 
+    const runicDoorTexture = this.createRunicDoorTexture();
+    const runicDoorMaterial = new THREE.MeshStandardMaterial({ 
+      map: runicDoorTexture, 
+      roughness: 0.5,
+      emissive: 0x112244,
+      emissiveIntensity: 0.4
+    });
+
     const grassTexture = this.createGrassTexture();
     const grassMaterial = new THREE.MeshStandardMaterial({ map: grassTexture, roughness: 0.9 });
 
@@ -380,6 +387,18 @@ export class RendererThreeJS {
 
     const wallGeo = new THREE.BoxGeometry(ts, ts, ts);
 
+    // Helper: Determine if a specific tile is outdoors / wilderness
+    const isWildernessTileAt = (x, y) => {
+      if (gameState && typeof gameState.isWildernessTile === 'function') {
+        return gameState.isWildernessTile(x, y);
+      }
+      const tid = map[y][x];
+      if (tid === 4 || tid === 5) return true;
+      if (spec.surface_y_min !== undefined && y >= spec.surface_y_min) return true;
+      if (spec.dungeon_y_max !== undefined && y > spec.dungeon_y_max) return true;
+      return false;
+    };
+
     // 1. Pass 1: Count map elements to size the InstancedMeshes accurately
     let floorCount = 0;
     let grassCount = 0;
@@ -389,13 +408,20 @@ export class RendererThreeJS {
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const tileId = map[y][x];
-        if (tileId === 4 || tileId === 5) {
-          grassCount++;
+        const isWild = isWildernessTileAt(x, y);
+
+        if (tileId === 1) {
+          // Solid Wall box (does not get redundant coplanar floor or ceiling planes)
+          wallCount++;
         } else {
-          floorCount++;
-          ceilingCount++;
+          // Ground floor plane
+          if (isWild || tileId === 4 || tileId === 5) {
+            grassCount++;
+          } else {
+            floorCount++;
+            ceilingCount++; // Only enclosed dungeon corridors receive ceilings
+          }
         }
-        if (tileId === 1) wallCount++;
       }
     }
 
@@ -418,55 +444,65 @@ export class RendererThreeJS {
         const wx = x * ts;
         const wz = y * ts;
         const tileId = map[y][x];
+        const isWild = isWildernessTileAt(x, y);
 
-        // Assign Floor / Grass matrices
-        if (tileId === 4 || tileId === 5) {
-          if (grassInstanced) {
-            dummy.position.set(wx, -ts / 2, wz);
-            dummy.updateMatrix();
-            grassInstanced.setMatrixAt(grassIdx++, dummy.matrix);
-          }
-        } else {
-          if (floorInstanced) {
-            dummy.position.set(wx, -ts / 2, wz);
-            dummy.updateMatrix();
-            floorInstanced.setMatrixAt(floorIdx++, dummy.matrix);
-          }
-          if (ceilingInstanced) {
-            dummy.position.set(wx, ts / 2, wz);
-            dummy.updateMatrix();
-            ceilingInstanced.setMatrixAt(ceilingIdx++, dummy.matrix);
-          }
-        }
-
-        // Assign Walls or Interactive Features
+        // Assign Floor / Grass / Ceiling matrices
         if (tileId === 1) {
           if (wallInstanced) {
             dummy.position.set(wx, 0, wz);
             dummy.updateMatrix();
             wallInstanced.setMatrixAt(wallIdx++, dummy.matrix);
           }
-        } else if (tileId === 5) {
+        } else {
+          if (isWild || tileId === 4 || tileId === 5) {
+            if (grassInstanced) {
+              dummy.position.set(wx, -ts / 2, wz);
+              dummy.updateMatrix();
+              grassInstanced.setMatrixAt(grassIdx++, dummy.matrix);
+            }
+          } else {
+            if (floorInstanced) {
+              dummy.position.set(wx, -ts / 2, wz);
+              dummy.updateMatrix();
+              floorInstanced.setMatrixAt(floorIdx++, dummy.matrix);
+            }
+            if (ceilingInstanced) {
+              dummy.position.set(wx, ts / 2, wz);
+              dummy.updateMatrix();
+              ceilingInstanced.setMatrixAt(ceilingIdx++, dummy.matrix);
+            }
+          }
+        }
+
+        // Assign Interactive Features & Foliage
+        if (tileId === 5) {
+          // Pine tree with double-sided materials and scaled cones to prevent coplanar collision
           const treeGroup = new THREE.Group();
           treeGroup.position.set(wx, -ts / 2, wz);
 
-          const trunkGeo = new THREE.CylinderGeometry(0.25, 0.35, ts, 6);
+          const trunkGeo = new THREE.CylinderGeometry(0.22, 0.32, ts, 8);
           const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3319, roughness: 0.9 });
           const trunk = new THREE.Mesh(trunkGeo, trunkMat);
           trunk.position.y = ts / 2;
           treeGroup.add(trunk);
 
-          const leavesMat = new THREE.MeshStandardMaterial({ color: 0x1e3f20, roughness: 0.8 });
-          const leaves1 = new THREE.Mesh(new THREE.ConeGeometry(1.0, 1.2, 6), leavesMat);
+          const leavesMat = new THREE.MeshStandardMaterial({ 
+            color: 0x1e3f20, 
+            roughness: 0.8,
+            side: THREE.DoubleSide
+          });
+          const leaves1 = new THREE.Mesh(new THREE.ConeGeometry(0.85, 1.1, 8), leavesMat);
           leaves1.position.y = ts * 0.9;
           treeGroup.add(leaves1);
 
-          const leaves2 = new THREE.Mesh(new THREE.ConeGeometry(0.7, 1.0, 6), leavesMat);
-          leaves2.position.y = ts * 1.5;
+          const leaves2 = new THREE.Mesh(new THREE.ConeGeometry(0.6, 0.9, 8), leavesMat);
+          leaves2.position.y = ts * 1.45;
           treeGroup.add(leaves2);
 
           this.worldGroup.add(treeGroup);
-        } else if (tileId === 2) {
+        } else if (tileId === 2 || tileId === 8) {
+          const isRunic = (tileId === 8);
+          const activeMat = isRunic ? runicDoorMaterial : doorMaterial;
           const pivot = new THREE.Group();
           pivot.position.set(wx, 0, wz);
 
@@ -480,45 +516,49 @@ export class RendererThreeJS {
             doorGeo = new THREE.BoxGeometry(thickness, ts, ts);
             doorGeo.translate(0, 0, ts / 2);
             pivot.position.set(wx, 0, wz - ts / 2);
-            if (gameState.openedDoors.has(`${x},${y}`)) {
+            if (gameState && gameState.openedDoors && gameState.openedDoors.has(`${x},${y}`)) {
               pivot.rotation.y = Math.PI / 2;
             }
           } else {
             doorGeo = new THREE.BoxGeometry(ts, ts, thickness);
             doorGeo.translate(ts / 2, 0, 0);
             pivot.position.set(wx - ts / 2, 0, wz);
-            if (gameState.openedDoors.has(`${x},${y}`)) {
+            if (gameState && gameState.openedDoors && gameState.openedDoors.has(`${x},${y}`)) {
               pivot.rotation.y = -Math.PI / 2;
             }
           }
 
-          const doorMesh = new THREE.Mesh(doorGeo, doorMaterial);
+          const doorMesh = new THREE.Mesh(doorGeo, activeMat);
           pivot.add(doorMesh);
           pivot.userData = { gridX: x, gridY: y };
           this.worldGroup.add(pivot);
         } else if (tileId === 3) {
           const chestPath = spec.assets && spec.assets.chest ? spec.assets.chest : 'assets/glb/chest.gltf';
-          const isOpened = gameState.openedChests.has(`${x},${y}`);
+          const isOpened = gameState && gameState.openedChests && gameState.openedChests.has(`${x},${y}`);
           this.loadChestModel(chestPath, x, y, isOpened);
         }
       }
     }
 
-    // 4. Update and append instanced batches to the world group
+    // 4. Update and append instanced batches to the world group (disable frustum culling on whole-world instances)
     if (floorInstanced) {
       floorInstanced.instanceMatrix.needsUpdate = true;
+      floorInstanced.frustumCulled = false;
       this.worldGroup.add(floorInstanced);
     }
     if (grassInstanced) {
       grassInstanced.instanceMatrix.needsUpdate = true;
+      grassInstanced.frustumCulled = false;
       this.worldGroup.add(grassInstanced);
     }
     if (ceilingInstanced) {
       ceilingInstanced.instanceMatrix.needsUpdate = true;
+      ceilingInstanced.frustumCulled = false;
       this.worldGroup.add(ceilingInstanced);
     }
     if (wallInstanced) {
       wallInstanced.instanceMatrix.needsUpdate = true;
+      wallInstanced.frustumCulled = false;
       this.worldGroup.add(wallInstanced);
     }
 
@@ -635,6 +675,7 @@ export class RendererThreeJS {
     ctx.stroke();
 
     const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
     return texture;
@@ -649,7 +690,9 @@ export class RendererThreeJS {
     ctx.strokeStyle = '#111215';
     ctx.lineWidth = 2;
     ctx.strokeRect(0, 0, 64, 64);
-    return new THREE.CanvasTexture(canvas);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
   }
 
   createGrassTexture() {
@@ -665,6 +708,7 @@ export class RendererThreeJS {
       ctx.fillRect(rx, ry, 4, 4);
     }
     const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
     return texture;
@@ -699,7 +743,30 @@ export class RendererThreeJS {
     ctx.beginPath();
     ctx.arc(100, 64, 10, 0, Math.PI * 2);
     ctx.stroke();
-    return new THREE.CanvasTexture(canvas);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }
+
+  createRunicDoorTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128; canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#10141f';
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.strokeStyle = '#388bfd';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(8, 8, 112, 112);
+    ctx.beginPath();
+    ctx.arc(64, 64, 32, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#79c0ff';
+    ctx.font = 'bold 22px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('ᚱᛏ', 64, 72);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
   }
 
   // ---------------------------------------------------------------------------

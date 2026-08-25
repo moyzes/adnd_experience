@@ -129,8 +129,25 @@ export class CombatController {
                 this.callbacks.playSFX('turn_undead');
             } else if (evt.eventType === 'SAVE_SUCCESS') {
                 this.callbacks.playSFX('reward');
+                if (this.callbacks.showSavingThrowCue && evt.savingThrow) {
+                    this.callbacks.showSavingThrowCue(evt.savingThrow);
+                }
             } else if (evt.eventType === 'SAVE_FAILURE') {
                 this.callbacks.playSFX('backstab');
+                if (this.callbacks.showSavingThrowCue && evt.savingThrow) {
+                    this.callbacks.showSavingThrowCue(evt.savingThrow);
+                }
+                if (evt.targetHeroIndex != null && visualHeroHp[evt.targetHeroIndex] !== undefined) {
+                    visualHeroHp[evt.targetHeroIndex] = Math.max(
+                        0,
+                        visualHeroHp[evt.targetHeroIndex] - (evt.damage || 0)
+                    );
+                }
+                if (evt.isDead) this.callbacks.playSFX('death');
+                if (evt.targetHeroIndex != null) this.callbacks.flashHeroCard(evt.targetHeroIndex);
+                if (this.callbacks.applyVisualCombatHp) {
+                    this.callbacks.applyVisualCombatHp(visualEnemies, visualHeroHp);
+                }
             } else if (evt.eventType === 'VICTORY') {
                 this.stopCombatMusic();
                 this.callbacks.playSFX('victory');
