@@ -177,6 +177,8 @@ class GameOrchestrator {
       stopCombatBgm: () => this.audioManager.stopCombatBgm(),
       flashHeroCard: (idx) => this.flashHeroCardRed(idx),
       showSavingThrowCue: (st) => this.uiController.showSavingThrowCue(st),
+      showCombatFloatingCue: (badge, badgeClass, isHeroTarget) => this.uiController.showCombatFloatingCue(badge, badgeClass, isHeroTarget),
+      showMasterstrokeCue: (feat) => this.uiController.showMasterstrokeCue(feat),
       applyVisualCombatHp: (enemies, heroHp) => this.uiController.applyVisualCombatHp(enemies, heroHp),
       onPartyWiped: () => this.showGameOver(),
       onCombatEnd: () => this.updateEnvironmentAudio(),
@@ -198,7 +200,8 @@ class GameOrchestrator {
       onTargetChange: (hIdx, targetId) => this.handleTargetChange(hIdx, targetId),
       onGlobalAction: (actionType) => this.handleGlobalAction(actionType),
       onUIAction: (actionType, payload) => this.handleUIAction(actionType, payload),
-      onLevelUpClick: (hIdx) => this.levelUpUI.open(hIdx)
+      onLevelUpClick: (hIdx) => this.levelUpUI.open(hIdx),
+      playSFX: (id) => this.playSFX(id)
     });
 
     // 6. Dialogue & Input Controllers
@@ -403,40 +406,55 @@ class GameOrchestrator {
     if (actionType === 'PICK_LOCK') {
       if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
       const target = this.getLockInFront();
-      if (!target || this.checkTrapBeforeAction(target)) return;
+      if (!target) return this.log("There is no locked mechanism in front of you.", "info");
+      if (this.checkTrapBeforeAction(target)) return;
       const result = this.state.attemptPickLock(target.type);
+      if (result.reason) {
+        this.playSFX('blocked');
+        return this.log(result.reason, "warning");
+      }
       if (result.success) {
         this.state.unlockTarget(target.x, target.y, target.type);
         this.playSFX('unlock'); this.playSFX('reward');
-        this.log("Success! Picked the lock.", "success");
+        this.log(`Success! Picked the lock. [d100=${result.roll} vs Target ${result.chance}%] (Tools: ${result.durability}%)`, "success");
       } else {
         this.playSFX('unlock_try');
-        this.log("Pick lock failed.", "danger");
+        const fumbleMsg = result.fumbled ? " (CRITICAL JAM - extra tool wear)" : "";
+        this.log(`Pick lock failed: Tumblers resisted [d100=${result.roll} vs Target ${result.chance}%]${fumbleMsg} (Tools: ${result.durability}%)`, "warning");
       }
       this.uiController.updateHUD();
     }
     else if (actionType === 'FIND_TRAP') {
       if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
       const target = this.state.getTrapInFront();
-      if (!target) return this.log(`No traps here.`, "info");
+      if (!target) return this.log("No traps detected in the immediate area.", "info");
       const result = this.state.attemptFindTrap(target);
       if (result.success) {
         this.playSFX('trap_found');
-        this.log(`Success! Trap detected: ${target.name}.`, "warning");
-      } else this.log(`Find traps failed.`, "info");
+        this.log(`Success! Trap detected: ${target.name} [d100=${result.roll} vs Target ${result.chance}%]! Ready to disarm.`, "warning");
+      } else {
+        this.log(`Find traps: No signs found [d100=${result.roll} vs Target ${result.chance}%].`, "info");
+      }
       this.uiController.updateHUD();
     }
     else if (actionType === 'DISARM_TRAP') {
       if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
       const target = this.state.getTrapInFront();
-      if (!target) return;
+      if (!target) return this.log("No detected trap in front of you to disarm.", "info");
       const result = this.state.attemptDisarmTrap(target);
+      if (result.reason) {
+        this.playSFX('blocked');
+        return this.log(result.reason, "warning");
+      }
       if (result.success) {
         this.playSFX('unlock'); this.playSFX('reward');
-        this.log(`Success! ${target.name} disarmed.`, "success");
+        this.log(`Success! ${target.name} safely disabled [d100=${result.roll} vs Target ${result.chance}%] (Tools: ${result.durability}%).`, "success");
       } else if (result.triggered) {
         this.playSFX('backstab'); setTimeout(() => this.playSFX('falling'), 500);
-        this.log(`DISASTER! ${target.name} triggered, dealing ${result.damage} damage!`, "danger");
+        this.log(`CRITICAL FUMBLE! [d100=${result.roll} vs Target ${result.chance}%] ${target.name} tripped!`, "danger");
+      } else {
+        this.playSFX('unlock_try');
+        this.log(`Disarm failed: Mechanism resisted probes [d100=${result.roll} vs Target ${result.chance}%] (Tools: ${result.durability}%). Trap remains primed.`, "warning");
       }
       this.uiController.updateHUD();
     }
@@ -711,7 +729,7 @@ class GameOrchestrator {
     if (targetY >= 0 && targetY < this.spec.map.length && targetX >= 0 && targetX < this.spec.map[0].length) {
       const tileId = this.spec.map[targetY][targetX];
       const key = `${targetX},${targetY}`;
-      if (tileId === 2 && !this.state.openedDoors.has(key)) {
+      if ((tileId === 2 || tileId === 8) && !this.state.openedDoors.has(key)) {
         const tileDef = this.spec.legend[tileId];
         return { x: targetX, y: targetY, type: 'door', locked: tileDef?.locked && !this.state.unlockedDoors.has(key), tileDef };
       }
@@ -738,20 +756,26 @@ class GameOrchestrator {
     if (!target || !target.tileDef) return false;
     const trapKey = `${target.x},${target.y}`;
     if (target.tileDef.trap && !this.state.disarmedTraps.has(trapKey)) {
+      if (this.state.detectedTraps.has(trapKey)) {
+        this.playSFX('blocked');
+        this.log(`⚠️ Active Trap: ${target.tileDef.trap.name} is primed! Disarm it first before tampering with this lock.`, "warning");
+        return true;
+      }
+
       this.state.disarmedTraps.add(trapKey);
       this.playSFX('backstab'); setTimeout(() => this.playSFX('falling'), 500);
 
       const trap = this.state.triggerTrap(target.tileDef.trap);
-      this.log(`⚠️ TRAP TRIGGERED! The ${target.tileDef.name} unleashes ${target.tileDef.trap.name}!`, "danger");
+      this.log(`⚠️ CONCEALED TRAP TRIGGERED! The ${target.tileDef.name} unleashes ${target.tileDef.trap.name}!`, "danger");
 
       trap.results.forEach((r, idx) => {
         const modStr = r.save.abilityMod ? (r.save.abilityMod > 0 ? `+${r.save.abilityMod}` : `${r.save.abilityMod}`) : '';
         const rollDetail = `(d20=${r.save.roll}${modStr} vs Target ${r.save.target})`;
         
         if (r.save.success) {
-          this.log(`⚡ SAVING THROW: ${r.save.narrative} ${rollDetail} [${r.damage} dmg]`, "success");
+          this.log(`🛡️ HEROIC FORTITUDE: ${r.save.narrative} ${rollDetail} [${r.damage} dmg resisted]`, "success");
         } else {
-          this.log(`💀 FAILED SAVE: ${r.save.narrative} ${rollDetail} [${r.damage} dmg]`, "danger");
+          this.log(`💀 MORTAL BREACH: ${r.save.narrative} ${rollDetail} [${r.damage} dmg taken]`, "danger");
         }
 
         if (idx === 0 || !r.save.success) {
@@ -852,8 +876,12 @@ class GameOrchestrator {
   // ===========================================================================
 
   log(message, type = 'info') {
-    const colorMap = { info: '#c9d1d9', success: '#3fb950', warning: '#d29922', danger: '#f85149', muted: '#8b949e' };
-    this.uiElements.narrativeLog.innerHTML += `<div style="color: ${colorMap[type] || colorMap.info}; margin-bottom: 3px;">> ${message}</div>`;
+    const colorMap = { info: '#c9d1d9', success: '#3fb950', warning: '#d29922', danger: '#f85149', muted: '#8b949e', masterstroke: '#ffd700' };
+    if (type === 'masterstroke') {
+      this.uiElements.narrativeLog.innerHTML += `<div class="combat-log-masterstroke">${message}</div>`;
+    } else {
+      this.uiElements.narrativeLog.innerHTML += `<div style="color: ${colorMap[type] || colorMap.info}; margin-bottom: 3px;">> ${message}</div>`;
+    }
     this.uiElements.narrativeLog.scrollTop = this.uiElements.narrativeLog.scrollHeight;
   }
 

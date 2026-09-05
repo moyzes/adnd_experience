@@ -122,6 +122,7 @@ export const ADND_2E_SAVING_THROWS = {
     { maxLevel: 10, poison: 13, wand: 9, petrification: 11, breath: 13, spell: 10 }
   ]
 };
+ADND_2E_SAVING_THROWS.cleric = ADND_2E_SAVING_THROWS.priest;
 
 /**
  * Maps class keys to the 4 archetypal groups.
@@ -270,29 +271,79 @@ export function resolveSavingThrow(hero, category, subCategory = null, dcBonus =
   
   // AD&D 2e: Nat 20 always succeeds, Nat 1 always fails
   const success = (roll === 20) || (roll !== 1 && total >= target);
+  const isNat20 = roll === 20;
+  const isNat1 = roll === 1;
+  const isCloseCall = success && !isNat20 && (total >= target && total <= target + 2);
+
+  const archetypeGroup = getClassArchetypeGroup(hero.classKey);
+  const heroicDomains = {
+    WARRIOR: {
+      title: "IRON GRIT & RAW VITALITY",
+      badge: "⚔️ WARRIOR FORTITUDE",
+      origin: "Mortal defiance & muscular refusal to die",
+      abilitySource: abilityMod > 0 ? "High Constitution Reserve" : "Innate Warrior Grit"
+    },
+    ROGUE: {
+      title: "LIGHTNING REFLEXES & NICK OF TIME",
+      badge: "⚡ ROGUE EVASION",
+      origin: "Preternatural instincts & slipping death's grip",
+      abilitySource: abilityMod > 0 ? "High Dexterity Reflex" : "Thief's Acuity"
+    },
+    CLERIC: {
+      title: "DIVINE PROVIDENCE & SACRED SANCTITY",
+      badge: "🕊️ SACRED COVENANT",
+      origin: "Conduit of faith repelling unnatural corruption",
+      abilitySource: abilityMod > 0 ? "High Wisdom Communion" : "Consecrated Body"
+    },
+    WIZARD: {
+      title: "INTELLECTUAL WILL & ARCANE COUNTER-WARD",
+      badge: "🔮 ARCANE DISCIPLINE",
+      origin: "Rapid harmonic breakdown of incoming hazards",
+      abilitySource: abilityMod > 0 ? "High Intellect / Will" : "Arcane Training"
+    }
+  };
+
+  const domain = heroicDomains[archetypeGroup] || heroicDomains.WARRIOR;
+
+  let outcomeLabel = 'HEROIC PASS';
+  if (isNat20) outcomeLabel = '🔥 LEGENDARY TRIUMPH (NAT 20)';
+  else if (isNat1) outcomeLabel = '☠️ CATASTROPHIC COLLAPSE (NAT 1)';
+  else if (isCloseCall) outcomeLabel = "⚡ SURVIVED BY A HAIR'S BREADTH";
+  else if (success) outcomeLabel = '✨ HEROIC FORTITUDE';
+  else outcomeLabel = '💀 MORTAL THRESHOLD BROKEN';
 
   const narrative = getHeroicSavingThrowNarrative(hero, normCat, normSub, success);
 
   const categoryLabels = {
-    PARALYZATION_POISON_DEATH: normSub ? `SAVE VS. ${normSub.replace('_', ' ')}` : 'SAVE VS. POISON / DEATH',
-    ROD_STAFF_WAND: 'SAVE VS. ROD / STAFF / WAND',
-    PETRIFICATION_POLYMORPH: normSub ? `SAVE VS. ${normSub}` : 'SAVE VS. PETRIFICATION',
-    BREATH_WEAPON: 'SAVE VS. BREATH WEAPON',
-    SPELL: 'SAVE VS. SPELL'
+    PARALYZATION_POISON_DEATH: normSub ? `VS. ${normSub.replace('_', ' ')}` : 'VS. POISON / DEATH',
+    ROD_STAFF_WAND: 'VS. ROD / STAFF / WAND',
+    PETRIFICATION_POLYMORPH: normSub ? `VS. ${normSub}` : 'VS. PETRIFICATION',
+    BREATH_WEAPON: 'VS. BREATH WEAPON',
+    SPELL: 'VS. SPELL'
   };
 
   return {
     success,
     roll,
     naturalRoll: roll,
+    total,
     abilityMod,
+    dcBonus,
     target,
+    isNat20,
+    isNat1,
+    isCloseCall,
+    outcomeLabel,
+    heroicDomain: domain.title,
+    heroicBadge: domain.badge,
+    heroicOrigin: domain.origin,
+    abilitySource: domain.abilitySource,
     category: normCat,
     subCategory: normSub,
     categoryLabel: categoryLabels[normCat] || 'SAVING THROW',
     heroName: hero.name,
     classKey: hero.classKey,
-    archetypeGroup: getClassArchetypeGroup(hero.classKey),
+    archetypeGroup,
     narrative
   };
 }

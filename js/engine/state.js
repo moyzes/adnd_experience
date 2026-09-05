@@ -13,15 +13,15 @@ export class GameState {
 
   /** Minimal weapon table — category drives Shoot availability; damageType feeds mitigation. */
   static WEAPON_CATALOG = {
-    'Longsword': { category: 'melee', damageType: 'slashing' },
-    'Short Sword': { category: 'melee', damageType: 'slashing' },
-    'Dagger': { category: 'melee', damageType: 'piercing' },
-    'Warhammer': { category: 'melee', damageType: 'bludgeoning' },
-    'Quarterstaff': { category: 'melee', damageType: 'bludgeoning' },
-    'Short Bow': { category: 'ranged', damageType: 'piercing' },
-    'Long Bow': { category: 'ranged', damageType: 'piercing' },
-    'Crossbow': { category: 'ranged', damageType: 'piercing' },
-    'Sling': { category: 'ranged', damageType: 'bludgeoning' }
+    'Longsword': { category: 'melee', damageType: 'slashing', maxDmg: 8 },
+    'Short Sword': { category: 'melee', damageType: 'slashing', maxDmg: 6 },
+    'Dagger': { category: 'melee', damageType: 'piercing', maxDmg: 4 },
+    'Warhammer': { category: 'melee', damageType: 'bludgeoning', maxDmg: 6 },
+    'Quarterstaff': { category: 'melee', damageType: 'bludgeoning', maxDmg: 6 },
+    'Short Bow': { category: 'ranged', damageType: 'piercing', maxDmg: 6 },
+    'Long Bow': { category: 'ranged', damageType: 'piercing', maxDmg: 8 },
+    'Crossbow': { category: 'ranged', damageType: 'piercing', maxDmg: 8 },
+    'Sling': { category: 'ranged', damageType: 'bludgeoning', maxDmg: 4 }
   };
 
   /** Master item catalog. Shops, loot, starting kits and use-handlers all key off this. */
@@ -40,6 +40,17 @@ export class GameState {
     'Warhammer': { id: 'warhammer', kind: 'weapon', scope: 'personal', description: 'Bludgeoning weapon favored by clerics.', stackable: false, usable: false, price: 8 },
     'Quarterstaff': { id: 'quarterstaff', kind: 'weapon', scope: 'personal', description: 'Simple wooden staff.', stackable: false, usable: false, price: 2 },
     'Short Sword': { id: 'short_sword', kind: 'weapon', scope: 'personal', description: 'Light blade preferred by thieves.', stackable: false, usable: false, price: 8 },
+    'Leather Armor': { id: 'leather_armor', kind: 'armor', armorType: 'light', baseAc: 8, scope: 'personal', description: 'Cured and boiled animal hide. Light enough for thieves to move silently.', stackable: false, usable: false, price: 5 },
+    'Studded Leather': { id: 'studded_leather', kind: 'armor', armorType: 'light', baseAc: 7, scope: 'personal', description: 'Tough leather reinforced with close-set steel rivets.', stackable: false, usable: false, price: 20 },
+    'Scale Mail': { id: 'scale_mail', kind: 'armor', armorType: 'medium', baseAc: 6, scope: 'personal', description: 'Overlapping brass and iron scales laced to leather.', stackable: false, usable: false, price: 45 },
+    'Chain Mail': { id: 'chain_mail', kind: 'armor', armorType: 'medium', baseAc: 5, scope: 'personal', description: 'Interlinked steel rings worn over padded gambeson.', stackable: false, usable: false, price: 75 },
+    'Banded Mail': { id: 'banded_mail', kind: 'armor', armorType: 'heavy', baseAc: 4, scope: 'personal', description: 'Horizontal steel bands riveted to chain and leather.', stackable: false, usable: false, price: 90 },
+    'Plate Mail': { id: 'plate_mail', kind: 'armor', armorType: 'heavy', baseAc: 3, scope: 'personal', description: 'Formed steel breastplate, rerebraces and greaves over chain.', stackable: false, usable: false, price: 150 },
+    'Field Plate': { id: 'field_plate', kind: 'armor', armorType: 'heavy', baseAc: 2, scope: 'personal', description: 'Master-forged articulate steel harness offering superior battlefield warding.', stackable: false, usable: false, price: 400 },
+    'Small Shield': { id: 'small_shield', kind: 'shield', acBonus: 1, scope: 'personal', description: 'Light buckler strapped to the forearm. Deflects incoming blows (-1 AC).', stackable: false, usable: false, price: 7 },
+    'Medium Shield': { id: 'medium_shield', kind: 'shield', acBonus: 1, scope: 'personal', description: 'Iron-banded heater shield turning aside weapon strikes (-1 AC).', stackable: false, usable: false, price: 10 },
+    'Consecrated Shield': { id: 'consecrated_shield', kind: 'shield', acBonus: 1, scope: 'personal', description: 'Blessed kite shield inscribed with sacred holy heraldry (-1 AC).', stackable: false, usable: false, price: 35 },
+    "Scholar's Robes": { id: 'scholars_robes', kind: 'armor', armorType: 'unarmored', baseAc: 10, scope: 'personal', description: 'Woven wool and silk mantle allowing unhindered somatic casting.', stackable: false, usable: false, price: 5 },
     'Sun-Forged Relic of Dawn': { id: 'sun_relic', kind: 'quest', scope: 'party', description: 'A gleaming solar artifact consecrated in ancient times. Recovered from the goblin ruins.', stackable: false, usable: false, price: null },
     'Ancient Rubies': { id: 'rubies', kind: 'treasure', scope: 'party', description: 'Glittering gemstones plundered by the goblins.', stackable: true, usable: false, price: null }
   };
@@ -69,6 +80,56 @@ export class GameState {
     familiarity: { minLevel: 2, count: 10, bonusMult: 0.1 },  // Stacks onto the existing +20% base (+10% extra)
     mastery:     { minLevel: 5, count: 25, bonusMult: 0.25 }  // Stacks onto the existing +20% base (+25% extra)
   };
+
+  /**
+   * AD&D 2nd Edition Dexterity Defensive Adjustment Table (PHB Table 8).
+   * Negative values improve descending AC (lower AC is better).
+   * Positive values are penalties to AC (worse protection).
+   */
+  static getDexDefensiveAdjustment(dexterity) {
+    const dex = dexterity != null ? dexterity : 10;
+    if (dex <= 3) return 4;   // +4 AC penalty
+    if (dex === 4) return 3;  // +3 AC penalty
+    if (dex === 5) return 2;  // +2 AC penalty
+    if (dex === 6) return 1;  // +1 AC penalty
+    if (dex <= 14) return 0;  // Normal
+    if (dex === 15) return -1; // -1 AC bonus
+    if (dex === 16) return -2; // -2 AC bonus
+    if (dex === 17) return -2; // -2 AC bonus (in 2e: -3 or -2; matches archetype starting AC 6 for leather AC 8)
+    if (dex >= 18) return -4; // -4 AC bonus
+    return 0;
+  }
+
+  /**
+   * Derives AD&D 2nd Edition THAC0 for a monster.
+   * If mob.thaco is specified in encounter data, uses it.
+   * Otherwise derives from mob.attackTarget (11 -> 20, 12 -> 19, 13 -> 18, 14 -> 17, 15 -> 16)
+   * or approximate Hit Dice (HP / 6).
+   */
+  getMonsterThaco(mob) {
+    if (mob.thaco != null) return mob.thaco;
+    if (mob.attackTarget) {
+      return Math.max(10, 20 - (mob.attackTarget - 11));
+    }
+    const hd = Math.max(1, Math.round((mob.maxHp || mob.hp || 8) / 6));
+    return Math.max(10, 20 - (hd - 1));
+  }
+
+  /**
+   * Calculates a hero's effective AC in AD&D 2e (lower is better),
+   * accounting for base armor, shield, DEX, temporary magical wards, and tactical Guard stance.
+   */
+  getHeroEffectiveAC(hero, isGuarding = false) {
+    let ac = hero.armorClass != null ? hero.armorClass : 5;
+    if (isGuarding) {
+      ac -= 1; // Guarding improves AC by 1
+    }
+    if (hero.tempAcBonus) {
+      ac -= hero.tempAcBonus; // Shield spell / Sanctuary improves AC
+    }
+    return ac;
+  }
+
 
 
   // ===========================================================================
@@ -205,10 +266,59 @@ export class GameState {
       (classKey === 'fighter' ? 'Longsword' : classKey === 'thief' ? 'Short Sword' : classKey === 'cleric' ? 'Warhammer' : 'Quarterstaff');
 
     let inventory = [];
-    if (classKey === 'thief') {
-      inventory = [{ name: 'Thief Tools', amount: 1 }, { name: 'Short Bow', amount: 1 }];
-    } else if (classKey === 'fighter') {
+    let equippedArmor = null;
+    let equippedShield = null;
+
+    if (classKey === 'fighter') {
       inventory = [{ name: 'Short Bow', amount: 1 }];
+      equippedArmor = {
+        id: 'banded_mail',
+        name: 'Banded Mail',
+        type: 'heavy',
+        baseAc: 4,
+        description: 'Overlapping horizontal steel bands riveted to leather backing.'
+      };
+      equippedShield = {
+        id: 'medium_shield',
+        name: 'Medium Shield',
+        type: 'shield',
+        acBonus: 1,
+        description: 'Iron-rimmed oak heater shield bearing martial heraldry.'
+      };
+    } else if (classKey === 'cleric') {
+      equippedArmor = {
+        id: 'chain_mail',
+        name: 'Chain Mail',
+        type: 'medium',
+        baseAc: 5,
+        description: 'Interlinked hardened steel rings worn over padded gambeson.'
+      };
+      equippedShield = {
+        id: 'consecrated_shield',
+        name: 'Consecrated Shield',
+        type: 'shield',
+        acBonus: 1,
+        description: 'Blessed kite shield inscribed with sacred holy heraldry.'
+      };
+    } else if (classKey === 'thief') {
+      inventory = [{ name: 'Thief Tools', amount: 1 }, { name: 'Short Bow', amount: 1 }];
+      equippedArmor = {
+        id: 'leather_armor',
+        name: 'Cured Leather Jerkin',
+        type: 'light',
+        baseAc: 8,
+        description: 'Supple boiled leather allowing silent movement and acrobatic evasion.'
+      };
+      equippedShield = null;
+    } else if (classKey === 'mage') {
+      equippedArmor = {
+        id: 'scholars_robes',
+        name: "Scholar's Woven Robes",
+        type: 'unarmored',
+        baseAc: 10,
+        description: 'Heavy wool and silk embroidered with protective warding threads.'
+      };
+      equippedShield = null;
     }
 
     const xpTable = archetype.xp_table || (classKey === 'thief' ? [0, 1250, 2500, 5000, 10000, 20000, 40000, 70000, 110000, 160000] : classKey === 'cleric' ? [0, 1500, 3000, 6000, 13000, 27500, 55000, 110000, 225000, 450000] : classKey === 'fighter' ? [0, 2000, 4000, 8000, 16000, 32000, 64000, 125000, 250000, 500000] : [0, 2500, 5000, 10000, 20000, 40000, 60000, 90000, 135000, 250000]);
@@ -230,6 +340,13 @@ export class GameState {
       attributes: { ...archetype.attributes },
       skills: JSON.parse(JSON.stringify(archetype.skills || {})),
       equippedWeapon: defaultWeapon,
+      equippedArmor: equippedArmor,
+      equippedShield: equippedShield,
+      tempAcBonus: 0,
+      tempAcRounds: 0,
+      tempAcSource: null,
+      tempAttackBonus: 0,
+      tempAttackRounds: 0,
       inventory,
       weaponUsage: {},
       spells: []
@@ -362,32 +479,45 @@ export class GameState {
   }
 
   getSkillTarget(hero, skillKey) {
-    const skill = hero.skills ? hero.skills[skillKey] : null;
+    let key = skillKey;
+    if (key === 'disarm_traps' && (!hero.skills || !hero.skills.disarm_traps)) {
+      key = 'find_traps';
+    } else if (key === 'find_traps' && (!hero.skills || !hero.skills.find_traps)) {
+      key = 'disarm_traps';
+    }
+    const skill = hero.skills ? hero.skills[key] : null;
     if (!skill) return 10;
-    const levelBonus = (hero.level - 1) * (skill.perLevel || 1);
+    const levelBonus = (hero.level - 1) * (skill.perLevel || 0);
 
     if (skill.type === 'percentile') {
-      return Math.min(99, skill.base + levelBonus);
+      let dexMod = 0;
+      const dex = hero.attributes?.dexterity || 10;
+      if (hero.classKey === 'thief') {
+        if (key === 'pick_locks') {
+          if (dex === 16) dexMod = 5;
+          else if (dex === 17) dexMod = 10;
+          else if (dex === 18) dexMod = 15;
+          else if (dex >= 19) dexMod = 20;
+          else if (dex <= 9) dexMod = -10;
+        } else if (key === 'find_traps' || key === 'disarm_traps') {
+          if (dex === 17) dexMod = 5;
+          else if (dex >= 18) dexMod = 10;
+          else if (dex <= 9) dexMod = -10;
+        } else if (key === 'pick_pockets') {
+          if (dex === 17) dexMod = 5;
+          else if (dex >= 18) dexMod = 10;
+          else if (dex <= 9) dexMod = -15;
+        } else if (key === 'hide_in_shadows') {
+          if (dex === 17) dexMod = 5;
+          else if (dex >= 18) dexMod = 10;
+          else if (dex <= 9) dexMod = -10;
+        }
+      }
+      return Math.min(99, Math.max(1, skill.base + levelBonus + dexMod));
     } else {
       const rawAttr = hero.attributes[skill.attribute] || 10;
       return rawAttr + skill.base + levelBonus;
     }
-  }
-
-  checkSavingThrow(hero, category) {
-    const baseTargets = {
-      fighter: { poison: 14, wand: 16, petrification: 15, breath: 17, spell: 17 },
-      thief: { poison: 13, wand: 14, petrification: 12, breath: 16, spell: 15 },
-      cleric: { poison: 10, wand: 13, petrification: 13, breath: 16, spell: 15 },
-      mage: { poison: 14, wand: 11, petrification: 13, breath: 15, spell: 12 }
-    };
-
-    const classSaves = baseTargets[hero.classKey] || { poison: 14 };
-    const targetNumber = (classSaves[category] || 14) - Math.floor((hero.level - 1) / 3); 
-
-    const roll = Math.floor(Math.random() * 20) + 1;
-    const success = roll === 20 || (roll !== 1 && roll >= targetNumber);
-    return { roll, target: targetNumber, success };
   }
 
   // ===========================================================================
@@ -437,6 +567,160 @@ export class GameState {
     return (def && def.damageType) || fallback;
   }
 
+  getWeaponMaxDamage(weaponName, fallback = 8) {
+    const def = GameState.WEAPON_CATALOG[weaponName];
+    return (def && def.maxDmg) || fallback;
+  }
+
+  getMonsterMaxDamage(dmgStr) {
+    if (!dmgStr || typeof dmgStr !== 'string') return 8;
+    const m = dmgStr.trim().match(/^(\d+)d(\d+)(?:\+(\d+))?$/i);
+    if (!m) return 8;
+    const num = Math.max(1, parseInt(m[1], 10) || 1);
+    const die = Math.max(1, parseInt(m[2], 10) || 4);
+    const bonus = parseInt(m[3] || '0', 10) || 0;
+    return (num * die) + bonus;
+  }
+
+  evaluateAttackOutcome(params) {
+    const {
+      attackerName, targetName, weaponName = 'weapon', dmgType = 'slashing',
+      attackMode = 'melee', roll, targetNum, rawDmg, netDmg, maxDamage = 8,
+      isDead = false, isBoss = false, isNat20 = false, isBackstab = false
+    } = params;
+
+    const margin = targetNum - roll;
+    const isHighMargin = isNat20 || (roll === 1) || (margin >= 4);
+    const isLowMargin = (margin <= 1);
+    const ratio = rawDmg / Math.max(1, maxDamage);
+    const isHighDmg = ratio >= 0.75 || rawDmg >= maxDamage;
+    const isLowDmg = rawDmg <= 2 || ratio <= 0.30;
+
+    let logText = '';
+    let logType = 'info';
+    let cueBadge = `💥 ${netDmg}`;
+    let cueClass = 'normal';
+    let isMasterstroke = false;
+    let masterstrokeFeat = null;
+
+    if (isBackstab) {
+      isMasterstroke = true;
+      cueClass = 'backstab';
+      cueBadge = `🗡️ ${netDmg} BACKSTAB!`;
+      logType = 'masterstroke';
+      logText = `<div class="ms-title"><span>🗡️ MASTER BACKSTAB — ${attackerName.toUpperCase()}</span><span class="ms-meta">${weaponName} (${netDmg} dmg)</span></div><div class="ms-quote">"${attackerName} emerges unseen from the gloom and sinks the blade to the hilt into ${targetName}!"</div>`;
+
+      if (netDmg >= 12 || isDead || isBoss) {
+        masterstrokeFeat = {
+          title: '🗡️ SHADOW MASTERSTROKE',
+          category: 'CRITICAL BACKSTAB EXECUTED',
+          badge: '🩸 LETHAL ANATOMY',
+          origin: 'Exploiting unprotected blind spot from darkness',
+          heroName: attackerName,
+          rollText: `<span style="color:#ffd700">d100:[${roll}] vs Skill</span>`,
+          damage: netDmg,
+          outcome: `⚡ ${netDmg} DAMAGE`,
+          narrative: `${attackerName} strikes silently from the darkness, driving the blade clean into vital organs!`
+        };
+      }
+    } else if (isHighMargin && isHighDmg) {
+      // Tier 1 & 2: Masterstroke!
+      isMasterstroke = true;
+      cueClass = 'crushing';
+      cueBadge = `💥 ${netDmg} MASTERSTROKE!`;
+      logType = 'masterstroke';
+
+      let quote = '';
+      if (attackMode === 'ranged') {
+        quote = `${attackerName} threads the arrow with surgical perfection into a vulnerable joint in ${targetName}'s defenses!`;
+      } else if (dmgType === 'piercing') {
+        quote = `${attackerName} finds the mortal seam in ${targetName}'s guard, piercing directly into vital tissue!`;
+      } else if (dmgType === 'bludgeoning') {
+        quote = `${attackerName} brings the ${weaponName} down with bone-shattering leverage and devastating kinetic force!`;
+      } else {
+        quote = `${attackerName} exploits a lethal gap in ${targetName}'s stance, driving the ${weaponName} clean through with surgical mastery!`;
+      }
+
+      logText = `<div class="ms-title"><span>⚔️ MASTERSTROKE — ${attackerName.toUpperCase()}</span><span class="ms-meta">${weaponName} (${netDmg}/${maxDamage} dmg)</span></div><div class="ms-quote">"${quote}"</div>`;
+
+      // Tier 3: Rare Cinematic Banner for exceptional feats
+      if (isDead && (isBoss || isNat20 || roll === 1 || netDmg >= 8)) {
+        masterstrokeFeat = {
+          title: '⚔️ MASTERSTROKE OF MARTIAL PROWESS',
+          category: 'CRITICAL APERTURE EXPLOITED',
+          badge: '💥 FATAL PENETRATION',
+          origin: 'Exquisite geometric timing and terminal kinetic force',
+          heroName: attackerName,
+          rollText: `<span style="color:#ffd700">d20:[${roll}] vs Target ${targetNum}</span>`,
+          damage: netDmg,
+          outcome: `⚡ ${netDmg} DAMAGE (FATAL)`,
+          narrative: `${attackerName} executes a textbook martial finisher, terminating ${targetName} instantly!`
+        };
+      }
+    } else if (isHighMargin && isLowDmg) {
+      cueClass = 'graze';
+      cueBadge = `⚔️ ${netDmg} (Graze)`;
+      logType = 'info';
+      if (attackMode === 'ranged') {
+        logText = `🏹 ${attackerName}'s shot is on target, but glances across ${targetName}'s flank — drawing only a stinging flesh graze (${netDmg} dmg).`;
+      } else if (dmgType === 'piercing') {
+        logText = `⚔️ ${attackerName} slips past the parry, but the point catches on dense bone — shallow penetration (${netDmg} dmg).`;
+      } else if (dmgType === 'bludgeoning') {
+        logText = `⚔️ ${attackerName} lands squarely, but the impact glances across curved muscle without full kinetic shock (${netDmg} dmg).`;
+      } else {
+        logText = `⚔️ ${attackerName} cuts cleanly past the guard, but ${targetName} recoils in the nick of time — a shallow flesh graze (${netDmg} dmg).`;
+      }
+    } else if (isLowMargin && isHighDmg) {
+      cueClass = 'heavy';
+      cueBadge = `💥 ${netDmg} HEAVY IMPACT!`;
+      logType = 'info';
+      logText = `💥 ${attackerName}'s swing is hurried and off-balance, but ${targetName} lunges into the steel — brutal impalement! (${netDmg} dmg)`;
+    } else if (isLowMargin && isLowDmg) {
+      cueClass = 'graze';
+      cueBadge = `⚔️ ${netDmg}`;
+      logType = 'muted';
+      logText = `⚔️ ${attackerName}'s ${weaponName} barely breaches ${targetName}'s guard, the blade edge leaving only a ragged scratch (${netDmg} dmg).`;
+    } else {
+      cueClass = 'normal';
+      cueBadge = `💥 ${netDmg}`;
+      logType = 'info';
+      if (attackMode === 'ranged') {
+        logText = `🏹 ${attackerName} looses a shot at ${targetName}, striking home for ${netDmg} damage!`;
+      } else {
+        logText = `⚔️ ${attackerName} lands a solid strike on ${targetName} with ${weaponName} for ${netDmg} damage!`;
+      }
+    }
+
+    return { logText, logType, cueBadge, cueClass, isMasterstroke, masterstrokeFeat };
+  }
+
+  evaluateHeroMissOutcome(params) {
+    const { attackerName, targetName, weaponName = 'weapon', attackMode = 'melee', roll, targetArmorType = 'none' } = params;
+    let logText = '';
+    let cueBadge = '💨 EVADED';
+    let cueClass = 'dodge';
+    let missLayer = 'DODGE';
+
+    if (roll === 20) {
+      logText = `💨 ${attackerName} overextends with an awkward swing; ${targetName} easily steps aside!`;
+      cueBadge = '💨 WHIFF';
+      cueClass = 'dodge';
+      missLayer = 'DODGE';
+    } else if (targetArmorType === 'chain' || targetArmorType === 'plate') {
+      logText = `⚙️ ARMOR DEFLECTION: ${attackerName}'s ${weaponName} rings off ${targetName}'s ${targetArmorType} armor without penetrating!`;
+      cueBadge = '⚙️ DEFLECTED';
+      cueClass = 'armor';
+      missLayer = 'ARMOR';
+    } else {
+      logText = `💨 EVADED: ${targetName} ducks underneath ${attackerName}'s strike!`;
+      cueBadge = '💨 EVADED';
+      cueClass = 'dodge';
+      missLayer = 'DODGE';
+    }
+
+    return { logText, logType: 'muted', cueBadge, cueClass, missLayer };
+  }
+
   equipHeroWeapon(heroIndex, weaponName) {
     const hero = this.party[heroIndex];
     if (!hero || !weaponName) return { success: false, reason: 'Invalid hero or weapon.' };
@@ -457,6 +741,86 @@ export class GameState {
 
     hero.equippedWeapon = weaponName;
     return { success: true, equipped: weaponName };
+  }
+
+  equipHeroArmor(heroIndex, armorName) {
+    const hero = this.party[heroIndex];
+    if (!hero || !armorName) return { success: false, reason: 'Invalid hero or armor.' };
+    const itemDef = this.getItemDef(armorName);
+    if (!itemDef || itemDef.kind !== 'armor') return { success: false, reason: `"${armorName}" is not valid armor.` };
+
+    // Class armor restrictions in AD&D 2e:
+    if (hero.classKey === 'mage' && itemDef.armorType !== 'unarmored') {
+      return { success: false, reason: 'Mages cannot wear metallic or rigid armor while weaving somatic spells.' };
+    }
+    if (hero.classKey === 'thief' && itemDef.armorType !== 'light' && itemDef.armorType !== 'unarmored') {
+      return { success: false, reason: 'Thieves cannot wear heavy armor without crippling thieving tradecraft.' };
+    }
+
+    const inv = hero.inventory || (hero.inventory = []);
+    const slot = inv.find(i => i.name === armorName);
+    if (!slot || (slot.amount || 1) < 1) return { success: false, reason: `${hero.name} does not carry ${armorName}.` };
+
+    if ((slot.amount || 1) <= 1) hero.inventory = inv.filter(i => i !== slot);
+    else slot.amount -= 1;
+
+    if (hero.equippedArmor && hero.equippedArmor.name && hero.equippedArmor.name !== "None (Unarmored)") {
+      const existing = hero.inventory.find(i => i.name === hero.equippedArmor.name);
+      if (existing) existing.amount = (existing.amount || 1) + 1;
+      else hero.inventory.push({ name: hero.equippedArmor.name, amount: 1 });
+    }
+
+    hero.equippedArmor = {
+      id: itemDef.id,
+      name: armorName,
+      type: itemDef.armorType || 'medium',
+      baseAc: itemDef.baseAc != null ? itemDef.baseAc : 10,
+      description: itemDef.description || ''
+    };
+    this.recalculateHeroAC(hero);
+    return { success: true, equipped: armorName };
+  }
+
+  equipHeroShield(heroIndex, shieldName) {
+    const hero = this.party[heroIndex];
+    if (!hero || !shieldName) return { success: false, reason: 'Invalid hero or shield.' };
+    const itemDef = this.getItemDef(shieldName);
+    if (!itemDef || itemDef.kind !== 'shield') return { success: false, reason: `"${shieldName}" is not a shield.` };
+
+    if (hero.classKey === 'mage') {
+      return { success: false, reason: 'Mages cannot wield shields without disrupting spellcraft somatic components.' };
+    }
+
+    const inv = hero.inventory || (hero.inventory = []);
+    const slot = inv.find(i => i.name === shieldName);
+    if (!slot || (slot.amount || 1) < 1) return { success: false, reason: `${hero.name} does not carry ${shieldName}.` };
+
+    if ((slot.amount || 1) <= 1) hero.inventory = inv.filter(i => i !== slot);
+    else slot.amount -= 1;
+
+    if (hero.equippedShield && hero.equippedShield.name) {
+      const existing = hero.inventory.find(i => i.name === hero.equippedShield.name);
+      if (existing) existing.amount = (existing.amount || 1) + 1;
+      else hero.inventory.push({ name: hero.equippedShield.name, amount: 1 });
+    }
+
+    hero.equippedShield = {
+      id: itemDef.id,
+      name: shieldName,
+      type: 'shield',
+      acBonus: itemDef.acBonus || 1,
+      description: itemDef.description || ''
+    };
+    this.recalculateHeroAC(hero);
+    return { success: true, equipped: shieldName };
+  }
+
+  recalculateHeroAC(hero) {
+    const baseArmorAc = hero.equippedArmor?.baseAc != null ? hero.equippedArmor.baseAc : 10;
+    const shieldBonus = hero.equippedShield ? (hero.equippedShield.acBonus || 1) : 0;
+    const dexMod = GameState.getDexDefensiveAdjustment(hero.attributes?.dexterity);
+    hero.armorClass = baseArmorAc - shieldBonus + dexMod;
+    return hero.armorClass;
   }
 
   getPartyItem(name) {
@@ -623,6 +987,7 @@ export class GameState {
           armorClass: monsterDef.armorClass,
           armorType: monsterDef.armorType || 'leather',
           attackTarget: monsterDef.attackTarget,
+          thaco: monsterDef.thaco != null ? monsterDef.thaco : (monsterDef.attackTarget ? Math.max(10, 20 - (monsterDef.attackTarget - 11)) : 20),
           damage: monsterDef.damage,
           damageType: monsterDef.damageType || 'slashing',
           actionPhase: monsterDef.actionPhase || 'MEDIUM',
@@ -819,12 +1184,49 @@ export class GameState {
             simMobHp[target.instanceId] = Math.max(0, simMobHp[target.instanceId] - netDmg);
             const isDead = simMobHp[target.instanceId] <= 0;
 
+            const outcome = this.evaluateAttackOutcome({
+              attackerName: hero.name,
+              targetName: target.name,
+              weaponName: hero.equippedWeapon || 'Dagger',
+              dmgType: 'slashing',
+              attackMode: 'backstab',
+              roll: roll,
+              targetNum: chance,
+              rawDmg: rawDmg,
+              netDmg: netDmg,
+              maxDamage: 20,
+              isDead: isDead,
+              isBoss: !!(target.isBoss || target.hp > 20),
+              isBackstab: true
+            });
+
             combatEvents.push({
-              eventType: 'MONSTER_HIT', sourceName: hero.name, targetInstanceId: target.instanceId, targetName: target.name, damage: netDmg, isDead: isDead,
-              logText: `🗡️ ${hero.name} CRITICAL BACKSTAB on ${target.name} for ${netDmg} damage!`, logType: 'success'
+              eventType: 'MONSTER_HIT',
+              sourceName: hero.name,
+              targetInstanceId: target.instanceId,
+              targetName: target.name,
+              damage: netDmg,
+              isDead: isDead,
+              attackMode: 'backstab',
+              cueBadge: outcome.cueBadge,
+              cueClass: outcome.cueClass,
+              isMasterstroke: outcome.isMasterstroke,
+              masterstrokeFeat: outcome.masterstrokeFeat,
+              logText: outcome.logText,
+              logType: outcome.logType
             });
           } else {
-            combatEvents.push({ eventType: 'HERO_MISS', sourceName: hero.name, targetName: target.name, logText: `🗡️ ${hero.name}'s backstab missed ${target.name}!`, logType: 'warning' });
+            combatEvents.push({
+              eventType: 'HERO_MISS',
+              sourceName: hero.name,
+              targetName: target.name,
+              attackMode: 'backstab',
+              cueBadge: '💨 MISSED',
+              cueClass: 'dodge',
+              missLayer: 'DODGE',
+              logText: `🗡️ ${hero.name}'s backstab missed ${target.name}!`,
+              logType: 'warning'
+            });
           }
 
         } else if (command.type === 'SHOOT') {
@@ -840,6 +1242,7 @@ export class GameState {
           const mastery = this.getWeaponMastery(hero, hero.equippedWeapon);
           const targetNum = dexVal + (hero.attackBonus || 0) + this.getLevelAttackBonus(hero) + mastery.atkBonus + bless;
           const dmgType = this.getWeaponDamageType(hero.equippedWeapon, 'piercing');
+          const maxWepDmg = (this.getWeaponMaxDamage(hero.equippedWeapon, 6) || 6) + mastery.dmgBonus;
 
           if (roll <= targetNum && roll !== 20) {
             const rawDmg = Math.floor(Math.random() * 6) + 2 + mastery.dmgBonus; 
@@ -849,12 +1252,57 @@ export class GameState {
 
             this.trackWeaponUsage(hero, hero.equippedWeapon);
 
+            const outcome = this.evaluateAttackOutcome({
+              attackerName: hero.name,
+              targetName: target.name,
+              weaponName: hero.equippedWeapon || 'Bow',
+              dmgType: dmgType,
+              attackMode: 'ranged',
+              roll: roll,
+              targetNum: targetNum,
+              rawDmg: rawDmg,
+              netDmg: netDmg,
+              maxDamage: maxWepDmg,
+              isDead: isDead,
+              isBoss: !!(target.isBoss || target.hp > 20)
+            });
+
             combatEvents.push({
-              eventType: 'MONSTER_HIT', sourceName: hero.name, targetInstanceId: target.instanceId, targetName: target.name, damage: netDmg, isDead: isDead, attackMode: 'ranged',
-              logText: `🏹 ${hero.name} looses a shot at ${target.name} for ${netDmg} damage!`, logType: 'info'
+              eventType: 'MONSTER_HIT',
+              sourceName: hero.name,
+              targetInstanceId: target.instanceId,
+              targetName: target.name,
+              damage: netDmg,
+              isDead: isDead,
+              attackMode: 'ranged',
+              cueBadge: outcome.cueBadge,
+              cueClass: outcome.cueClass,
+              isMasterstroke: outcome.isMasterstroke,
+              masterstrokeFeat: outcome.masterstrokeFeat,
+              logText: outcome.logText,
+              logType: outcome.logType
             });
           } else {
-            combatEvents.push({ eventType: 'HERO_MISS', sourceName: hero.name, targetName: target.name, attackMode: 'ranged', logText: `🏹 ${hero.name}'s shot at ${target.name} goes wide!`, logType: 'muted' });
+            const missOutcome = this.evaluateHeroMissOutcome({
+              attackerName: hero.name,
+              targetName: target.name,
+              weaponName: hero.equippedWeapon || 'Bow',
+              attackMode: 'ranged',
+              roll: roll,
+              targetArmorType: target.armorType
+            });
+
+            combatEvents.push({
+              eventType: 'HERO_MISS',
+              sourceName: hero.name,
+              targetName: target.name,
+              attackMode: 'ranged',
+              cueBadge: missOutcome.cueBadge,
+              cueClass: missOutcome.cueClass,
+              missLayer: missOutcome.missLayer,
+              logText: missOutcome.logText,
+              logType: missOutcome.logType
+            });
           }
 
         } else if (command.type === 'ATTACK' || !command.type) {
@@ -870,6 +1318,7 @@ export class GameState {
           const mastery = this.getWeaponMastery(hero, hero.equippedWeapon);
           const targetNum = strVal + (hero.attackBonus || 1) + this.getLevelAttackBonus(hero) + mastery.atkBonus + bless;
           const dmgType = this.getWeaponDamageType(hero.equippedWeapon, 'slashing');
+          const maxWepDmg = (this.getWeaponMaxDamage(hero.equippedWeapon, 8) || 8) + mastery.dmgBonus;
 
           if (roll <= targetNum && roll !== 20) {
             const rawDmg = Math.floor(Math.random() * 8) + 2 + mastery.dmgBonus;
@@ -879,12 +1328,57 @@ export class GameState {
 
             this.trackWeaponUsage(hero, hero.equippedWeapon);
 
+            const outcome = this.evaluateAttackOutcome({
+              attackerName: hero.name,
+              targetName: target.name,
+              weaponName: hero.equippedWeapon || 'Blade',
+              dmgType: dmgType,
+              attackMode: 'melee',
+              roll: roll,
+              targetNum: targetNum,
+              rawDmg: rawDmg,
+              netDmg: netDmg,
+              maxDamage: maxWepDmg,
+              isDead: isDead,
+              isBoss: !!(target.isBoss || target.hp > 20)
+            });
+
             combatEvents.push({
-              eventType: 'MONSTER_HIT', sourceName: hero.name, targetInstanceId: target.instanceId, targetName: target.name, damage: netDmg, isDead: isDead, attackMode: 'melee',
-              logText: `⚔️ ${hero.name} strikes ${target.name} for ${netDmg} damage!`, logType: 'info'
+              eventType: 'MONSTER_HIT',
+              sourceName: hero.name,
+              targetInstanceId: target.instanceId,
+              targetName: target.name,
+              damage: netDmg,
+              isDead: isDead,
+              attackMode: 'melee',
+              cueBadge: outcome.cueBadge,
+              cueClass: outcome.cueClass,
+              isMasterstroke: outcome.isMasterstroke,
+              masterstrokeFeat: outcome.masterstrokeFeat,
+              logText: outcome.logText,
+              logType: outcome.logType
             });
           } else {
-            combatEvents.push({ eventType: 'HERO_MISS', sourceName: hero.name, targetName: target.name, attackMode: 'melee', logText: `⚔️ ${hero.name} swings at ${target.name}... Missed!`, logType: 'muted' });
+            const missOutcome = this.evaluateHeroMissOutcome({
+              attackerName: hero.name,
+              targetName: target.name,
+              weaponName: hero.equippedWeapon || 'Blade',
+              attackMode: 'melee',
+              roll: roll,
+              targetArmorType: target.armorType
+            });
+
+            combatEvents.push({
+              eventType: 'HERO_MISS',
+              sourceName: hero.name,
+              targetName: target.name,
+              attackMode: 'melee',
+              cueBadge: missOutcome.cueBadge,
+              cueClass: missOutcome.cueClass,
+              missLayer: missOutcome.missLayer,
+              logText: missOutcome.logText,
+              logType: missOutcome.logType
+            });
           }
 
         } else if (command.type === 'CAST') {
@@ -966,6 +1460,7 @@ export class GameState {
           } else if (effect.type === 'buff_ac') {
             hero.tempAcBonus = effect.amount || 2;
             hero.tempAcRounds = effect.duration_rounds || 4;
+            hero.tempAcSource = 'Arcane Shield';
             combatEvents.push({ eventType: 'SPELL_CAST', sourceName: hero.name, spellId: spell.id, logText: `🛡️ ${hero.name} casts Shield — a shimmering barrier forms! (+${hero.tempAcBonus} AC, ${hero.tempAcRounds} rounds) (mind eases +${refund})`, logType: 'success' });
           } else {
             combatEvents.push({ eventType: 'SPELL_CAST', sourceName: hero.name, spellId: spell.id, logText: `🔮 ${hero.name} casts ${spell.name}. (mind eases +${refund})`, logType: 'info' });
@@ -1018,6 +1513,7 @@ export class GameState {
           } else if (effect.type === 'buff_ac') {
             hero.tempAcBonus = effect.amount || 2;
             hero.tempAcRounds = effect.duration_rounds || 3;
+            hero.tempAcSource = 'Sanctuary';
             combatEvents.push({ eventType: 'SPELL_CAST', sourceName: hero.name, spellId: spell.id, logText: `✨ ${hero.name} invokes Sanctuary — a divine ward turns blows (+${hero.tempAcBonus} AC, ${hero.tempAcRounds} rounds)!`, logType: 'success' });
           } else {
             combatEvents.push({ eventType: 'SPELL_CAST', sourceName: hero.name, spellId: spell.id, logText: `✨ ${hero.name} invokes ${spell.name}.`, logType: 'info' });
@@ -1077,22 +1573,76 @@ export class GameState {
         const guardBonus = selfGuardAc[finalHeroIndex] || 0;
         const spellAc = (this.party[finalHeroIndex] && this.party[finalHeroIndex].tempAcBonus) || 0;
         const debuffAcPenalty = (mob.debuffType === 'ac' && (mob.debuffRounds || 0) > 0) ? mob.debuffAmount : 0;
-        const acBonus = guardBonus + spellAc + debuffAcPenalty;
-        const effectiveTarget = (mob.attackTarget || 10) - acBonus;
+        
+        // AD&D 2nd Edition Descending AC:
+        // Lower AC is better. Guard stance (-1 AC) and spells like Shield/Sanctuary (-2 AC) improve defense.
+        const baseHeroAc = finalHero.armorClass != null ? finalHero.armorClass : 5;
+        const effectiveHeroAc = baseHeroAc - guardBonus - spellAc + debuffAcPenalty;
+
+        // Attacker THAC0
+        const mobThaco = this.getMonsterThaco(mob);
+
+        // Required d20 roll to hit: Attacker THAC0 - Defender AC
+        // In 2e, target cannot exceed 20 (natural 20 always hits) or be below 2 (natural 1 always misses).
+        const rawTargetToHit = mobThaco - effectiveHeroAc;
+        const targetToHit = Math.max(2, Math.min(20, rawTargetToHit));
 
         const roll = Math.floor(Math.random() * 20) + 1;
         const toHitPenalty = (mob.debuffType === 'to_hit' && (mob.debuffRounds || 0) > 0) ? mob.debuffAmount : 0;
         const adjustedRoll = roll - toHitPenalty;
 
-        if (adjustedRoll <= effectiveTarget) {
+        // Hit logic: Natural 20 always hits, natural 1 always misses.
+        // Otherwise hit if adjusted roll meets or exceeds target to hit.
+        const isHit = (roll === 20) || (roll !== 1 && adjustedRoll >= targetToHit);
+
+        if (isHit) {
           const rawDmg = this.rollMonsterDamage(mob.damage);
+          const maxMobDmg = this.getMonsterMaxDamage(mob.damage);
           simHeroHp[finalHeroIndex] = Math.max(0, simHeroHp[finalHeroIndex] - rawDmg);
           let isDead = simHeroHp[finalHeroIndex] <= 0;
-
-          let logText = redirected ? `💥 ${mob.name} strikes at ${targetHero.name} — ${finalHero.name} interposes and takes ${rawDmg} damage!` : `💥 ${mob.name} strikes ${finalHero.name} for ${rawDmg} damage!`;
           castInterrupted[finalHeroIndex] = true;
 
-          combatEvents.push({ eventType: 'HERO_HIT', sourceName: mob.name, targetHeroIndex: finalHeroIndex, targetHeroName: finalHero.name, damage: rawDmg, isDead: isDead, redirected: redirected, logText: logText, logType: 'danger' });
+          const rollRatio = rawDmg / Math.max(1, maxMobDmg);
+          const isHeavy = (roll === 20 || rollRatio >= 0.75);
+          const isLow = (rawDmg <= 2 && rollRatio <= 0.35);
+
+          let cueBadge = `🩸 -${rawDmg}`;
+          let cueClass = 'normal';
+          let logText = '';
+
+          if (isHeavy) {
+            cueBadge = `💀 -${rawDmg} CRUSHING!`;
+            cueClass = 'heavy';
+            logText = redirected
+              ? `💥 CRITICAL IMPACT: ${mob.name} strikes at ${targetHero.name} — ${finalHero.name} interposes and takes a devastating ${rawDmg} damage!`
+              : `💥 CRITICAL IMPACT: ${mob.name} catches ${finalHero.name} with a crushing blow for ${rawDmg} damage!`;
+          } else if (isLow) {
+            cueBadge = `🩸 -${rawDmg}`;
+            cueClass = 'graze';
+            logText = redirected
+              ? `💥 ${mob.name} strikes at ${targetHero.name} — ${finalHero.name} interposes and absorbs ${rawDmg} minor damage.`
+              : `💥 ${mob.name} nicks ${finalHero.name} through a gap in the armor for ${rawDmg} minor damage.`;
+          } else {
+            cueBadge = `🩸 -${rawDmg}`;
+            cueClass = 'normal';
+            logText = redirected
+              ? `💥 ${mob.name} strikes at ${targetHero.name} — ${finalHero.name} interposes and takes ${rawDmg} damage!`
+              : `💥 ${mob.name} strikes ${finalHero.name} for ${rawDmg} damage!`;
+          }
+
+          combatEvents.push({
+            eventType: 'HERO_HIT',
+            sourceName: mob.name,
+            targetHeroIndex: finalHeroIndex,
+            targetHeroName: finalHero.name,
+            damage: rawDmg,
+            isDead: isDead,
+            redirected: redirected,
+            cueBadge: cueBadge,
+            cueClass: cueClass,
+            logText: logText,
+            logType: 'danger'
+          });
 
           // Saving throw trigger for monsters with venom, paralyzation, breath, or spells
           if (!isDead && (mob.special_attack || mob.save_category)) {
@@ -1101,19 +1651,21 @@ export class GameState {
             const saveRes = this.checkSavingThrow(finalHero, saveCat, saveSub);
             
             if (saveRes.success) {
+              const modStr = saveRes.abilityMod ? (saveRes.abilityMod > 0 ? `+${saveRes.abilityMod}` : `${saveRes.abilityMod}`) : '';
               combatEvents.push({
                 eventType: 'SAVE_SUCCESS',
                 savingThrow: saveRes,
                 targetHeroIndex: finalHeroIndex,
                 targetHeroName: finalHero.name,
                 sourceName: mob.name,
-                logText: `⚡ SAVING THROW: ${saveRes.narrative} (d20=${saveRes.roll} vs target ${saveRes.target})`,
+                logText: `🛡️ HEROIC FORTITUDE: ${saveRes.narrative} [d20=${saveRes.roll}${modStr} vs Target ${saveRes.target}]`,
                 logType: 'success'
               });
             } else {
               const extraDmg = mob.poison_damage || mob.special_damage || 4;
               simHeroHp[finalHeroIndex] = Math.max(0, simHeroHp[finalHeroIndex] - extraDmg);
               isDead = simHeroHp[finalHeroIndex] <= 0;
+              const modStr = saveRes.abilityMod ? (saveRes.abilityMod > 0 ? `+${saveRes.abilityMod}` : `${saveRes.abilityMod}`) : '';
               combatEvents.push({
                 eventType: 'SAVE_FAILURE',
                 savingThrow: saveRes,
@@ -1122,15 +1674,81 @@ export class GameState {
                 damage: extraDmg,
                 isDead: isDead,
                 sourceName: mob.name,
-                logText: `💀 FAILED SAVE: ${saveRes.narrative} (Takes +${extraDmg} toxic damage!)`,
+                logText: `💀 MORTAL BREACH: ${saveRes.narrative} (Takes +${extraDmg} toxic damage! d20=${saveRes.roll}${modStr} vs Target ${saveRes.target})`,
                 logType: 'danger'
               });
             }
           }
         } else {
+          // Layered defensive resolution: Determine the exact layer that foiled the attack
+          const unarmoredThreshold = mobThaco - 10;
+          const dexAdj = GameState.getDexDefensiveAdjustment ? GameState.getDexDefensiveAdjustment(finalHero.attributes?.dexterity || 10) : 0;
+          const dexBonus = Math.abs(Math.min(0, dexAdj));
+          const dexThreshold = unarmoredThreshold + dexBonus;
+
+          const shieldBonus = (finalHero.equippedShield && (finalHero.equippedShield.acBonus || 1)) || 0;
+          const shieldThreshold = dexThreshold + shieldBonus;
+
+          const guardThreshold = shieldThreshold + guardBonus;
+          const spellThreshold = guardThreshold + spellAc;
+
+          let missLayer = 'ARMOR';
+          let cueBadge = '⚙️ DEFLECTED';
+          let cueClass = 'armor';
+          let logText = '';
+
+          if (adjustedRoll < unarmoredThreshold || roll === 1) {
+            missLayer = 'DODGE';
+            cueBadge = '💨 EVADED';
+            cueClass = 'dodge';
+            logText = redirected
+              ? `💨 ${mob.name} lunges wildly at ${targetHero.name} — ${finalHero.name} intercepts and easily sidesteps the blow!`
+              : `💨 EVADED: ${finalHero.name} smoothly sidesteps ${mob.name}'s wild strike — biting empty air!`;
+          } else if (dexBonus > 0 && adjustedRoll < dexThreshold) {
+            missLayer = 'DODGE';
+            cueBadge = '💨 DODGED';
+            cueClass = 'dodge';
+            logText = redirected
+              ? `💨 ${finalHero.name}'s quick reflexes turn ${mob.name}'s strike aside from ${targetHero.name}!`
+              : `💨 DODGED: ${finalHero.name}'s lightning reflexes turn ${mob.name}'s lethal stroke into a clean miss!`;
+          } else if (shieldBonus > 0 && adjustedRoll < shieldThreshold) {
+            missLayer = 'SHIELD';
+            cueBadge = '🛡️ BLOCKED';
+            cueClass = 'shield';
+            const shieldName = (finalHero.equippedShield && finalHero.equippedShield.name) || 'shield';
+            logText = redirected
+              ? `🛡️ SHIELD BLOCK: ${finalHero.name} intercepts ${mob.name}'s strike with the rim of the ${shieldName}!`
+              : `🛡️ SHIELD BLOCK: ${finalHero.name} catches ${mob.name}'s blow cleanly on the iron rim of the ${shieldName}!`;
+          } else if (guardBonus > 0 && adjustedRoll < guardThreshold) {
+            missLayer = 'GUARD';
+            cueBadge = '🛡️ GUARDED';
+            cueClass = 'shield';
+            logText = `🛡️ TACTICAL GUARD: ${finalHero.name}'s disciplined guard parries ${mob.name}'s assault!`;
+          } else if (spellAc > 0 && adjustedRoll < spellThreshold) {
+            missLayer = 'SPELL';
+            cueBadge = '✨ WARDED';
+            cueClass = 'ward';
+            const spellSrc = finalHero.tempAcSource || 'Arcane Shield';
+            logText = `✨ WARDED: A radiant barrier of ${spellSrc} flares around ${finalHero.name}, absorbing ${mob.name}'s blow!`;
+          } else {
+            missLayer = 'ARMOR';
+            cueBadge = '⚙️ DEFLECTED';
+            cueClass = 'armor';
+            const armorName = (finalHero.equippedArmor && finalHero.equippedArmor.name) || 'armor';
+            logText = redirected
+              ? `⚙️ ARMOR DEFLECTION: ${finalHero.name} intercepts ${mob.name}'s strike — the blow rings harmlessly off the ${armorName}!`
+              : `⚙️ ARMOR DEFLECTION: ${mob.name}'s blade strikes ${finalHero.name}'s ${armorName} with a shower of sparks, glancing off harmlessly!`;
+          }
+
           combatEvents.push({
-            eventType: 'MONSTER_MISS', sourceName: mob.name, targetHeroName: redirected ? finalHero.name : targetHero.name,
-            logText: redirected ? `🛡️ ${mob.name} attacks ${targetHero.name}, but ${finalHero.name} turns the blow aside!` : `🛡️ ${mob.name} attacks ${targetHero.name}... Misses!`,
+            eventType: 'MONSTER_MISS',
+            sourceName: mob.name,
+            targetHeroName: redirected ? finalHero.name : targetHero.name,
+            targetHeroIndex: finalHeroIndex,
+            missLayer: missLayer,
+            cueBadge: cueBadge,
+            cueClass: cueClass,
+            logText: logText,
             logType: 'muted'
           });
         }
@@ -1173,7 +1791,10 @@ export class GameState {
       if (finalHeroHp[idx] !== undefined) h.hp = finalHeroHp[idx];
       if ((h.tempAcRounds || 0) > 0) {
         h.tempAcRounds -= 1;
-        if (h.tempAcRounds <= 0) h.tempAcBonus = 0;
+        if (h.tempAcRounds <= 0) {
+          h.tempAcBonus = 0;
+          h.tempAcSource = null;
+        }
       }
       if ((h.tempAttackRounds || 0) > 0) {
         h.tempAttackRounds -= 1;
@@ -1452,22 +2073,27 @@ export class GameState {
   }
 
   attemptDisarmTrap(target) {
-    const thief = this.party.find(p => p.classKey === 'thief');
-    if (!thief || thief.toolsDurability <= 0) return { success: false, triggered: false, reason: "No operational thieves' tools available!" };
+    const thief = this.party.find(p => p.classKey === 'thief' && p.hp > 0);
+    if (!thief) return { success: false, triggered: false, reason: "The thief is incapacitated!" };
+    if (thief.toolsDurability <= 0) return { success: false, triggered: false, reason: "Thieves' tools are blunted or broken! Refurbish them at Grimm's Outfitter." };
     
-    thief.toolsDurability = Math.max(0, thief.toolsDurability - 10);
-    const chance = this.getSkillTarget(thief, 'disarm_traps');
+    thief.toolsDurability = Math.max(0, thief.toolsDurability - 4);
+    const chance = this.getSkillTarget(thief, 'find_traps');
     const roll = Math.floor(Math.random() * 100) + 1;
     const key = `${target.x},${target.y}`;
     
     if (roll <= chance) {
       this.disarmedTraps.add(key);
-      return { success: true, triggered: false, roll, chance };
-    } else {
+      return { success: true, triggered: false, roll, chance, durability: thief.toolsDurability };
+    } 
+    // In AD&D 2e, a trap only springs inadvertently on a fumble (roll > 95)
+    if (roll > 95) {
       this.disarmedTraps.add(key);
-      const fighter = this.party.find(p => p.classKey === 'fighter') || this.party[0];
-      fighter.hp = Math.max(0, fighter.hp - (target.damage || 15));
-      return { success: false, triggered: true, roll, chance, damage: target.damage || 15 };
+      const trapResult = this.triggerTrap(target);
+      return { success: false, triggered: true, roll, chance, trapResult, durability: thief.toolsDurability };
+    } else {
+      // Normal failure: the mechanism resists, but the trap is not sprung
+      return { success: false, triggered: false, roll, chance, durability: thief.toolsDurability };
     }
   }
 
@@ -1590,13 +2216,17 @@ export class GameState {
   }
 
   attemptPickLock(targetType) {
-    const thief = this.party.find(p => p.classKey === 'thief');
-    if (!thief || thief.toolsDurability <= 0) return { success: false, reason: "No operational thieves' tools available!" };
+    const thief = this.party.find(p => p.classKey === 'thief' && p.hp > 0);
+    if (!thief) return { success: false, reason: "The thief is incapacitated!" };
+    if (thief.toolsDurability <= 0) return { success: false, reason: "Thieves' tools are blunted or broken! Refurbish them at Grimm's Outfitter." };
     
-    thief.toolsDurability = Math.max(0, thief.toolsDurability - 15);
-    const chance = this.getSkillTarget(thief, 'pick_locks');
     const roll = Math.floor(Math.random() * 100) + 1;
-    return { success: roll <= chance, roll, chance };
+    const wear = (roll > 95) ? 10 : 4;
+    thief.toolsDurability = Math.max(0, thief.toolsDurability - wear);
+
+    const chance = this.getSkillTarget(thief, 'pick_locks');
+    const success = roll <= chance;
+    return { success, roll, chance, durability: thief.toolsDurability, fumbled: roll > 95 };
   }
 
   unlockTarget(x, y, type) {
@@ -1608,7 +2238,7 @@ export class GameState {
   isWalkable(x, y) {
     if (y < 0 || y >= this.spec.map.length || x < 0 || x >= this.spec.map[0].length) return false;
     const tileId = this.spec.map[y][x];
-    if (tileId === 2 && this.openedDoors.has(`${x},${y}`)) return true;
+    if ((tileId === 2 || tileId === 8) && this.openedDoors.has(`${x},${y}`)) return true;
     const tileDef = this.spec.legend[tileId];
     return tileDef && tileDef.walkable;
   }
@@ -1687,7 +2317,7 @@ export class GameState {
     const key = `${tx},${ty}`;
     
     if (tileDef && tileDef.locked && !this.unlockedDoors.has(key) && !this.unlockedChests.has(key)) {
-      return { x: tx, y: ty, methods: tileDef.locked.methods, dc: tileDef.locked.dc, type: tileId == 2 ? 'door' : 'chest', tileDef: tileDef };
+      return { x: tx, y: ty, methods: tileDef.locked.methods, dc: tileDef.locked.dc, type: (tileId === 2 || tileId === 8) ? 'door' : 'chest', tileDef: tileDef };
     }
     return null;
   }

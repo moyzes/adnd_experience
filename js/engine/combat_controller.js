@@ -63,6 +63,16 @@ export class CombatController {
 
             this.callbacks.log(evt.logText, evt.logType);
 
+            // Tier 1: Canvas floating impact badges
+            if (evt.cueBadge && typeof this.callbacks.showCombatFloatingCue === 'function') {
+                this.callbacks.showCombatFloatingCue(evt.cueBadge, evt.cueClass || 'normal', evt.eventType === 'HERO_HIT');
+            }
+
+            // Tier 3: Rare cinematic masterstroke banner
+            if (evt.masterstrokeFeat && typeof this.callbacks.showMasterstrokeCue === 'function') {
+                this.callbacks.showMasterstrokeCue(evt.masterstrokeFeat);
+            }
+
             if (evt.attackerSpec && evt.attackerSpec.soundAttack) {
                 this.callbacks.playSFX(evt.attackerSpec.soundAttack);
             }
@@ -86,6 +96,8 @@ export class CombatController {
             } else if (evt.eventType === 'MONSTER_HIT') {
                 if (evt.attackMode === 'ranged') {
                     this.callbacks.playSFX('arrow_impact');
+                } else if (evt.attackMode === 'backstab') {
+                    this.callbacks.playSFX('backstab');
                 } else if (evt.attackMode === 'spell') {
                     this.callbacks.playSFX('magic_missile');
                 } else {
@@ -105,7 +117,11 @@ export class CombatController {
                     this.callbacks.applyVisualCombatHp(visualEnemies, visualHeroHp);
                 }
             } else if (evt.eventType === 'HERO_MISS' || evt.eventType === 'MONSTER_MISS') {
-                this.callbacks.playSFX('sword_miss');
+                if (evt.missLayer === 'SHIELD' || evt.missLayer === 'ARMOR') {
+                    this.callbacks.playSFX('blocked');
+                } else {
+                    this.callbacks.playSFX('sword_miss');
+                }
             } else if (evt.eventType === 'GUARD') {
                 this.callbacks.playSFX('button');
             } else if (evt.eventType === 'SPELL_CAST') {

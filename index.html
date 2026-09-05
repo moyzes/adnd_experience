@@ -516,6 +516,66 @@
       transform: translateX(-50%) translateY(0);
     }
 
+    /* Hero Card Defense & Buff Badges */
+    .hero-defense-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9px;
+      margin-top: 2px;
+      padding: 1px 3px;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 2px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--text-muted);
+      line-height: 1.2;
+    }
+
+    .hero-card-buffs {
+      display: flex;
+      gap: 3px;
+      flex-wrap: wrap;
+      margin-top: 3px;
+    }
+
+    .hero-buff-pill {
+      font-size: 8px;
+      padding: 1px 4px;
+      border-radius: 2px;
+      font-family: 'Source Code Pro', monospace;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      line-height: 1.2;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      animation: buffPulse 2.5s infinite ease-in-out;
+      cursor: help;
+    }
+
+    .hero-buff-pill.ac-buff {
+      background: #0f243d;
+      color: #79c0ff;
+      border: 1px solid #1f6feb;
+    }
+
+    .hero-buff-pill.atk-buff {
+      background: #332408;
+      color: #f2cc60;
+      border: 1px solid #9e6a03;
+    }
+
+    .hero-buff-pill.stealth-buff {
+      background: #211938;
+      color: #d2a8ff;
+      border: 1px solid #8957e5;
+    }
+
+    @keyframes buffPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.82; transform: scale(0.98); }
+    }
+
     /* Wide Action Tabs */
     #global-actions {
       display: grid;
@@ -761,13 +821,13 @@
       top: 14px;
       left: 50%;
       transform: translateX(-50%) translateY(-12px);
-      width: min(92%, 480px);
-      background: linear-gradient(180deg, rgba(16, 20, 28, 0.97) 0%, rgba(8, 10, 14, 0.98) 100%);
+      width: min(94%, 510px);
+      background: linear-gradient(180deg, rgba(14, 18, 26, 0.98) 0%, rgba(6, 8, 12, 0.99) 100%);
       border: 2px solid var(--gold-tsr);
       outline: 1px solid #363e4d;
-      box-shadow: 0 0 30px rgba(0, 0, 0, 0.95), 0 0 16px rgba(212, 175, 55, 0.35);
-      border-radius: 3px;
-      padding: 10px 14px;
+      box-shadow: 0 0 35px rgba(0, 0, 0, 0.95), 0 0 16px rgba(212, 175, 55, 0.35);
+      border-radius: 4px;
+      padding: 12px 16px;
       z-index: 1000;
       pointer-events: none;
       opacity: 0;
@@ -782,61 +842,312 @@
 
     #saving-throw-cue-banner.pass {
       border-color: #3fb950;
-      box-shadow: 0 0 30px rgba(0, 0, 0, 0.95), 0 0 22px rgba(63, 185, 80, 0.45);
+      box-shadow: 0 0 35px rgba(0, 0, 0, 0.95), 0 0 24px rgba(63, 185, 80, 0.45);
+      animation: heroic-save-pulse 2.2s infinite ease-in-out;
+    }
+
+    #saving-throw-cue-banner.pass.close-call {
+      border-color: #e3b341;
+      box-shadow: 0 0 35px rgba(0, 0, 0, 0.95), 0 0 26px rgba(227, 179, 65, 0.55);
+    }
+
+    #saving-throw-cue-banner.pass.nat20 {
+      border-color: #ffd700;
+      box-shadow: 0 0 45px rgba(0, 0, 0, 0.95), 0 0 35px rgba(255, 215, 0, 0.7);
+    }
+
+    #saving-throw-cue-banner.masterstroke {
+      border-color: #ffd700;
+      box-shadow: 0 0 45px rgba(0, 0, 0, 0.95), 0 0 35px rgba(255, 215, 0, 0.75);
+      animation: heroic-save-pulse 1.8s infinite ease-in-out;
+    }
+
+    #saving-throw-cue-banner.masterstroke .st-cue-title {
+      color: #ffd700;
+      text-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+    }
+
+    /* Floating Combat Dynamic Badges */
+    #combat-floating-fx-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 50;
+      overflow: hidden;
+    }
+
+    .floating-combat-pill {
+      position: absolute;
+      left: 50%;
+      top: 45%;
+      transform: translate(-50%, -50%);
+      font-family: 'Cinzel', serif;
+      font-weight: 900;
+      letter-spacing: 0.8px;
+      padding: 6px 14px;
+      border-radius: 4px;
+      white-space: nowrap;
+      pointer-events: none;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.85);
+      animation: combatFloatAnim 1.25s forwards cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes combatFloatAnim {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, 15px) scale(0.85);
+      }
+      18% {
+        opacity: 1;
+        transform: translate(-50%, -8px) scale(1.12);
+      }
+      35% {
+        transform: translate(-50%, -15px) scale(1);
+      }
+      75% {
+        opacity: 0.95;
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -45px) scale(0.95);
+      }
+    }
+
+    .floating-combat-pill.crushing {
+      background: linear-gradient(180deg, #ffd700 0%, #b8860b 100%);
+      color: #0b0e14;
+      border: 2px solid #ffffff;
+      font-size: 15px;
+      text-shadow: 0 0 4px rgba(255, 255, 255, 0.6);
+      box-shadow: 0 0 25px rgba(255, 215, 0, 0.6), 0 4px 15px rgba(0,0,0,0.9);
+    }
+
+    .floating-combat-pill.heavy {
+      background: linear-gradient(180deg, #f0883e 0%, #bd561d 100%);
+      color: #ffffff;
+      border: 1px solid #ffab70;
+      font-size: 14px;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+      box-shadow: 0 0 18px rgba(240, 136, 62, 0.5);
+    }
+
+    .floating-combat-pill.backstab {
+      background: linear-gradient(180deg, #b31414 0%, #6e0c0c 100%);
+      color: #ffd700;
+      border: 1.5px solid #ffd700;
+      font-size: 15px;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+      box-shadow: 0 0 25px rgba(179, 20, 20, 0.7);
+    }
+
+    .floating-combat-pill.shield {
+      background: rgba(22, 38, 59, 0.95);
+      color: #79c0ff;
+      border: 1.5px solid #388bfd;
+      font-size: 13px;
+      box-shadow: 0 0 16px rgba(56, 139, 253, 0.4);
+    }
+
+    .floating-combat-pill.armor {
+      background: rgba(36, 32, 24, 0.95);
+      color: #e3b341;
+      border: 1.5px solid #d4af37;
+      font-size: 13px;
+      box-shadow: 0 0 16px rgba(212, 175, 55, 0.4);
+    }
+
+    .floating-combat-pill.dodge {
+      background: rgba(20, 36, 26, 0.95);
+      color: #7ee787;
+      border: 1.5px solid #3fb950;
+      font-size: 13px;
+      box-shadow: 0 0 16px rgba(63, 185, 80, 0.4);
+    }
+
+    .floating-combat-pill.ward {
+      background: rgba(38, 20, 48, 0.95);
+      color: #d2a8ff;
+      border: 1.5px solid #bc8cff;
+      font-size: 13px;
+      box-shadow: 0 0 16px rgba(188, 140, 255, 0.4);
+    }
+
+    .floating-combat-pill.graze {
+      background: rgba(26, 29, 36, 0.92);
+      color: #8b949e;
+      border: 1px solid #30363d;
+      font-size: 12px;
+    }
+
+    .floating-combat-pill.normal {
+      background: rgba(22, 27, 34, 0.92);
+      color: #c9d1d9;
+      border: 1px solid #484f58;
+      font-size: 13px;
+    }
+
+    /* Gilded Combat Log Masterstroke Card */
+    .combat-log-masterstroke {
+      background: linear-gradient(180deg, rgba(30, 25, 14, 0.9) 0%, rgba(16, 14, 8, 0.95) 100%);
+      border: 1px solid var(--gold-tsr);
+      border-left: 3px solid #ffd700;
+      padding: 6px 10px;
+      margin: 4px 0;
+      border-radius: 2px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 10px rgba(212, 175, 55, 0.2);
+    }
+    .combat-log-masterstroke .ms-title {
+      font-family: 'Cinzel', serif;
+      font-weight: 900;
+      font-size: 11px;
+      color: #ffd700;
+      letter-spacing: 0.8px;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2px;
+    }
+    .combat-log-masterstroke .ms-meta {
+      font-family: 'Source Code Pro', monospace;
+      font-size: 9.5px;
+      color: var(--gold-hover);
+    }
+    .combat-log-masterstroke .ms-quote {
+      font-style: italic;
+      font-size: 11px;
+      color: var(--parchment-light);
+      line-height: 1.4;
     }
 
     #saving-throw-cue-banner.fail {
       border-color: #f85149;
-      box-shadow: 0 0 30px rgba(0, 0, 0, 0.95), 0 0 22px rgba(248, 81, 73, 0.55);
+      box-shadow: 0 0 35px rgba(0, 0, 0, 0.95), 0 0 24px rgba(248, 81, 73, 0.55);
+      animation: mortal-fail-shudder 0.45s ease-out;
+    }
+
+    @keyframes heroic-save-pulse {
+      0%, 100% { box-shadow: 0 0 35px rgba(0, 0, 0, 0.95), 0 0 20px rgba(63, 185, 80, 0.35); }
+      50% { box-shadow: 0 0 42px rgba(0, 0, 0, 0.95), 0 0 32px rgba(63, 185, 80, 0.65); }
+    }
+
+    @keyframes mortal-fail-shudder {
+      0% { transform: translateX(-50%) translateY(0); }
+      20% { transform: translateX(calc(-50% - 5px)) translateY(0); }
+      40% { transform: translateX(calc(-50% + 5px)) translateY(0); }
+      60% { transform: translateX(calc(-50% - 3px)) translateY(0); }
+      80% { transform: translateX(calc(-50% + 3px)) translateY(0); }
+      100% { transform: translateX(-50%) translateY(0); }
     }
 
     .st-cue-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid var(--border-chiseled);
-      padding-bottom: 4px;
+      border-bottom: 1px solid rgba(212, 175, 55, 0.25);
+      padding-bottom: 5px;
       margin-bottom: 6px;
     }
 
     .st-cue-title {
       font-family: 'Cinzel', serif;
-      font-size: 11px;
+      font-size: 11.5px;
       font-weight: 900;
-      letter-spacing: 1.5px;
+      letter-spacing: 1.2px;
       color: var(--gold-tsr);
       display: flex;
       align-items: center;
       gap: 6px;
+      text-transform: uppercase;
+    }
+
+    #saving-throw-cue-banner.pass .st-cue-title {
+      color: #7ee787;
+      text-shadow: 0 0 8px rgba(126, 231, 135, 0.35);
+    }
+
+    #saving-throw-cue-banner.pass.close-call .st-cue-title {
+      color: #e3b341;
+      text-shadow: 0 0 8px rgba(227, 179, 65, 0.45);
+    }
+
+    #saving-throw-cue-banner.fail .st-cue-title {
+      color: #ff7b72;
+      text-shadow: 0 0 8px rgba(255, 123, 114, 0.35);
     }
 
     .st-cue-cat {
-      font-size: 9px;
+      font-size: 9.5px;
       font-family: 'Cinzel', serif;
-      color: var(--text-muted);
+      color: var(--gold-hover);
       letter-spacing: 0.8px;
       text-transform: uppercase;
+      background: rgba(0, 0, 0, 0.45);
+      padding: 2px 7px;
+      border: 1px solid var(--border-iron);
+      border-radius: 2px;
+    }
+
+    .st-cue-domain-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 7px;
+      background: rgba(255, 255, 255, 0.035);
+      padding: 4px 9px;
+      border-radius: 2px;
+      border-left: 2px solid var(--gold-tsr);
+    }
+
+    #saving-throw-cue-banner.pass .st-cue-domain-row {
+      border-left-color: #3fb950;
+    }
+
+    #saving-throw-cue-banner.fail .st-cue-domain-row {
+      border-left-color: #f85149;
+    }
+
+    .st-cue-domain-badge {
+      font-family: 'Cinzel', serif;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.7px;
+      color: var(--gold-tsr);
+      text-transform: uppercase;
+    }
+
+    .st-cue-domain-origin {
+      font-size: 9px;
+      font-style: italic;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 60%;
     }
 
     .st-cue-meta {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 6px;
-      font-size: 10.5px;
+      margin-bottom: 8px;
+      font-size: 11px;
+      gap: 8px;
     }
 
     .st-cue-hero {
       font-family: 'Cinzel', serif;
       font-weight: 700;
       color: var(--parchment-light);
+      letter-spacing: 0.5px;
     }
 
     .st-cue-roll {
       font-family: 'Source Code Pro', monospace;
-      font-size: 9.5px;
-      background: #0d1117;
-      padding: 2px 6px;
+      font-size: 10px;
+      background: #090c10;
+      padding: 3px 8px;
       border-radius: 2px;
       border: 1px solid var(--border-iron);
       color: var(--gold-hover);
@@ -846,40 +1157,60 @@
       font-family: 'Cinzel', serif;
       font-size: 9.5px;
       font-weight: 900;
-      letter-spacing: 1px;
-      padding: 2px 8px;
+      letter-spacing: 0.8px;
+      padding: 3px 9px;
       border-radius: 2px;
       text-transform: uppercase;
+      white-space: nowrap;
     }
 
     .st-cue-outcome.pass {
       background: #1b4332;
       color: #7ee787;
       border: 1px solid #2d6a4f;
-      box-shadow: 0 0 10px rgba(82, 183, 136, 0.4);
+      box-shadow: 0 0 12px rgba(82, 183, 136, 0.4);
+    }
+
+    .st-cue-outcome.pass.close-call {
+      background: #463408;
+      color: #ffd700;
+      border: 1px solid #755914;
+      box-shadow: 0 0 12px rgba(255, 215, 0, 0.4);
+    }
+
+    .st-cue-outcome.pass.nat20 {
+      background: #4d3a04;
+      color: #fff275;
+      border: 1px solid #e3b341;
+      box-shadow: 0 0 16px rgba(255, 242, 117, 0.6);
     }
 
     .st-cue-outcome.fail {
       background: #3a0000;
       color: #ff7b72;
       border: 1px solid #8b0000;
-      box-shadow: 0 0 10px rgba(255, 123, 114, 0.4);
+      box-shadow: 0 0 12px rgba(255, 123, 114, 0.4);
     }
 
     .st-cue-narrative {
       font-family: 'Cinzel', serif;
       font-style: italic;
-      font-size: 10.5px;
-      line-height: 1.45;
+      font-size: 11px;
+      line-height: 1.5;
       color: var(--parchment);
-      background: rgba(0, 0, 0, 0.4);
-      padding: 6px 9px;
+      background: rgba(0, 0, 0, 0.45);
+      padding: 8px 12px;
       border-left: 3px solid var(--gold-tsr);
-      border-radius: 0 2px 2px 0;
+      border-radius: 0 3px 3px 0;
+      position: relative;
     }
 
     #saving-throw-cue-banner.pass .st-cue-narrative {
       border-left-color: #3fb950;
+    }
+
+    #saving-throw-cue-banner.pass.close-call .st-cue-narrative {
+      border-left-color: #e3b341;
     }
 
     #saving-throw-cue-banner.fail .st-cue-narrative {
@@ -960,19 +1291,24 @@
       <div id="view-3d-box">
         <div id="saving-throw-cue-banner">
           <div class="st-cue-header">
-            <span class="st-cue-title">⚡ SAVING THROW</span>
+            <span id="st-cue-main-title" class="st-cue-title">🛡️ FEAT OF HEROIC FORTITUDE</span>
             <span id="st-cue-cat" class="st-cue-cat">VS. POISON / DEATH</span>
+          </div>
+          <div id="st-cue-domain-row" class="st-cue-domain-row">
+            <span id="st-cue-domain-badge" class="st-cue-domain-badge">⚔️ WARRIOR FORTITUDE</span>
+            <span id="st-cue-domain-origin" class="st-cue-domain-origin">Mortal defiance & muscular refusal to die</span>
           </div>
           <div class="st-cue-meta">
             <span id="st-cue-hero" class="st-cue-hero">HERO NAME</span>
             <span id="st-cue-roll" class="st-cue-roll">d20: 18 vs Target 13</span>
-            <span id="st-cue-outcome" class="st-cue-outcome pass">SAVED</span>
+            <span id="st-cue-outcome" class="st-cue-outcome pass">✨ HEROIC FORTITUDE</span>
           </div>
           <div id="st-cue-narrative" class="st-cue-narrative">
             Heroic narrative text here...
           </div>
         </div>
         <div id="enemy-hp-overlay"></div>
+        <div id="combat-floating-fx-container"></div>
         <div id="three-container"></div>
       </div>
       <div id="narrative-log">

@@ -21,19 +21,43 @@ export class CharacterSheetUI {
     const attrs = hero.attributes;
     const statsHTML = `
     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background: #0d1117; padding: 10px; border: 1px solid var(--border-steel); border-radius: 4px; margin-bottom: 12px; font-size: 12px;">
-      <div>Strength: <b style="color:var(--text-parchment);">${attrs.strength}</b> <span style="color:var(--text-muted);">(d20 ≤ ${attrs.strength})</span></div>
-      <div>Dexterity: <b style="color:var(--text-parchment);">${attrs.dexterity}</b> <span style="color:var(--text-muted);">(d20 ≤ ${attrs.dexterity})</span></div>
-      <div>Constitution: <b style="color:var(--text-parchment);">${attrs.constitution}</b> <span style="color:var(--text-muted);">(d20 ≤ ${attrs.constitution})</span></div>
-      <div>Intelligence: <b style="color:var(--text-parchment);">${attrs.intelligence}</b> <span style="color:var(--text-muted);">(d20 ≤ ${attrs.intelligence})</span></div>
-      <div>Wisdom: <b style="color:var(--text-parchment);">${attrs.wisdom}</b> <span style="color:var(--text-muted);">(d20 ≤ ${attrs.wisdom})</span></div>
-      <div>Charisma: <b style="color:var(--text-parchment);">${attrs.charisma}</b> <span style="color:var(--text-muted);">(d20 ≤ ${attrs.charisma})</span></div>
+      <div>Strength: <b style="color:var(--text-parchment);">${attrs.strength}</b></div>
+      <div>Dexterity: <b style="color:var(--text-parchment);">${attrs.dexterity}</b></div>
+      <div>Constitution: <b style="color:var(--text-parchment);">${attrs.constitution}</b></div>
+      <div>Intelligence: <b style="color:var(--text-parchment);">${attrs.intelligence}</b></div>
+      <div>Wisdom: <b style="color:var(--text-parchment);">${attrs.wisdom}</b></div>
+      <div>Charisma: <b style="color:var(--text-parchment);">${attrs.charisma}</b></div>
     </div>`;
 
+    // Dynamic Buff Indicators
+    const activeBuffs = [];
+    if (hero.tempAcBonus > 0) {
+      activeBuffs.push(`<span style="background:#0f243d;color:#79c0ff;border:1px solid #1f6feb;padding:3px 8px;border-radius:3px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">🛡️ ${hero.tempAcSource || 'Arcane Shield'}: -${hero.tempAcBonus} AC (${hero.tempAcRounds} round${hero.tempAcRounds === 1 ? '' : 's'} remaining)</span>`);
+    }
+    if (hero.tempAttackBonus > 0) {
+      activeBuffs.push(`<span style="background:#332408;color:#f2cc60;border:1px solid #9e6a03;padding:3px 8px;border-radius:3px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">✨ Bless: +${hero.tempAttackBonus} To-Hit (${hero.tempAttackRounds} round${hero.tempAttackRounds === 1 ? '' : 's'} remaining)</span>`);
+    }
+    if (hero.isStealth) {
+      activeBuffs.push(`<span style="background:#211938;color:#d2a8ff;border:1px solid #8957e5;padding:3px 8px;border-radius:3px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">🗡️ Shadow Stealth (Hidden in shadows, backstab primed)</span>`);
+    }
+
+    const buffsHTML = activeBuffs.length > 0 ? `
+    <div style="background: rgba(31, 111, 235, 0.1); border: 1px solid #1f6feb; border-radius: 4px; padding: 8px 12px; margin-bottom: 12px;">
+      <div style="color: #79c0ff; font-weight: bold; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">⚡ Active Combat Buffs & Conditions</div>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+        ${activeBuffs.join('')}
+      </div>
+    </div>` : '';
+
+    const baseAc = hero.armorClass != null ? hero.armorClass : 5;
+    const activeSpellAc = hero.tempAcBonus || 0;
+    const effectiveAc = baseAc - activeSpellAc;
+
     const combatHTML = `
-    <div style="display: flex; justify-content: space-between; background: #161b22; padding: 8px 12px; border: 1px solid var(--border-steel); border-radius: 4px; margin-bottom: 12px; font-size: 12px;">
-      <div>HP: <b style="color:#3fb950;">${hero.hp}/${hero.maxHp}</b></div>
-      <div>AC: <b style="color:var(--accent-gold);">${hero.armorClass || 5}</b></div>
-      <div>Attack Bonus: <b>+${hero.attackBonus || 1}</b></div>
+    <div style="display: flex; justify-content: space-between; background: #161b22; padding: 10px 14px; border: 1px solid var(--border-steel); border-radius: 4px; margin-bottom: 12px; font-size: 12px;">
+      <div>HP: <b style="color:#3fb950; font-size: 13px;">${hero.hp}/${hero.maxHp}</b></div>
+      <div>AC: <b style="color:var(--accent-gold); font-size: 13px;">${effectiveAc}</b>${activeSpellAc > 0 ? ` <span style="color:#79c0ff; font-size: 11px;">(-${activeSpellAc})</span>` : ''}</div>
+      <div>Attack Bonus: <b style="color:var(--text-parchment);">+${hero.attackBonus || 1}</b></div>
       <div>XP: <b>${hero.xp || 0} / ${hero.nextLevelXp || 500}</b></div>
     </div>`;
 
@@ -178,11 +202,19 @@ export class CharacterSheetUI {
       ? `<div style="color:var(--text-muted);">Empty</div>`
       : invItems.map(i => {
         const isWeapon = this.state.isKnownWeapon(i.name);
-        const equipBtn = isWeapon
-          ? `<button class="action-tab equip-weapon-btn" data-hero-index="${heroIndex}" data-weapon="${i.name}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Equip</button>`
-          : '';
+        const itemDef = this.state.getItemDef(i.name);
+        const isArmor = itemDef && itemDef.kind === 'armor';
+        const isShield = itemDef && itemDef.kind === 'shield';
+        let equipBtn = '';
+        if (isWeapon) {
+          equipBtn = `<button class="action-tab equip-weapon-btn" data-hero-index="${heroIndex}" data-weapon="${i.name}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Equip</button>`;
+        } else if (isArmor) {
+          equipBtn = `<button class="action-tab equip-armor-btn" data-hero-index="${heroIndex}" data-armor="${i.name}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Equip Armor</button>`;
+        } else if (isShield) {
+          equipBtn = `<button class="action-tab equip-shield-btn" data-hero-index="${heroIndex}" data-shield="${i.name}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Equip Shield</button>`;
+        }
         return `<div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #21262d;">
-            <span>${i.amount || 1}× ${i.name}${isWeapon && this.state.isRangedWeapon(i.name) ? ' <span style="color:var(--favor-blue);font-size:10px;">(ranged)</span>' : ''}</span>
+            <span>${i.amount || 1}× ${i.name}${isWeapon && this.state.isRangedWeapon(i.name) ? ' <span style="color:var(--favor-blue);font-size:10px;">(ranged)</span>' : ''}${isArmor ? ` <span style="color:var(--accent-gold);font-size:10px;">(Base AC ${itemDef.baseAc})</span>` : ''}${isShield ? ` <span style="color:#3fb950;font-size:10px;">(-${itemDef.acBonus || 1} AC)</span>` : ''}</span>
             ${equipBtn}
           </div>`;
       }).join('');
@@ -200,7 +232,25 @@ export class CharacterSheetUI {
 
     const gearHTML = `
     <div style="background: #161b22; padding: 10px; border: 1px solid var(--border-steel); border-radius: 4px; font-size: 12px;">
-      <div style="color: var(--accent-gold); font-weight: bold; margin-bottom: 6px; font-size: 13px;">📦 Equipment & Inventory</div>
+      <div style="color: var(--accent-gold); font-weight: bold; margin-bottom: 6px; font-size: 13px;">📦 Equipment & Worn Panoply</div>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #21262d;">
+        <div style="background: #0d1117; padding: 6px 8px; border: 1px solid #21262d; border-radius: 3px;">
+          <div style="color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Worn Body Armor</div>
+          <div style="color: var(--text-parchment); font-weight: bold; font-size: 12px; margin-top: 2px;">
+            ${hero.equippedArmor ? `🛡️ ${hero.equippedArmor.name} <span style="color: var(--accent-gold); font-size: 10px;">(Base AC ${hero.equippedArmor.baseAc})</span>` : '<span style="color: var(--text-muted);">None (Unarmored, Base AC 10)</span>'}
+          </div>
+          ${hero.equippedArmor?.description ? `<div style="color: var(--text-muted); font-size: 10px; margin-top: 2px;">${hero.equippedArmor.description}</div>` : ''}
+        </div>
+        <div style="background: #0d1117; padding: 6px 8px; border: 1px solid #21262d; border-radius: 3px;">
+          <div style="color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Equipped Shield</div>
+          <div style="color: var(--text-parchment); font-weight: bold; font-size: 12px; margin-top: 2px;">
+            ${hero.equippedShield ? `🔰 ${hero.equippedShield.name} <span style="color: #3fb950; font-size: 10px;">(-${hero.equippedShield.acBonus || 1} AC)</span>` : '<span style="color: var(--text-muted);">None (No shield equipped)</span>'}
+          </div>
+          ${hero.equippedShield?.description ? `<div style="color: var(--text-muted); font-size: 10px; margin-top: 2px;">${hero.equippedShield.description}</div>` : ''}
+        </div>
+      </div>
+
       <div style="margin-bottom:6px;">Equipped Weapon: <b style="color:var(--gold-tsr);">${equipped}</b>
         ${equippedIsRanged ? '<span style="color:var(--favor-blue);font-size:10px;"> — ranged</span>' : '<span style="color:var(--text-muted);font-size:10px;"> — melee</span>'}
       </div>
@@ -224,7 +274,7 @@ export class CharacterSheetUI {
       </div>`;
     }
 
-    this.contentEl.innerHTML = levelUpBanner + statsHTML + combatHTML + skillsHTML + specializedHTML + gearHTML;
+    this.contentEl.innerHTML = levelUpBanner + statsHTML + buffsHTML + combatHTML + skillsHTML + specializedHTML + gearHTML;
     
     this.bindEvents();
     
@@ -256,6 +306,38 @@ export class CharacterSheetUI {
           this.context.updateHUD();
         } else {
           this.context.log(result.reason || 'Could not equip.', "warning");
+        }
+      });
+    });
+
+    this.contentEl.querySelectorAll('.equip-armor-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const hIdx = parseInt(btn.getAttribute('data-hero-index'));
+        const armor = btn.getAttribute('data-armor');
+        const result = this.state.equipHeroArmor(hIdx, armor);
+        if (result.success) {
+          this.context.playSFX('button');
+          this.context.log(`${this.state.party[hIdx].name} dons ${result.equipped}.`, "success");
+          this.open(this.state.party[hIdx].name);
+          this.context.updateHUD();
+        } else {
+          this.context.log(result.reason || 'Could not don armor.', "warning");
+        }
+      });
+    });
+
+    this.contentEl.querySelectorAll('.equip-shield-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const hIdx = parseInt(btn.getAttribute('data-hero-index'));
+        const shield = btn.getAttribute('data-shield');
+        const result = this.state.equipHeroShield(hIdx, shield);
+        if (result.success) {
+          this.context.playSFX('button');
+          this.context.log(`${this.state.party[hIdx].name} readies ${result.equipped}.`, "success");
+          this.open(this.state.party[hIdx].name);
+          this.context.updateHUD();
+        } else {
+          this.context.log(result.reason || 'Could not ready shield.', "warning");
         }
       });
     });

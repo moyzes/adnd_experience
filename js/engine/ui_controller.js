@@ -48,6 +48,8 @@ export class UIController {
                     <span id="hero-xp-text-${index}">XP: ${hero.xp || 0}/${hero.nextLevelXp || 2000}</span>
                   </div>
                   <div class="xp-bar-bg"><div id="hero-xp-fill-${index}" class="xp-bar-fill"></div></div>
+                  <div id="hero-defense-${index}"></div>
+                  <div id="hero-buffs-${index}"></div>
                   <div id="hero-secondary-${index}"></div>
                   <div id="hero-levelup-${index}"></div>
                 </div>
@@ -62,12 +64,45 @@ export class UIController {
                 lvlVal: document.getElementById(`hero-lvl-val-${index}`),
                 xpText: document.getElementById(`hero-xp-text-${index}`),
                 xpFill: document.getElementById(`hero-xp-fill-${index}`),
+                defense: document.getElementById(`hero-defense-${index}`),
+                buffs: document.getElementById(`hero-buffs-${index}`),
                 secondary: document.getElementById(`hero-secondary-${index}`),
                 levelUp: document.getElementById(`hero-levelup-${index}`),
                 actions: document.getElementById(`hero-actions-${index}`),
                 avatar: document.getElementById(`hero-avatar-${index}`)
             });
         });
+    }
+
+    renderHeroDefenseAndBuffs(cache, hero) {
+        if (!cache || !cache.defense || !cache.buffs) return;
+        const baseAc = hero.armorClass != null ? hero.armorClass : 5;
+        const activeSpellAc = hero.tempAcBonus || 0;
+        const effectiveAc = baseAc - activeSpellAc;
+        const armorShort = hero.equippedArmor ? hero.equippedArmor.name.split(' ')[0] : 'None';
+        const shieldIcon = hero.equippedShield ? ' + 🛡️' : '';
+
+        cache.defense.innerHTML = `
+          <div class="hero-defense-bar">
+            <span>AC: <b style="color:var(--gold-tsr);">${effectiveAc}</b>${activeSpellAc > 0 ? ` <span style="color:#79c0ff; font-weight: bold;">(-${activeSpellAc})</span>` : ''}</span>
+            <span style="color: var(--text-parchment);">${armorShort}${shieldIcon}</span>
+          </div>
+        `;
+
+        const buffBadges = [];
+        if (hero.tempAcBonus > 0) {
+            buffBadges.push(`<span class="hero-buff-pill ac-buff" title="${hero.tempAcSource || 'AC Ward'}: -${hero.tempAcBonus} AC (${hero.tempAcRounds} rnds remaining)">🛡️ -${hero.tempAcBonus} AC (${hero.tempAcRounds}r)</span>`);
+        }
+        if (hero.tempAttackBonus > 0) {
+            buffBadges.push(`<span class="hero-buff-pill atk-buff" title="Bless: +${hero.tempAttackBonus} to-hit (${hero.tempAttackRounds} rnds remaining)">✨ +${hero.tempAttackBonus} Atk (${hero.tempAttackRounds}r)</span>`);
+        }
+        if (hero.isStealth) {
+            buffBadges.push(`<span class="hero-buff-pill stealth-buff" title="Stealth: Hidden in shadows, Backstab primed">🗡️ Stealth</span>`);
+        }
+
+        cache.buffs.innerHTML = buffBadges.length > 0
+            ? `<div class="hero-card-buffs">${buffBadges.join('')}</div>`
+            : '';
     }
 
     updateHUD(force = false) {
@@ -130,6 +165,8 @@ export class UIController {
                 if (cache.lvlVal) cache.lvlVal.textContent = hero.level || 1;
                 if (cache.xpText) cache.xpText.textContent = `XP: ${curXp}/${targetXp}`;
                 if (cache.xpFill) cache.xpFill.style.width = `${xpProgress}%`;
+
+                this.renderHeroDefenseAndBuffs(cache, hero);
 
                 // Keep secondary metrics visible in combat (cognition / divine favor / tools)
                 if (hero.classKey === 'mage' && hero.maxCognition) {
@@ -267,6 +304,8 @@ export class UIController {
                 if (cache.lvlVal) cache.lvlVal.textContent = hero.level || 1;
                 if (cache.xpText) cache.xpText.textContent = `XP: ${curXp}/${targetXp}`;
                 if (cache.xpFill) cache.xpFill.style.width = `${xpProgress}%`;
+
+                this.renderHeroDefenseAndBuffs(cache, hero);
 
                 if (isInc) {
                     cardActions = `<div class="incapacitated-badge">💀 INCAPACITATED</div>`;
@@ -524,31 +563,131 @@ export class UIController {
         const banner = document.getElementById('saving-throw-cue-banner');
         if (!banner) return;
 
+        const titleEl = document.getElementById('st-cue-main-title');
         const catEl = document.getElementById('st-cue-cat');
+        const domainBadgeEl = document.getElementById('st-cue-domain-badge');
+        const domainOriginEl = document.getElementById('st-cue-domain-origin');
         const heroEl = document.getElementById('st-cue-hero');
         const rollEl = document.getElementById('st-cue-roll');
         const outcomeEl = document.getElementById('st-cue-outcome');
         const narrativeEl = document.getElementById('st-cue-narrative');
 
+        if (titleEl) {
+            titleEl.innerHTML = st.success 
+                ? (st.isNat20 ? '🔥 LEGENDARY FEAT OF FORTITUDE' : '🛡️ FEAT OF HEROIC FORTITUDE')
+                : (st.isNat1 ? '☠️ CATASTROPHIC COLLAPSE' : '💀 MORTAL THRESHOLD BREACHED');
+        }
+
         if (catEl) catEl.textContent = st.categoryLabel || `VS. ${st.category}`;
+        if (domainBadgeEl) domainBadgeEl.textContent = st.heroicBadge || '⚔️ HEROIC EXCEPTION';
+        if (domainOriginEl) domainOriginEl.textContent = st.heroicOrigin || 'Innate fortitude resisting demise';
         if (heroEl) heroEl.textContent = st.heroName || 'HERO';
-        if (rollEl) rollEl.textContent = `d20: ${st.roll}${st.abilityMod ? (st.abilityMod > 0 ? `+${st.abilityMod}` : st.abilityMod) : ''} vs Target ${st.target}`;
+
+        const modStr = st.abilityMod ? (st.abilityMod > 0 ? `+${st.abilityMod}` : `${st.abilityMod}`) : '';
+        if (rollEl) {
+            rollEl.innerHTML = `<span style="color:#d4af37">d20:[${st.naturalRoll || st.roll}]</span>${modStr ? `<span style="color:#7ee787">${modStr}</span>` : ''} vs Target <strong>${st.target}</strong>`;
+        }
         
         if (outcomeEl) {
-            outcomeEl.textContent = st.success ? '✨ SAVED' : '💀 FAILED';
-            outcomeEl.className = `st-cue-outcome ${st.success ? 'pass' : 'fail'}`;
+            outcomeEl.textContent = st.outcomeLabel || (st.success ? '✨ SAVED' : '💀 FAILED');
+            const outcomeClasses = ['st-cue-outcome', st.success ? 'pass' : 'fail'];
+            if (st.isCloseCall) outcomeClasses.push('close-call');
+            if (st.isNat20) outcomeClasses.push('nat20');
+            outcomeEl.className = outcomeClasses.join(' ');
         }
 
         if (narrativeEl) {
             narrativeEl.textContent = `"${st.narrative}"`;
         }
 
-        banner.className = `active ${st.success ? 'pass' : 'fail'}`;
+        const bannerClasses = ['active', st.success ? 'pass' : 'fail'];
+        if (st.isCloseCall) bannerClasses.push('close-call');
+        if (st.isNat20) bannerClasses.push('nat20');
+        banner.className = bannerClasses.join(' ');
+
+        // Trigger authentic audio cue
+        if (this.callbacks && typeof this.callbacks.playSFX === 'function') {
+            if (st.isNat20) {
+                this.callbacks.playSFX('reward');
+            } else if (st.success) {
+                this.callbacks.playSFX('reward');
+            } else {
+                this.callbacks.playSFX('monster_grunt');
+            }
+        }
 
         if (this._stTimeout) clearTimeout(this._stTimeout);
         this._stTimeout = setTimeout(() => {
             banner.className = '';
-        }, 4500);
+        }, 5500);
+    }
+
+    /** Tier 1: Floating impact text badge in the 3D viewport */
+    showCombatFloatingCue(badgeText, cueClass = 'normal', isHeroTarget = false) {
+        const container = document.getElementById('combat-floating-fx-container');
+        if (!container || !badgeText) return;
+
+        const pill = document.createElement('div');
+        pill.className = `floating-combat-pill ${cueClass}`;
+        pill.textContent = badgeText;
+
+        if (isHeroTarget) {
+            pill.style.left = `${45 + (Math.random() * 10 - 5)}%`;
+            pill.style.top = `${58 + (Math.random() * 8 - 4)}%`;
+        } else {
+            pill.style.left = `${50 + (Math.random() * 14 - 7)}%`;
+            pill.style.top = `${38 + (Math.random() * 10 - 5)}%`;
+        }
+
+        container.appendChild(pill);
+        setTimeout(() => {
+            if (pill.parentNode === container) {
+                container.removeChild(pill);
+            }
+        }, 1300);
+    }
+
+    /** Tier 3: Rare Cinematic Masterstroke Banner */
+    showMasterstrokeCue(feat) {
+        if (!feat) return;
+        const banner = document.getElementById('saving-throw-cue-banner');
+        if (!banner) return;
+
+        const titleEl = document.getElementById('st-cue-main-title');
+        const catEl = document.getElementById('st-cue-cat');
+        const domainBadgeEl = document.getElementById('st-cue-domain-badge');
+        const domainOriginEl = document.getElementById('st-cue-domain-origin');
+        const heroEl = document.getElementById('st-cue-hero');
+        const rollEl = document.getElementById('st-cue-roll');
+        const outcomeEl = document.getElementById('st-cue-outcome');
+        const narrativeEl = document.getElementById('st-cue-narrative');
+
+        if (titleEl) titleEl.innerHTML = feat.title || '⚔️ MASTERSTROKE';
+        if (catEl) catEl.textContent = feat.category || 'CRITICAL APERTURE';
+        if (domainBadgeEl) domainBadgeEl.textContent = feat.badge || '💥 FATAL PENETRATION';
+        if (domainOriginEl) domainOriginEl.textContent = feat.origin || 'Exquisite alignment of timing and force';
+        if (heroEl) heroEl.textContent = feat.heroName || 'HERO';
+        if (rollEl) {
+            rollEl.innerHTML = feat.rollText || `<span style="color:#ffd700">d20:[20]</span>`;
+        }
+        if (outcomeEl) {
+            outcomeEl.textContent = feat.outcome || `⚡ ${feat.damage || 0} DMG`;
+            outcomeEl.className = 'st-cue-outcome pass nat20';
+        }
+        if (narrativeEl) {
+            narrativeEl.textContent = `"${feat.narrative}"`;
+        }
+
+        banner.className = 'active pass nat20 masterstroke';
+
+        if (this.callbacks && typeof this.callbacks.playSFX === 'function') {
+            this.callbacks.playSFX('reward');
+        }
+
+        if (this._stTimeout) clearTimeout(this._stTimeout);
+        this._stTimeout = setTimeout(() => {
+            banner.className = '';
+        }, 2800);
     }
 
     showInteractionModal({ title, prompt, choices }) {
