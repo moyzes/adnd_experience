@@ -47,6 +47,7 @@ export class LevelUpUI {
     };
     this.thiefPointsLeft = this.currentOptions.thiefPoints || 15;
     this.selectedSpellIds = new Set();
+    this.selectedSpecializedWeapon = this.currentOptions.specializedWeapon || 'Longsword';
 
     // Auto-select first 2 spells if available
     if (this.currentOptions.availableSpells && this.currentOptions.availableSpells.length > 0) {
@@ -200,20 +201,34 @@ export class LevelUpUI {
         </div>
       `;
     } else if (opt.classKey === 'fighter') {
-      const hits = (hero.weaponUsage && hero.weaponUsage[hero.equippedWeapon || 'Longsword']) || 0;
+      const currentSpec = this.selectedSpecializedWeapon || opt.specializedWeapon || 'Longsword';
+      const hits = (hero.weaponUsage && hero.weaponUsage[currentSpec]) || 0;
+      const weaponsList = (opt.availableWeapons || ['Longsword', 'Two-Handed Sword', 'Warhammer', 'Short Sword', 'Mace', 'Halberd', 'Short Bow', 'Quarterstaff']).map(w => {
+        const selected = w === currentSpec ? 'selected' : '';
+        const wHits = (hero.weaponUsage && hero.weaponUsage[w]) || 0;
+        return `<option value="${w}" ${selected}>${w} (${wHits} battle hits)</option>`;
+      }).join('');
+
       classChoicesHTML = `
         <div style="margin-top: 10px; border-top: 1px solid var(--border-steel); padding-top: 10px;">
-          <div style="font-weight: bold; color: var(--accent-gold); font-size: 12px; margin-bottom: 6px;">🛡️ Martial Prowess & Mastery</div>
+          <div style="font-weight: bold; color: var(--accent-gold); font-size: 12px; margin-bottom: 6px;">⚔️ Martial Weapon Specialization (AD&D 2e)</div>
+          <div style="font-size: 11px; color: var(--text-parchment); margin-bottom: 6px;">
+            Choose your weapon of specialized mastery (+1 to-hit, +2 damage). Stacks with battlefield weapon usage!
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center; background: #0d1117; padding: 8px; border: 1px solid var(--border-iron); border-radius: 4px; margin-bottom: 8px;">
+            <label style="font-size: 11px; color: var(--gold-tsr); font-weight: bold; white-space: nowrap;">Specialized Weapon:</label>
+            <select id="fighter-spec-weapon-select" style="background: #161b22; color: #fff; border: 1px solid var(--gold-tsr); padding: 4px 8px; font-size: 11px; border-radius: 3px; flex: 1;">
+              ${weaponsList}
+            </select>
+          </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px;">
             <div style="padding: 6px; background: #0d1117; border: 1px solid var(--border-iron); border-radius: 3px;">
-              <span style="color: var(--text-muted);">Equipped Weapon:</span>
-              <div style="font-weight: bold; color: var(--gold-tsr);">${hero.equippedWeapon || 'Longsword'}</div>
-              <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Hits Landed: ${hits}</div>
+              <span style="color: var(--text-muted);">Specialization Bonus:</span>
+              <div style="font-weight: bold; color: #ffd700;">+1 To-Hit / +2 Damage</div>
             </div>
             <div style="padding: 6px; background: #0d1117; border: 1px solid var(--border-iron); border-radius: 3px;">
-              <span style="color: var(--text-muted);">Combat Attack Matrix:</span>
+              <span style="color: var(--text-muted);">Base Attack Matrix:</span>
               <div style="font-weight: bold; color: #3fb950;">+${(opt.currentAtk + opt.atkGrowth).toFixed(2)} to-hit</div>
-              <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">THAC0 progression boosted</div>
             </div>
           </div>
         </div>
@@ -303,6 +318,14 @@ export class LevelUpUI {
       });
     });
 
+    // Fighter Weapon Specialization select
+    const specSelect = this.bodyEl.querySelector('#fighter-spec-weapon-select');
+    if (specSelect) {
+      specSelect.addEventListener('change', (e) => {
+        this.selectedSpecializedWeapon = e.target.value;
+      });
+    }
+
     // Cancel / Postpone
     const cancelBtn = this.actionsEl.querySelector('#cancel-levelup-btn');
     if (cancelBtn) {
@@ -325,7 +348,8 @@ export class LevelUpUI {
     const payload = {
       hpGain: opt.hpGain,
       skillAllocations: this.skillAllocations,
-      newSpells: chosenSpells
+      newSpells: chosenSpells,
+      specializedWeapon: this.selectedSpecializedWeapon
     };
 
     const res = this.state.applyLevelUp(this.currentHeroIndex, payload);

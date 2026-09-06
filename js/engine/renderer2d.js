@@ -2,9 +2,15 @@ export class Renderer2D {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
+    this.lastSig = null;
   }
 
   render(state) {
+    if (!state || !state.spec || !state.spec.map) return;
+    const sig = `${state.player.x}_${state.player.y}_${state.player.facing}_${state.openedDoors.size}_${state.openedChests.size}_${state.spec.title || ''}`;
+    if (this.lastSig === sig) return;
+    this.lastSig = sig;
+
     const map = state.spec.map;
     const rows = map.length;
     const cols = map[0].length;

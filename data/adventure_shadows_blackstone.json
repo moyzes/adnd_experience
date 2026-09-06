@@ -268,7 +268,7 @@
       "glbModel": "assets/glb/cultist.glb",
       "rotationOffset": [0, 180, 0],
       "positionOffset": [0, 0, 0],
-      "scale": 1.20,
+      "scale": 2.0,
       "hp": 9,
       "maxHp": 9,
       "armorClass": 6,
@@ -278,7 +278,7 @@
       "damageType": "slashing",
       "actionPhase": "MEDIUM",
       "moraleThreshold": 45,
-      "xpReward": 75
+      "xpReward": 300
     },
     "dread_spider": {
       "id": "dread_spider",
@@ -296,7 +296,7 @@
       "damageType": "piercing",
       "actionPhase": "MEDIUM",
       "moraleThreshold": 40,
-      "xpReward": 175,
+      "xpReward": 500,
       "special_attack": "poison",
       "save_category": "poison",
       "save_target": 13,
@@ -318,7 +318,7 @@
       "damageType": "slashing",
       "actionPhase": "MEDIUM",
       "moraleThreshold": 100,
-      "xpReward": 90,
+      "xpReward": 350,
       "creatureType": "undead",
       "undeadTier": "weak"
     },
@@ -338,7 +338,7 @@
       "damageType": "slashing",
       "actionPhase": "FAST",
       "moraleThreshold": 75,
-      "xpReward": 220,
+      "xpReward": 600,
       "creatureType": "undead",
       "undeadTier": "medium",
       "special_attack": "paralyzation",
@@ -362,7 +362,7 @@
       "damageType": "piercing",
       "actionPhase": "FAST",
       "moraleThreshold": 35,
-      "xpReward": 60
+      "xpReward": 300
     },
     "ashen_necromancer": {
       "id": "ashen_necromancer",
@@ -380,7 +380,7 @@
       "damageType": "slashing",
       "actionPhase": "FAST",
       "moraleThreshold": 60,
-      "xpReward": 280
+      "xpReward": 900
     },
     "malakor_mob": {
       "id": "malakor_mob",
@@ -398,7 +398,7 @@
       "damageType": "slashing",
       "actionPhase": "MEDIUM",
       "moraleThreshold": 80,
-      "xpReward": 550,
+      "xpReward": 1600,
       "special_attack": "death_magic",
       "save_category": "spell",
       "save_target": 14,
@@ -414,7 +414,7 @@
       "enemies": [
         { "monsterId": "ashen_cultist", "count": 2 }
       ],
-      "onVictoryXp": 150
+      "onVictoryXp": 600
     },
     {
       "id": "enc_spider_chasm",
@@ -425,7 +425,7 @@
         { "monsterId": "dread_spider", "count": 1 },
         { "monsterId": "ashen_cultist", "count": 1 }
       ],
-      "onVictoryXp": 250
+      "onVictoryXp": 800
     },
     {
       "id": "enc_keep_threshold",
@@ -436,7 +436,7 @@
         { "monsterId": "skeletal_sentinel", "count": 2 },
         { "monsterId": "ashen_cultist", "count": 1 }
       ],
-      "onVictoryXp": 255
+      "onVictoryXp": 1000
     },
     {
       "id": "enc_sunken_warrens",
@@ -447,7 +447,7 @@
         { "monsterId": "tomb_ghoul", "count": 1 },
         { "monsterId": "kobold_sapper", "count": 2 }
       ],
-      "onVictoryXp": 340
+      "onVictoryXp": 1200
     },
     {
       "id": "enc_sanctum_shadow_guard",
@@ -458,7 +458,7 @@
         { "monsterId": "ashen_necromancer", "count": 1 },
         { "monsterId": "skeletal_sentinel", "count": 2 }
       ],
-      "onVictoryXp": 460
+      "onVictoryXp": 1600
     },
     {
       "id": "enc_malakor_throne_battle",
@@ -470,7 +470,7 @@
         { "monsterId": "tomb_ghoul", "count": 1 },
         { "monsterId": "ashen_cultist", "count": 1 }
       ],
-      "onVictoryXp": 845
+      "onVictoryXp": 2800
     }
   ],
   "dialogues": {
@@ -570,7 +570,7 @@
             "requiresItem": "Ashen Crown of Binding",
             "takeItem": "Ashen Crown of Binding",
             "giveGold": 350,
-            "questXP": 1200,
+            "questXP": 3600,
             "playSFX": "victory",
             "onSuccess": "node_vane_epilogue"
           }
@@ -871,7 +871,7 @@
           {
             "id": "choice_strike_blinded",
             "text": "[Smite Evil!] Finish the blinded necromancer!",
-            "questXP": 350,
+            "questXP": 600,
             "onEnd": "despawn"
           }
         ]
@@ -882,7 +882,7 @@
           {
             "id": "choice_strike_unraveled",
             "text": "[Cast Final Construct!] Unleash full arcane fury!",
-            "questXP": 350,
+            "questXP": 600,
             "onEnd": "despawn"
           }
         ]
@@ -894,7 +894,7 @@
             "id": "choice_claim_crown_combat",
             "text": "[Battle!] Protect the crown and eliminate Malakor!",
             "giveItem": "Ashen Crown of Binding",
-            "questXP": 400,
+            "questXP": 600,
             "onEnd": "despawn"
           }
         ]

@@ -37,10 +37,22 @@ export class CombatController {
 
     async resolveCombatRoundSequence() {
         const resolveBtn = document.getElementById('resolve-round-btn');
+        let fastForward = false;
+        const handleFastForward = (e) => {
+            if (e) e.stopPropagation();
+            fastForward = true;
+            if (resolveBtn) {
+                resolveBtn.textContent = `⚡ FAST-FORWARDING...`;
+                resolveBtn.style.background = '#8957e5';
+            }
+        };
+
         if (resolveBtn) {
-            resolveBtn.disabled = true;
-            resolveBtn.style.opacity = '0.6';
-            resolveBtn.style.cursor = 'not-allowed';
+            resolveBtn.disabled = false;
+            resolveBtn.style.opacity = '1';
+            resolveBtn.style.cursor = 'pointer';
+            resolveBtn.title = 'Click to skip delays and fast-forward round resolution';
+            resolveBtn.addEventListener('click', handleFastForward);
         }
 
         // Pure calculation — live HP / victory flags are NOT mutated yet
@@ -58,14 +70,19 @@ export class CombatController {
             currentEventIndex++;
             if (resolveBtn && totalEvents > 0) {
                 const pct = Math.round((currentEventIndex / totalEvents) * 100);
-                resolveBtn.textContent = `⏳ RESOLVING ROUND... ${pct}%`;
+                if (fastForward) {
+                    resolveBtn.textContent = `⚡ FAST-FORWARDING... ${pct}%`;
+                } else {
+                    resolveBtn.textContent = `⏳ RESOLVING ${pct}% [Click ⏩ to Skip]`;
+                }
             }
 
             this.callbacks.log(evt.logText, evt.logType);
 
             // Tier 1: Canvas floating impact badges
             if (evt.cueBadge && typeof this.callbacks.showCombatFloatingCue === 'function') {
-                this.callbacks.showCombatFloatingCue(evt.cueBadge, evt.cueClass || 'normal', evt.eventType === 'HERO_HIT');
+                const isHeroTarget = evt.eventType === 'HERO_HIT' || evt.cueClass === 'heal';
+                this.callbacks.showCombatFloatingCue(evt.cueBadge, evt.cueClass || 'normal', isHeroTarget);
             }
 
             // Tier 3: Rare cinematic masterstroke banner
@@ -94,7 +111,9 @@ export class CombatController {
                     this.callbacks.applyVisualCombatHp(visualEnemies, visualHeroHp);
                 }
             } else if (evt.eventType === 'MONSTER_HIT') {
-                if (evt.attackMode === 'ranged') {
+                if (evt.sfx) {
+                    this.callbacks.playSFX(evt.sfx);
+                } else if (evt.attackMode === 'ranged') {
                     this.callbacks.playSFX('arrow_impact');
                 } else if (evt.attackMode === 'backstab') {
                     this.callbacks.playSFX('backstab');
@@ -125,16 +144,29 @@ export class CombatController {
             } else if (evt.eventType === 'GUARD') {
                 this.callbacks.playSFX('button');
             } else if (evt.eventType === 'SPELL_CAST') {
-                if (evt.spellId === 'sleep') {
-                    this.callbacks.playSFX('sleep');
-                } else if (evt.spellId === 'shield' || evt.spellId === 'bless') {
-                    this.callbacks.playSFX('bless');
-                } else if (evt.spellId === 'cure_wounds' || evt.spellId === 'cure_serious' || evt.spellId === 'heal') {
-                    this.callbacks.playSFX('cure_wounds');
-                } else if (evt.spellId === 'magic_missile') {
-                    this.callbacks.playSFX('magic_missile');
-                } else {
-                    this.callbacks.playSFX('magic_missile');
+                const sfx = evt.sfx || (evt.healedHp || evt.partyHeal ? 'cure_wounds' : 'magic_missile');
+                this.callbacks.playSFX(sfx);
+                if (evt.targetHeroIndex != null && evt.healedHp != null && visualHeroHp[evt.targetHeroIndex] !== undefined) {
+                    visualHeroHp[evt.targetHeroIndex] = Math.min(
+                        this.state.party[evt.targetHeroIndex].maxHp,
+                        visualHeroHp[evt.targetHeroIndex] + evt.healedHp
+                    );
+                    if (this.callbacks.flashHeroCard) {
+                        this.callbacks.flashHeroCard(evt.targetHeroIndex);
+                    }
+                } else if (evt.partyHeal && evt.partyHealMap) {
+                    for (const [idxStr, newHp] of Object.entries(evt.partyHealMap)) {
+                        const idx = parseInt(idxStr, 10);
+                        if (visualHeroHp[idx] !== undefined) {
+                            visualHeroHp[idx] = newHp;
+                            if (this.callbacks.flashHeroCard) {
+                                this.callbacks.flashHeroCard(idx);
+                            }
+                        }
+                    }
+                }
+                if (this.callbacks.applyVisualCombatHp) {
+                    this.callbacks.applyVisualCombatHp(visualEnemies, visualHeroHp);
                 }
             } else if (evt.eventType === 'SPELL_FIZZLE') {
                 this.callbacks.playSFX('sword_miss');
@@ -179,7 +211,13 @@ export class CombatController {
             }
 
             // Immersion beat: log + SFX + HP drain land together, then wait
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            const delay = fastForward ? 120 : 1150;
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+
+        if (resolveBtn) {
+            resolveBtn.removeEventListener('click', handleFastForward);
+            resolveBtn.style.background = '';
         }
 
         // Commit real state only after every beat has played

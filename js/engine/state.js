@@ -1,4 +1,5 @@
 import { resolveSavingThrow } from './saving_throws.js';
+import { SpellRegistry } from './spell_registry.js';
 
 /**
  * GameState acts as the central data store and rules engine for the dungeon crawler.
@@ -340,6 +341,7 @@ export class GameState {
       attributes: { ...archetype.attributes },
       skills: JSON.parse(JSON.stringify(archetype.skills || {})),
       equippedWeapon: defaultWeapon,
+      specializedWeapon: classKey === 'fighter' ? (archetype.weapon_specialization?.default || defaultWeapon || 'Longsword') : null,
       equippedArmor: equippedArmor,
       equippedShield: equippedShield,
       tempAcBonus: 0,
@@ -364,7 +366,7 @@ export class GameState {
       if (chosenSpells && chosenSpells.length > 0) {
         member.spells = chosenSpells.map(s => ({ ...s, spent: false }));
       } else {
-        const tier1 = archetype.vancian_magic.spell_tiers?.["1"] || [];
+        const tier1 = SpellRegistry.getSpellsForClass('mage', 1);
         member.spells = tier1.slice(0, 2).map(s => ({ ...s, spent: false }));
       }
     }
@@ -384,7 +386,7 @@ export class GameState {
       if (chosenSpells && chosenSpells.length > 0) {
         member.spells = chosenSpells.map(s => ({ ...s, spent: false }));
       } else {
-        const tier1 = archetype.spells_available_by_tier?.["1"] || [];
+        const tier1 = SpellRegistry.getSpellsForClass('cleric', 1);
         member.spells = tier1.slice(0, 2).map(s => ({ ...s, spent: false }));
       }
     }
@@ -463,19 +465,53 @@ export class GameState {
   }
 
   /**
-   * Retrieves the current mastery bonus of a weapon based on usage count and hero level.
+   * Retrieves the current mastery bonus of a weapon based on canonical specialization and battle usage.
    */
   getWeaponMastery(hero, weaponName) {
     const hits = (hero.weaponUsage && hero.weaponUsage[weaponName]) || 0;
     const { familiarity, mastery } = GameState.MASTERY_TIERS;
     
+    // Canonical AD&D 2e Fighter Weapon Specialization (+1 to-hit, +2 damage)
+    const isSpecialist = hero.classKey === 'fighter' && weaponName && (weaponName === (hero.specializedWeapon || 'Longsword'));
+    const specAtk = isSpecialist ? 1 : 0;
+    const specDmg = isSpecialist ? 2 : 0;
+
+    let usageTier = 'novice';
+    let usageAtk = 0;
+    let usageDmg = 0;
+
     if (hero.level >= mastery.minLevel && hits >= mastery.hits) {
-      return { tier: 'mastery', ...mastery };
+      usageTier = 'mastery';
+      usageAtk = mastery.atkBonus;
+      usageDmg = mastery.dmgBonus;
+    } else if (hero.level >= familiarity.minLevel && hits >= familiarity.hits) {
+      usageTier = 'familiarity';
+      usageAtk = familiarity.atkBonus;
+      usageDmg = 0;
     }
-    if (hero.level >= familiarity.minLevel && hits >= familiarity.hits) {
-      return { tier: 'familiarity', atkBonus: familiarity.atkBonus, dmgBonus: 0 };
+
+    const totalAtk = specAtk + usageAtk;
+    const totalDmg = specDmg + usageDmg;
+
+    let tierLabel = usageTier;
+    if (isSpecialist) {
+      if (usageTier === 'mastery') tierLabel = 'grand_master';
+      else if (usageTier === 'familiarity') tierLabel = 'specialist_familiar';
+      else tierLabel = 'specialist';
     }
-    return { tier: 'novice', atkBonus: 0, dmgBonus: 0 };
+
+    return {
+      tier: tierLabel,
+      usageTier,
+      isSpecialist,
+      hits,
+      specAtkBonus: specAtk,
+      specDmgBonus: specDmg,
+      usageAtkBonus: usageAtk,
+      usageDmgBonus: usageDmg,
+      atkBonus: totalAtk,
+      dmgBonus: totalDmg
+    };
   }
 
   getSkillTarget(hero, skillKey) {
@@ -1399,72 +1435,16 @@ export class GameState {
             continue;
           }
 
-          const effect = spell.effect || {};
-          const spellTarget = spell.target || 'enemy';
-
-          if (effect.type === 'damage' && spellTarget === 'enemy') {
-            const dmg = effect.amount || 12;
-            simMobHp[target.instanceId] = Math.max(0, simMobHp[target.instanceId] - dmg);
-            const isDead = simMobHp[target.instanceId] <= 0;
-            combatEvents.push({
-              eventType: 'MONSTER_HIT', sourceName: hero.name, targetInstanceId: target.instanceId, targetName: target.name, damage: dmg, isDead, attackMode: 'spell', spellId: spell.id,
-              logText: `🔮 ${hero.name} unleashes ${spell.name} on ${target.name} for ${dmg} damage! (mind eases +${refund})`, logType: 'success'
-            });
-          } else if (effect.type === 'aoe_damage' && spellTarget === 'enemy') {
-            let totalDamageDealt = 0;
-            const hitMobs = [];
-            livingMobs.forEach(mob => {
-              const dmg = effect.amount || 18;
-              simMobHp[mob.instanceId] = Math.max(0, simMobHp[mob.instanceId] - dmg);
-              const isDead = simMobHp[mob.instanceId] <= 0;
-              totalDamageDealt += dmg;
-              hitMobs.push({ name: mob.name, damage: dmg, isDead });
-            });
-            const mobNames = hitMobs.map(m => m.name).join(', ');
-            const deadCount = hitMobs.filter(m => m.isDead).length;
-            combatEvents.push({
-              eventType: 'MONSTER_HIT', sourceName: hero.name, targetName: mobNames, damage: totalDamageDealt, isDead: deadCount > 0, attackMode: 'spell', spellId: spell.id,
-              logText: `💥 ${hero.name} unleashes ${spell.name} — ${mobNames} caught in the blast for ${totalDamageDealt} damage total! (mind eases +${refund})`, logType: 'success'
-            });
-          } else if (effect.type === 'party_heal' && spellTarget === 'party') {
-            let totalHealed = 0;
-            this.party.forEach((h, i) => {
-              if (simHeroHp[i] > 0) {
-                const healAmt = effect.amount || 20;
-                const before = simHeroHp[i];
-                simHeroHp[i] = Math.min(h.maxHp, simHeroHp[i] + healAmt);
-                totalHealed += (simHeroHp[i] - before);
-              }
-            });
-            combatEvents.push({
-              eventType: 'SPELL_CAST', sourceName: hero.name, spellId: spell.id,
-              logText: `✨ ${hero.name} invokes ${spell.name} — party recovers ${totalHealed} HP total! (mind eases +${refund})`, logType: 'success'
-            });
-          } else if (effect.type === 'debuff' && spellTarget === 'enemy') {
-            target.debuffType = effect.debuffType || 'to_hit';
-            target.debuffAmount = effect.amount || 2;
-            target.debuffRounds = effect.duration_rounds || 3;
-            const debuffLabel = target.debuffType === 'to_hit' ? 'to-hit penalty' : 'AC penalty';
-            combatEvents.push({
-              eventType: 'SPELL_CAST', sourceName: hero.name, spellId: spell.id,
-              logText: `🌀 ${hero.name} hexes ${target.name} with ${spell.name} — ${debuffLabel} for ${target.debuffRounds} rounds! (mind eases +${refund})`, logType: 'success'
-            });
-          } else if (effect.type === 'sleep' && spellTarget === 'enemy') {
-            const threshold = effect.max_hp_threshold || 30;
-            if (simMobHp[target.instanceId] <= threshold) {
-              target.asleepRounds = effect.duration_rounds || 2;
-              combatEvents.push({ eventType: 'SPELL_CAST', sourceName: hero.name, spellId: spell.id, logText: `💤 ${hero.name} casts Sleep — ${target.name} collapses into slumber! (mind eases +${refund})`, logType: 'success' });
-            } else {
-              combatEvents.push({ eventType: 'SPELL_CAST', sourceName: hero.name, spellId: spell.id, logText: `💤 ${hero.name} casts Sleep — ${target.name} resists the drowse (too hardy). (mind eases +${refund})`, logType: 'warning' });
-            }
-          } else if (effect.type === 'buff_ac') {
-            hero.tempAcBonus = effect.amount || 2;
-            hero.tempAcRounds = effect.duration_rounds || 4;
-            hero.tempAcSource = 'Arcane Shield';
-            combatEvents.push({ eventType: 'SPELL_CAST', sourceName: hero.name, spellId: spell.id, logText: `🛡️ ${hero.name} casts Shield — a shimmering barrier forms! (+${hero.tempAcBonus} AC, ${hero.tempAcRounds} rounds) (mind eases +${refund})`, logType: 'success' });
-          } else {
-            combatEvents.push({ eventType: 'SPELL_CAST', sourceName: hero.name, spellId: spell.id, logText: `🔮 ${hero.name} casts ${spell.name}. (mind eases +${refund})`, logType: 'info' });
-          }
+          const events = SpellRegistry.resolveCombatSpell(hero, spell, {
+            target,
+            livingMobs,
+            simMobHp,
+            simHeroHp,
+            party: this.party,
+            casterIndex: heroIndex,
+            casterRefundText: ` (mind eases +${refund})`
+          });
+          combatEvents.push(...events);
         } else if (command.type === 'PRAY') {
           const spellIndex = command.spellIndex;
           const spell = hero.spells && hero.spells[spellIndex];
@@ -1473,51 +1453,18 @@ export class GameState {
             continue;
           }
           spell.spent = true;
-          const effect = spell.effect || {};
 
-          if (effect.type === 'heal') {
-            let targetIdx = command.healTargetIndex;
-            if (targetIdx == null || simHeroHp[targetIdx] <= 0) {
-              targetIdx = 0;
-              let lowest = Infinity;
-              this.party.forEach((h, i) => {
-                if (simHeroHp[i] > 0 && simHeroHp[i] < lowest) {
-                  lowest = simHeroHp[i];
-                  targetIdx = i;
-                }
-              });
-            }
-            const healAmt = effect.amount || 15;
-            const before = simHeroHp[targetIdx];
-            simHeroHp[targetIdx] = Math.min(this.party[targetIdx].maxHp, simHeroHp[targetIdx] + healAmt);
-            combatEvents.push({ eventType: 'SPELL_CAST', sourceName: hero.name, spellId: spell.id, logText: `✨ ${hero.name} invokes ${spell.name} — ${this.party[targetIdx].name} recovers ${simHeroHp[targetIdx] - before} HP!`, logType: 'success' });
-          } else if (effect.type === 'party_heal') {
-            let totalHealed = 0;
-            this.party.forEach((h, i) => {
-              if (simHeroHp[i] > 0) {
-                const healAmt = effect.amount || 20;
-                const before = simHeroHp[i];
-                simHeroHp[i] = Math.min(h.maxHp, simHeroHp[i] + healAmt);
-                totalHealed += (simHeroHp[i] - before);
-              }
-            });
-            combatEvents.push({ eventType: 'SPELL_CAST', sourceName: hero.name, spellId: spell.id, logText: `✨ ${hero.name} invokes ${spell.name} — party recovers ${totalHealed} HP total!`, logType: 'success' });
-          } else if (effect.type === 'buff_attack') {
-            this.party.forEach((h, i) => {
-              if (simHeroHp[i] > 0) {
-                h.tempAttackBonus = effect.amount || 1;
-                h.tempAttackRounds = effect.duration_rounds || 4;
-              }
-            });
-            combatEvents.push({ eventType: 'SPELL_CAST', sourceName: hero.name, spellId: spell.id, logText: `✨ ${hero.name} invokes Bless — the party is heartened (+${effect.amount || 1} attack, ${effect.duration_rounds || 4} rounds)!`, logType: 'success' });
-          } else if (effect.type === 'buff_ac') {
-            hero.tempAcBonus = effect.amount || 2;
-            hero.tempAcRounds = effect.duration_rounds || 3;
-            hero.tempAcSource = 'Sanctuary';
-            combatEvents.push({ eventType: 'SPELL_CAST', sourceName: hero.name, spellId: spell.id, logText: `✨ ${hero.name} invokes Sanctuary — a divine ward turns blows (+${hero.tempAcBonus} AC, ${hero.tempAcRounds} rounds)!`, logType: 'success' });
-          } else {
-            combatEvents.push({ eventType: 'SPELL_CAST', sourceName: hero.name, spellId: spell.id, logText: `✨ ${hero.name} invokes ${spell.name}.`, logType: 'info' });
-          }
+          const events = SpellRegistry.resolveCombatSpell(hero, spell, {
+            target,
+            livingMobs,
+            simMobHp,
+            simHeroHp,
+            party: this.party,
+            casterIndex: heroIndex,
+            healTargetIndex: command.healTargetIndex,
+            casterRefundText: ''
+          });
+          combatEvents.push(...events);
         } else if (command.type === 'TURN') {
           if (hero.classKey !== 'cleric' || hero.divineFavor <= 0 || hero.absoluteSilence) {
             combatEvents.push({ eventType: 'HERO_MISS', sourceName: hero.name, logText: `✨ ${hero.name} raises the holy symbol — but the heavens are silent.`, logType: 'warning' });
@@ -1761,7 +1708,9 @@ export class GameState {
     
     if (aliveAfter.length === 0) {
       victory = true;
-      totalXp = this.combat.enemies.reduce((sum, e) => sum + (e.xpReward || 0), 0);
+      const currentEnc = (this.spec.encounters || []).find(e => e.id === this.combat.encounterId);
+      const mobXpSum = this.combat.enemies.reduce((sum, e) => sum + (e.xpReward || 0), 0);
+      totalXp = Math.max(currentEnc?.onVictoryXp || 0, mobXpSum);
       combatEvents.push({ eventType: 'VICTORY', logText: `🏆 COMBAT VICTORIOUS! Acquired +${totalXp} XP!`, logType: 'success' });
     } else if (livingHeroes === 0) {
       partyWiped = true;
@@ -1856,34 +1805,22 @@ export class GameState {
 
     // Available unlearned spells for Casters
     let availableSpells = [];
-    if (hero.classKey === 'mage') {
-      const spellTiers = archetype.vancian_magic?.spell_tiers || {};
-      Object.entries(spellTiers).forEach(([tierStr, spells]) => {
-        const tierNum = parseInt(tierStr, 10);
-        // Spells available up to the unlocked tier (tier 1 at L1, tier 2 at L3, tier 3 at L6, tier 4 at L9)
-        const maxAllowedTier = nextLevel >= 9 ? 4 : nextLevel >= 6 ? 3 : nextLevel >= 3 ? 2 : 1;
-        if (tierNum <= maxAllowedTier) {
-          spells.forEach(s => {
-            if (!hero.spells.some(hs => hs.id === s.id)) {
-              availableSpells.push({ ...s, tier: tierNum });
-            }
-          });
-        }
-      });
-    } else if (hero.classKey === 'cleric') {
-      const spellTiers = archetype.spells_available_by_tier || {};
-      Object.entries(spellTiers).forEach(([tierStr, spells]) => {
-        const tierNum = parseInt(tierStr, 10);
-        const maxAllowedTier = nextLevel >= 9 ? 4 : nextLevel >= 6 ? 3 : nextLevel >= 3 ? 2 : 1;
-        if (tierNum <= maxAllowedTier) {
-          spells.forEach(s => {
-            if (!hero.spells.some(hs => hs.id === s.id)) {
-              availableSpells.push({ ...s, tier: tierNum });
-            }
-          });
-        }
-      });
+    if (hero.classKey === 'mage' || hero.classKey === 'cleric') {
+      const maxAllowedTier = nextLevel >= 9 ? 4 : nextLevel >= 6 ? 3 : nextLevel >= 3 ? 2 : 1;
+      const classSpells = SpellRegistry.getSpellsForClass(hero.classKey, maxAllowedTier);
+      availableSpells = classSpells.filter(s => !hero.spells.some(hs => hs.id === s.id));
     }
+
+    const availableWeapons = [
+      'Longsword',
+      'Two-Handed Sword',
+      'Warhammer',
+      'Short Sword',
+      'Mace',
+      'Halberd',
+      'Short Bow',
+      'Quarterstaff'
+    ];
 
     return {
       heroIndex,
@@ -1902,7 +1839,9 @@ export class GameState {
       currentAtk: hero.attackBonus || 1,
       thiefPoints: hero.classKey === 'thief' ? (archetype.discretionary_skill_points_per_level || 15) : 0,
       skills: hero.skills ? JSON.parse(JSON.stringify(hero.skills)) : {},
-      availableSpells
+      availableSpells,
+      specializedWeapon: hero.specializedWeapon || 'Longsword',
+      availableWeapons
     };
   }
 
@@ -1928,6 +1867,15 @@ export class GameState {
 
     // Apply Attack Bonus
     hero.attackBonus = (hero.attackBonus || 1) + atkGrowth;
+
+    // Apply Fighter Weapon Specialization
+    if (hero.classKey === 'fighter' && choices.specializedWeapon) {
+      const oldSpec = hero.specializedWeapon || 'Longsword';
+      hero.specializedWeapon = choices.specializedWeapon;
+      if (oldSpec !== choices.specializedWeapon) {
+        this.addLog(`⚔️ ${hero.name} designates the ${hero.specializedWeapon} as their weapon of martial specialization (+1 to-hit, +2 damage)!`, "success");
+      }
+    }
 
     // Apply Thief Discretionary Points
     if (hero.classKey === 'thief' && choices.skillAllocations) {
@@ -2068,7 +2016,10 @@ export class GameState {
     const chance = this.getSkillTarget(thief, 'find_traps');
     const roll = Math.floor(Math.random() * 100) + 1;
     const success = roll <= chance;
-    if (success) this.detectedTraps.add(`${target.x},${target.y}`);
+    if (success) {
+      this.detectedTraps.add(`${target.x},${target.y}`);
+      this.awardQuestXP(100);
+    }
     return { success, roll, chance };
   }
 
@@ -2084,6 +2035,7 @@ export class GameState {
     
     if (roll <= chance) {
       this.disarmedTraps.add(key);
+      this.awardQuestXP(200);
       return { success: true, triggered: false, roll, chance, durability: thief.toolsDurability };
     } 
     // In AD&D 2e, a trap only springs inadvertently on a fumble (roll > 95)
@@ -2198,7 +2150,7 @@ export class GameState {
     const category = trapDef.saveCategory || 'breath';
     const subCategory = trapDef.subCategory || trapDef.name;
     const activeMembers = this.party.filter(p => p.hp > 0);
-    if (activeMembers.length === 0) return { totalDamage, category, damagePerPlayer: 0, results: [] };
+    if (activeMembers.length === 0) return { totalDamage, category, damagePerPlayer: 0, results: [], partyWiped: true };
 
     const damagePerPlayer = Math.ceil(totalDamage / activeMembers.length);
     const results = activeMembers.map(member => {
@@ -2208,7 +2160,12 @@ export class GameState {
       return { heroName: member.name, heroIndex: this.party.indexOf(member), save, damage, isDead: member.hp <= 0 };
     });
 
-    return { totalDamage, category, damagePerPlayer, results };
+    const partyWiped = this.party.every(h => h.hp <= 0);
+    return { totalDamage, category, damagePerPlayer, results, partyWiped };
+  }
+
+  isPartyWiped() {
+    return !this.party || this.party.length === 0 || this.party.every(h => h.hp <= 0);
   }
 
   checkSavingThrow(hero, category, subCategory = null, dcBonus = 0) {
@@ -2226,6 +2183,9 @@ export class GameState {
 
     const chance = this.getSkillTarget(thief, 'pick_locks');
     const success = roll <= chance;
+    if (success) {
+      this.awardQuestXP(150);
+    }
     return { success, roll, chance, durability: thief.toolsDurability, fumbled: roll > 95 };
   }
 
@@ -2291,6 +2251,7 @@ export class GameState {
     generatedLoot.forEach(item => {
       this.addPartyItem(item.name, item.amount || 1);
     });
+    this.awardQuestXP(150);
     return generatedLoot;
   }
 
@@ -2303,23 +2264,75 @@ export class GameState {
     return null;
   }
 
-  getLockInFront() {
+  getInteractiveTargetInFront() {
     let dx = 0, dy = 0;
     if (this.player.facing === 'NORTH') dy = -1;
     else if (this.player.facing === 'SOUTH') dy = 1;
     else if (this.player.facing === 'EAST') dx = 1;
     else if (this.player.facing === 'WEST') dx = -1;
-    const tx = this.player.x + dx, ty = this.player.y + dy;
+
+    const tx = this.player.x + dx;
+    const ty = this.player.y + dy;
     if (ty < 0 || ty >= this.spec.map.length || tx < 0 || tx >= this.spec.map[0].length) return null;
-    
+
     const tileId = this.spec.map[ty][tx];
-    const tileDef = this.spec.legend[tileId];
     const key = `${tx},${ty}`;
-    
-    if (tileDef && tileDef.locked && !this.unlockedDoors.has(key) && !this.unlockedChests.has(key)) {
-      return { x: tx, y: ty, methods: tileDef.locked.methods, dc: tileDef.locked.dc, type: (tileId === 2 || tileId === 8) ? 'door' : 'chest', tileDef: tileDef };
+
+    // Grid Doors (tiles 2 and 8)
+    if ((tileId === 2 || tileId === 8) && !this.openedDoors.has(key)) {
+      const tileDef = this.spec.legend[tileId];
+      const isLocked = Boolean(tileDef?.locked && !this.unlockedDoors.has(key));
+      return {
+        x: tx,
+        y: ty,
+        type: 'door',
+        locked: isLocked,
+        methods: tileDef?.locked?.methods || [],
+        dc: tileDef?.locked?.dc || 0,
+        tileDef
+      };
     }
+
+    // Grid Chests (tile 3)
+    if (tileId === 3 && !this.openedChests.has(key)) {
+      const tileDef = this.spec.legend[tileId];
+      const isLocked = Boolean(tileDef?.locked && !this.unlockedChests.has(key));
+      return {
+        x: tx,
+        y: ty,
+        type: 'chest',
+        locked: isLocked,
+        methods: tileDef?.locked?.methods || [],
+        dc: tileDef?.locked?.dc || 0,
+        tileDef
+      };
+    }
+
+    // Freestanding 3D Entity Chests
+    if (!this.openedChests.has(key) && this.spec.entities) {
+      const entity = this.spec.entities.find(e => e.model === 'chest' && e.x === tx && e.y === ty);
+      if (entity) {
+        const tileDef = this.spec.legend[3] || { name: 'Chest', locked: null };
+        const isLocked = Boolean(tileDef.locked && !this.unlockedChests.has(key));
+        return {
+          x: tx,
+          y: ty,
+          type: 'chest',
+          locked: isLocked,
+          methods: tileDef?.locked?.methods || [],
+          dc: tileDef?.locked?.dc || 0,
+          tileDef,
+          entity
+        };
+      }
+    }
+
     return null;
+  }
+
+  getLockInFront() {
+    const target = this.getInteractiveTargetInFront();
+    return (target && target.locked) ? target : null;
   }
 
   attemptBash(fighter) {
@@ -2473,99 +2486,13 @@ export class GameState {
     if (cleric.hp <= 0) return { success: false, reason: "The cleric is incapacitated and cannot invoke prayers." };
     if (cleric.divineFavor <= 0 || cleric.absoluteSilence) return { success: false, reason: "Absolute Silence — no divine power flows." };
     if (!cleric.spells[spellIndex] || cleric.spells[spellIndex].spent) return { success: false, reason: "That prayer was already invoked today." };
-    
+
     const spell = cleric.spells[spellIndex];
-    const effect = spell.effect || {};
-
-    if (effect.type === 'heal') {
-      let target = null;
-      let targetIdx = targetHeroIndex;
-
-      // If no target index provided, auto-select the most wounded hero
-      if (targetIdx == null || targetIdx < 0 || targetIdx >= this.party.length) {
-        let lowestHpRatio = 1.0;
-        let candidateIdx = null;
-        this.party.forEach((h, i) => {
-          if (h.hp < h.maxHp) {
-            const ratio = h.hp / h.maxHp;
-            if (ratio < lowestHpRatio) {
-              lowestHpRatio = ratio;
-              candidateIdx = i;
-            }
-          }
-        });
-        if (candidateIdx === null) {
-          return { success: false, reason: "All party members are already at full health." };
-        }
-        targetIdx = candidateIdx;
-      }
-
-      target = this.party[targetIdx];
-      if (!target) return { success: false, reason: "Invalid target ally." };
-      if (target.hp >= target.maxHp) {
-        return { success: false, reason: `${target.name} is already at full health.` };
-      }
-
-      const healAmt = effect.amount || 15;
-      const before = target.hp;
-      target.hp = Math.min(target.maxHp, target.hp + healAmt);
-      const actualHealed = target.hp - before;
-      spell.spent = true;
-
-      return {
-        success: true,
-        spellName: spell.name,
-        spellId: spell.id,
-        effect: spell.effect,
-        target: spell.target,
-        targetHeroIndex: targetIdx,
-        targetHeroName: target.name,
-        hpHealed: actualHealed,
-        currentHp: target.hp,
-        maxHp: target.maxHp,
-        wasIncapacitated: before <= 0
-      };
-    } else if (effect.type === 'party_heal') {
-      let totalHealed = 0;
-      const healedMembers = [];
-      this.party.forEach((h, i) => {
-        if (h.hp < h.maxHp) {
-          const healAmt = effect.amount || 20;
-          const before = h.hp;
-          h.hp = Math.min(h.maxHp, h.hp + healAmt);
-          const gained = h.hp - before;
-          totalHealed += gained;
-          healedMembers.push({ name: h.name, gained, hp: h.hp, maxHp: h.maxHp });
-        }
-      });
-      spell.spent = true;
-      return {
-        success: true,
-        spellName: spell.name,
-        spellId: spell.id,
-        effect: spell.effect,
-        target: spell.target,
-        totalHealed,
-        healedMembers
-      };
-    } else if (effect.type === 'buff_attack') {
-      this.party.forEach(h => {
-        if (h.hp > 0) {
-          h.tempAttackBonus = effect.amount || 1;
-          h.tempAttackRounds = effect.duration_rounds || 4;
-        }
-      });
-      spell.spent = true;
-      return { success: true, spellName: spell.name, spellId: spell.id, effect: spell.effect, target: spell.target };
-    } else if (effect.type === 'buff_ac') {
-      cleric.tempAcBonus = effect.amount || 2;
-      cleric.tempAcRounds = effect.duration_rounds || 3;
-      spell.spent = true;
-      return { success: true, spellName: spell.name, spellId: spell.id, effect: spell.effect, target: spell.target };
-    }
-
-    spell.spent = true;
-    return { success: true, spellName: spell.name, spellId: spell.id, effect: spell.effect, target: spell.target };
+    return SpellRegistry.resolveExplorationSpell(cleric, spell, {
+      party: this.party,
+      targetHeroIndex,
+      state: this
+    });
   }
 
   #syncClericEthos(cleric) {
@@ -2579,31 +2506,27 @@ export class GameState {
     if (!mage) return { success: false, reason: "No mage in party." };
     if (mage.hp <= 0) return { success: false, reason: "The mage is incapacitated!" };
     if (!mage.spells[spellIndex] || mage.spells[spellIndex].spent) return { success: false, reason: "Spell already spent or invalid!" };
-    
-    const spell = mage.spells[spellIndex];
-    const load = spell.cognitive_load || 20;
-    const refund = Math.floor(load * 0.8);
-    spell.spent = true;
-    mage.cognition = Math.min(mage.maxCognition, mage.cognition + refund);
 
-    if (spell.id === 'light' || (spell.effect && spell.effect.type === 'illumination')) {
-      const durationSeconds = spell.effect?.duration_seconds || 240;
-      this.lightSpellUntil = Date.now() + durationSeconds * 1000;
+    const spell = mage.spells[spellIndex];
+    const res = SpellRegistry.resolveExplorationSpell(mage, spell, {
+      party: this.party,
+      targetHeroIndex: null,
+      state: this
+    });
+
+    if (res.success) {
+      const load = spell.cognitive_load || 20;
+      const refund = Math.floor(load * 0.8);
+      mage.cognition = Math.min(mage.maxCognition, mage.cognition + refund);
       return {
-        success: true,
-        spellName: spell.name,
-        spellId: spell.id,
-        isLightSpell: true,
+        ...res,
         refund,
         residualBurn: load - refund,
-        currentCognition: mage.cognition,
-        effect: spell.effect,
-        target: spell.target,
-        log: `✨ ${mage.name} casts Arcane Light! An eerie sphere of radiant luminescence hovers above the party for 4 minutes.`
+        currentCognition: mage.cognition
       };
     }
-    
-    return { success: true, spellName: spell.name, spellId: spell.id, refund, residualBurn: load - refund, currentCognition: mage.cognition, effect: spell.effect, target: spell.target };
+
+    return res;
   }
 
   studyGrimoire() {

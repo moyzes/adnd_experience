@@ -32,13 +32,21 @@ export class CharacterSheetUI {
     // Dynamic Buff Indicators
     const activeBuffs = [];
     if (hero.tempAcBonus > 0) {
-      activeBuffs.push(`<span style="background:#0f243d;color:#79c0ff;border:1px solid #1f6feb;padding:3px 8px;border-radius:3px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">🛡️ ${hero.tempAcSource || 'Arcane Shield'}: -${hero.tempAcBonus} AC (${hero.tempAcRounds} round${hero.tempAcRounds === 1 ? '' : 's'} remaining)</span>`);
+      activeBuffs.push(`<span style="background:#0f243d;color:#79c0ff;border:1px solid #1f6feb;padding:3px 8px;border-radius:3px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">🛡️ ${hero.tempAcSource || 'AC Ward'}: -${hero.tempAcBonus} AC (${hero.tempAcRounds} round${hero.tempAcRounds === 1 ? '' : 's'} remaining)</span>`);
     }
     if (hero.tempAttackBonus > 0) {
-      activeBuffs.push(`<span style="background:#332408;color:#f2cc60;border:1px solid #9e6a03;padding:3px 8px;border-radius:3px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">✨ Bless: +${hero.tempAttackBonus} To-Hit (${hero.tempAttackRounds} round${hero.tempAttackRounds === 1 ? '' : 's'} remaining)</span>`);
+      const isHaste = hero.tempAttackBonus >= 2;
+      const bg = isHaste ? '#0d2826' : '#332408';
+      const col = isHaste ? '#39d353' : '#f2cc60';
+      const border = isHaste ? '#238636' : '#9e6a03';
+      const label = isHaste ? `⏩ Haste: +${hero.tempAttackBonus} To-Hit (${hero.tempAttackRounds} round${hero.tempAttackRounds === 1 ? '' : 's'} remaining)` : `✨ Bless: +${hero.tempAttackBonus} To-Hit (${hero.tempAttackRounds} round${hero.tempAttackRounds === 1 ? '' : 's'} remaining)`;
+      activeBuffs.push(`<span style="background:${bg};color:${col};border:1px solid ${border};padding:3px 8px;border-radius:3px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">${label}</span>`);
     }
     if (hero.isStealth) {
       activeBuffs.push(`<span style="background:#211938;color:#d2a8ff;border:1px solid #8957e5;padding:3px 8px;border-radius:3px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">🗡️ Shadow Stealth (Hidden in shadows, backstab primed)</span>`);
+    }
+    if (hero.classKey === 'fighter' && hero.specializedWeapon && hero.equippedWeapon === hero.specializedWeapon) {
+      activeBuffs.push(`<span style="background:#2a1b04;color:#ffd700;border:1px solid #d29922;padding:3px 8px;border-radius:3px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">⚔️ Specialized: +1 to-hit / +2 dmg (${hero.specializedWeapon})</span>`);
     }
 
     const buffsHTML = activeBuffs.length > 0 ? `
@@ -91,14 +99,44 @@ export class CharacterSheetUI {
     }
 
     let specializedHTML = '';
-    if (hero.classKey === 'mage') {
+    if (hero.classKey === 'fighter') {
+      const specWeapon = hero.specializedWeapon || 'Longsword';
+      const isWielding = hero.equippedWeapon === specWeapon;
+      const allWeapons = Object.keys(hero.weaponUsage || {});
+      const usageList = allWeapons.length > 0
+        ? allWeapons.map(wName => {
+            const hits = hero.weaponUsage[wName];
+            const mastery = this.state.getWeaponMastery(hero, wName);
+            return `<li style="font-size:11px; margin-bottom:2px; display:flex; justify-content:space-between;">
+              <span>${wName}: <b style="color:var(--gold-tsr);">${hits} hits</b></span>
+              <span style="color:#58a6ff;">+${mastery.atkBonus} Atk / +${mastery.dmgBonus} Dmg</span>
+            </li>`;
+          }).join('')
+        : '<li style="font-size:11px; color:var(--text-muted);">No battlefield combat recorded yet</li>';
+
+      specializedHTML = `
+      <div style="background: #161b22; padding: 10px; border: 1px solid var(--border-steel); border-radius: 4px; margin-bottom: 12px; font-size: 12px;">
+        <div style="color: var(--accent-gold); font-weight: bold; margin-bottom: 6px; font-size: 13px;">⚔️ Warrior Martial Specialization</div>
+        <div>Chosen Specialization: <b style="color:var(--gold-tsr);">${specWeapon}</b> <span style="color:#3fb950; font-size:11px;">(+1 to-hit, +2 damage)</span></div>
+        <div style="margin-top: 3px; font-size: 11px;">Status: ${isWielding ? '<b style="color:#3fb950;">✓ Equipped & Active</b>' : '<span style="color:var(--text-muted);">(Equip in gear list below to gain bonuses)</span>'}</div>
+        
+        <div style="background: #0a0b0e; padding: 8px; border: 1px solid #1a1e27; border-radius: 2px; margin-top: 8px; font-size: 11px;">
+          <div style="color: var(--accent-gold); font-weight: bold; margin-bottom: 4px;">🎯 Battle Weapon Experience</div>
+          <ul style="margin: 0; padding: 0 0 0 4px; list-style: none;">${usageList}</ul>
+          <div style="color:var(--text-muted); font-size:10px; margin-top:4px;">Familiarity at 15 hits (+1 to-hit). Mastery at 40 hits (+2 to-hit, +1 dmg). Stacks with Specialization!</div>
+        </div>
+      </div>`;
+    } else if (hero.classKey === 'mage') {
       const heldLoad = (hero.spells || []).filter(s => !s.spent).reduce((sum, s) => sum + (s.cognitive_load || 0), 0);
       const erasedCount = (hero.spells || []).filter(s => s.spent).length;
       const spellsList = (hero.spells || []).map((s, idx) => {
         if (s.spent) {
           return `<li style="color: #484f58; text-decoration: line-through; margin-bottom: 3px; font-size: 11px;">[L${s.level}] ${s.name} — load ${s.cognitive_load || '?'} (Erased)</li>`;
         }
-        const isCastableOffCombat = !this.state.combat.active && hero.hp > 0 && (s.id === 'light' || (s.effect && s.effect.type === 'illumination'));
+        const effType = s.effect ? s.effect.type : '';
+        const isCastableOffCombat = !this.state.combat.active && hero.hp > 0 && (
+          s.id === 'light' || effType === 'illumination' || effType === 'buff_attack' || effType === 'buff_ac' || effType === 'heal' || effType === 'party_heal'
+        );
         const castBtn = isCastableOffCombat
           ? `<button class="action-tab sheet-cast-mage-spell-btn" data-index="${idx}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Cast</button>`
           : '';

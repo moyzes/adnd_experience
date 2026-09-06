@@ -188,7 +188,7 @@
       "damageType": "slashing",
       "actionPhase": "MEDIUM",
       "moraleThreshold": 100,
-      "xpReward": 65,
+      "xpReward": 300,
       "creatureType": "undead",
       "undeadTier": "weak"
     },
@@ -208,7 +208,7 @@
       "damageType": "slashing",
       "actionPhase": "MEDIUM",
       "moraleThreshold": 100,
-      "xpReward": 175,
+      "xpReward": 550,
       "creatureType": "undead",
       "undeadTier": "medium"
     },
@@ -228,7 +228,7 @@
       "damageType": "piercing",
       "actionPhase": "FAST",
       "moraleThreshold": 40,
-      "xpReward": 15
+      "xpReward": 200
     },
     "cult_guard": {
       "id": "cult_guard",
@@ -246,7 +246,7 @@
       "damageType": "slashing",
       "actionPhase": "MEDIUM",
       "moraleThreshold": 50,
-      "xpReward": 65
+      "xpReward": 400
     },
     "giant_spider": {
       "id": "giant_spider",
@@ -264,7 +264,7 @@
       "damageType": "piercing",
       "actionPhase": "MEDIUM",
       "moraleThreshold": 45,
-      "xpReward": 175,
+      "xpReward": 500,
       "special_attack": "poison",
       "save_category": "poison",
       "save_target": 14,
@@ -286,7 +286,7 @@
       "damageType": "bludgeoning",
       "actionPhase": "SLOW",
       "moraleThreshold": 70,
-      "xpReward": 270
+      "xpReward": 1400
     }
   },
   "encounters": [
@@ -299,7 +299,7 @@
         { "monsterId": "crypt_skeleton", "count": 2 },
         { "monsterId": "cult_thrall", "count": 1 }
       ],
-      "onVictoryXp": 145
+      "onVictoryXp": 800
     },
     {
       "id": "enc_trap_corridor_ambush",
@@ -310,7 +310,7 @@
         { "monsterId": "cult_thrall", "count": 2 },
         { "monsterId": "crypt_skeleton", "count": 1 }
       ],
-      "onVictoryXp": 95
+      "onVictoryXp": 700
     },
     {
       "id": "enc_spider_alcove",
@@ -321,7 +321,7 @@
         { "monsterId": "giant_spider", "count": 1 },
         { "monsterId": "cult_thrall", "count": 1 }
       ],
-      "onVictoryXp": 190
+      "onVictoryXp": 700
     },
     {
       "id": "enc_ossuary",
@@ -332,7 +332,7 @@
         { "monsterId": "crypt_skeleton", "count": 2 },
         { "monsterId": "tomb_ghoul", "count": 1 }
       ],
-      "onVictoryXp": 305
+      "onVictoryXp": 1150
     },
     {
       "id": "enc_sanctum_guard",
@@ -343,7 +343,7 @@
         { "monsterId": "cult_guard", "count": 2 },
         { "monsterId": "crypt_skeleton", "count": 1 }
       ],
-      "onVictoryXp": 195
+      "onVictoryXp": 1100
     },
     {
       "id": "enc_corvin_last_stand",
@@ -354,7 +354,7 @@
         { "monsterId": "corvin_sorcerer", "count": 1 },
         { "monsterId": "cult_guard", "count": 1 }
       ],
-      "onVictoryXp": 335
+      "onVictoryXp": 1800
     }
   ],
   "dialogues": {
@@ -544,6 +544,7 @@
           {
             "id": "choice_end",
             "text": "Accept the relic and end the confrontation.",
+            "questXP": 2500,
             "onSuccess": null,
             "onEnd": "despawn"
           }
@@ -555,6 +556,7 @@
           {
             "id": "choice_end",
             "text": "Claim the relic.",
+            "questXP": 2500,
             "onSuccess": null,
             "onEnd": "despawn"
           }
@@ -566,6 +568,7 @@
           {
             "id": "choice_end",
             "text": "Accept the truce.",
+            "questXP": 2500,
             "onSuccess": null,
             "onEnd": "despawn"
           }
@@ -577,6 +580,7 @@
           {
             "id": "choice_end",
             "text": "Seal the quiet bargain.",
+            "questXP": 2000,
             "onSuccess": null,
             "onEnd": "despawn"
           }

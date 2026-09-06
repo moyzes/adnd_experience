@@ -10,19 +10,25 @@ import { DialogueController } from './engine/dialogue_controller.js';
 import { CharacterSheetUI } from './engine/character_sheet.js';
 import { ShopUI } from './engine/shop_ui.js';
 import { LevelUpUI } from './engine/level_up_ui.js';
+import { SpellRegistry } from './engine/spell_registry.js';
 
 /**
  * Bootstraps application data, initializes setup screen options,
  * and handles the transition from setup into the main game orchestrator.
  */
 async function init() {
-  const classesData = await loadJSON('data/classes.json');
+  const [classesData, spellsData] = await Promise.all([
+    loadJSON('data/classes.json'),
+    loadJSON('data/spells.json')
+  ]);
+
+  SpellRegistry.init(spellsData, classesData);
 
   const mageChoicesContainer = document.getElementById('mage-spells-choices');
   const clericChoicesContainer = document.getElementById('cleric-spells-choices');
 
-  const mageSpellTier1 = classesData.archetypes.mage.vancian_magic.spell_tiers["1"];
-  const clericSpellTier1 = classesData.archetypes.cleric.spells_available_by_tier["1"];
+  const mageSpellTier1 = SpellRegistry.getSpellsForClass('mage', 1);
+  const clericSpellTier1 = SpellRegistry.getSpellsForClass('cleric', 1);
 
   mageChoicesContainer.innerHTML = '';
   clericChoicesContainer.innerHTML = '';
@@ -74,6 +80,7 @@ class GameOrchestrator {
     this.spec = adventureData;
     this.classesSpec = classesData;
     this.isActionActive = false;
+    this.isGameOver = false;
 
     this.lastFrameTime = performance.now();
     this.frameInterval = 1000 / 60; // Target 60 FPS
@@ -299,7 +306,7 @@ class GameOrchestrator {
   // ===========================================================================
 
   handleInput(action) {
-    if (this.isActionActive || this.state.combat.active) return;
+    if (this.isGameOver || this.state.isPartyWiped() || this.isActionActive || this.state.combat.active) return;
 
     let updated = false;
     let didMove = false;
@@ -339,6 +346,20 @@ class GameOrchestrator {
   processMovementTriggers() {
     const currentX = this.state.player.x;
     const currentY = this.state.player.y;
+
+    // 0. Floor Traps
+    if (this.spec.map && this.spec.map[currentY]) {
+      const tileId = this.spec.map[currentY][currentX];
+      const tileDef = this.spec.legend ? this.spec.legend[tileId] : null;
+      const trapKey = `${currentX},${currentY}`;
+      if (tileDef && tileDef.trap && !this.state.disarmedTraps.has(trapKey)) {
+        this.state.disarmedTraps.add(trapKey);
+        this.log(`⚠️ CONCEALED FLOOR TRAP TRIGGERED! You stepped on ${tileDef.trap.name}!`, "danger");
+        const trapRes = this.state.triggerTrap(tileDef.trap);
+        const wiped = this.handleTrapResult(trapRes, tileDef.trap.name);
+        if (wiped) return;
+      }
+    }
 
     // 1. Passive Thief checks
     const hint = this.state.checkPassiveHearNoise();
@@ -391,6 +412,7 @@ class GameOrchestrator {
   // ===========================================================================
 
   handleGlobalAction(actionType) {
+    if (this.isGameOver || this.state.isPartyWiped()) return;
     if (actionType === 'RESOLVE_ROUND') this.combatController.resolveCombatRoundSequence();
     else if (actionType === 'OPEN_OBJECT') this.handleOpenObject();
     else if (actionType === 'OPEN_SHOP') this.shopUI.open();
@@ -398,6 +420,7 @@ class GameOrchestrator {
   }
 
   handleUIAction(actionType, payload) {
+    if (this.isGameOver || this.state.isPartyWiped()) return;
     const fighter = this.state.party.find(p => p.classKey === 'fighter');
     const thief = this.state.party.find(p => p.classKey === 'thief');
     const cleric = this.state.party.find(p => p.classKey === 'cleric');
@@ -422,7 +445,7 @@ class GameOrchestrator {
         const fumbleMsg = result.fumbled ? " (CRITICAL JAM - extra tool wear)" : "";
         this.log(`Pick lock failed: Tumblers resisted [d100=${result.roll} vs Target ${result.chance}%]${fumbleMsg} (Tools: ${result.durability}%)`, "warning");
       }
-      this.uiController.updateHUD();
+      this.uiController.updateHUD(true);
     }
     else if (actionType === 'FIND_TRAP') {
       if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
@@ -435,7 +458,7 @@ class GameOrchestrator {
       } else {
         this.log(`Find traps: No signs found [d100=${result.roll} vs Target ${result.chance}%].`, "info");
       }
-      this.uiController.updateHUD();
+      this.uiController.updateHUD(true);
     }
     else if (actionType === 'DISARM_TRAP') {
       if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
@@ -450,13 +473,15 @@ class GameOrchestrator {
         this.playSFX('unlock'); this.playSFX('reward');
         this.log(`Success! ${target.name} safely disabled [d100=${result.roll} vs Target ${result.chance}%] (Tools: ${result.durability}%).`, "success");
       } else if (result.triggered) {
-        this.playSFX('backstab'); setTimeout(() => this.playSFX('falling'), 500);
         this.log(`CRITICAL FUMBLE! [d100=${result.roll} vs Target ${result.chance}%] ${target.name} tripped!`, "danger");
+        if (result.trapResult) {
+          this.handleTrapResult(result.trapResult, target.name);
+        }
       } else {
         this.playSFX('unlock_try');
         this.log(`Disarm failed: Mechanism resisted probes [d100=${result.roll} vs Target ${result.chance}%] (Tools: ${result.durability}%). Trap remains primed.`, "warning");
       }
-      this.uiController.updateHUD();
+      this.uiController.updateHUD(true);
     }
     else if (actionType === 'HIDE_SHADOWS') {
       if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
@@ -465,7 +490,7 @@ class GameOrchestrator {
         this.playSFX('hide'); this.playSFX('reward');
         this.log(`Success! Slips into shadows (Stealth Active).`, "success");
       } else this.log(`Hide in shadows failed.`, "warning");
-      this.uiController.updateHUD();
+      this.uiController.updateHUD(true);
     }
     else if (actionType === 'SCOUT_AHEAD') {
       if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
@@ -495,8 +520,11 @@ class GameOrchestrator {
       if (!mage || mage.hp <= 0) return this.log("The mage is incapacitated.", "warning");
       const res = this.state.castMageSpell(payload);
       if (res.success) {
-        this.playSFX('magic_missile');
-        this.log(res.log || `Released ${res.spellName}.`, "success");
+        this.playSFX(res.sfx || 'magic_missile');
+        this.log(res.log || `✨ ${mage.name} releases ${res.spellName}!`, "success");
+        if (this.characterSheet && this.characterSheet.modal && this.characterSheet.modal.style.display !== 'none') {
+          this.characterSheet.open(mage.name);
+        }
       } else {
         this.log(res.reason, "warning");
       }
@@ -529,7 +557,7 @@ class GameOrchestrator {
       } else {
         this.playSFX('blocked'); this.log("Bash failed. Gate holds firm.", "danger");
       }
-      this.uiController.updateHUD();
+      this.uiController.updateHUD(true);
     }
     else if (actionType === 'READ_MAGIC') {
       if (!mage || mage.hp <= 0) return this.log("The mage is incapacitated.", "warning");
@@ -540,7 +568,7 @@ class GameOrchestrator {
         this.state.unlockTarget(target.x, target.y, target.type);
         this.log("Arcane runes deciphered! The seal fades.", "success");
       } else this.log("The arcane runes remain stubborn. Cognition drained.", "warning");
-      this.uiController.updateHUD();
+      this.uiController.updateHUD(true);
     }
   }
 
@@ -643,6 +671,61 @@ class GameOrchestrator {
       return;
     }
 
+    // For AC buff spells (like Sanctuary / Shield of Faith)
+    if (effect.type === 'buff_ac') {
+      if (targetHeroIndex != null) {
+        const res = this.state.castClericPrayer(spellIndex, targetHeroIndex);
+        if (res.success) {
+          this.audioManager.play('bless');
+          this.log(res.log || `🛡️ ${cleric.name} invokes ${spell.name} upon ${res.targetHeroName} (-${res.acBonus} AC ward for ${res.durationRounds} rounds)!`, "success");
+          this.uiController.updateHUD(true);
+          if (this.characterSheet && this.characterSheet.modal && this.characterSheet.modal.style.display !== 'none') {
+            this.characterSheet.open(res.targetHeroName);
+          }
+        } else {
+          this.log(res.reason || "The prayer failed.", "warning");
+        }
+        return;
+      }
+
+      // Prompt target selection for Sanctuary / AC ward
+      const choices = this.state.party.map((hero, idx) => {
+        const icon = hero.classKey === 'fighter' ? '🛡️' : hero.classKey === 'thief' ? '🗡️' : hero.classKey === 'cleric' ? '✨' : '🔮';
+        const hasWard = hero.tempAcBonus > 0 ? ` (Protected: -${hero.tempAcBonus} AC)` : '';
+        return {
+          text: `${icon} ${hero.name}${hasWard}`,
+          disabled: hero.hp <= 0,
+          callback: () => {
+            const res = this.state.castClericPrayer(spellIndex, idx);
+            if (res.success) {
+              this.audioManager.play('bless');
+              this.log(res.log || `🛡️ ${cleric.name} invokes ${spell.name} upon ${hero.name} (-${res.acBonus} AC ward for ${res.durationRounds} rounds)!`, "success");
+              this.uiController.updateHUD(true);
+              if (this.characterSheet && this.characterSheet.modal && this.characterSheet.modal.style.display !== 'none') {
+                this.characterSheet.open(hero.name);
+              }
+            } else {
+              this.log(res.reason || "The prayer failed.", "warning");
+            }
+          }
+        };
+      });
+
+      choices.push({
+        text: '❌ Cancel',
+        callback: () => {
+          this.log(`The invocation of ${spell.name} is held back.`, "info");
+        }
+      });
+
+      this.uiController.showInteractionModal({
+        title: `✨ ${cleric.name} — ${spell.name}`,
+        prompt: `Select a party member to ward with protective sanctuary (-${effect.amount || 2} AC):`,
+        choices
+      });
+      return;
+    }
+
     // For party healing spells (like Holy Blessing)
     if (effect.type === 'party_heal') {
       const res = this.state.castClericPrayer(spellIndex);
@@ -663,11 +746,11 @@ class GameOrchestrator {
       return;
     }
 
-    // For buff/other prayers
+    // For party attack buffs (like Bless) and other prayers
     const res = this.state.castClericPrayer(spellIndex);
     if (res.success) {
       this.audioManager.play('bless');
-      this.log(`✨ Divine invocation! ${res.spellName}`, "success");
+      this.log(res.log || `✨ ${cleric.name} invokes ${res.spellName}!`, "success");
       this.uiController.updateHUD(true);
       if (this.characterSheet && this.characterSheet.modal && this.characterSheet.modal.style.display !== 'none') {
         this.characterSheet.open(cleric.name);
@@ -682,7 +765,7 @@ class GameOrchestrator {
   // ===========================================================================
 
   handleOpenObject() {
-    if (this.isActionActive) return;
+    if (this.isGameOver || this.state.isPartyWiped() || this.isActionActive) return;
     const target = this.getInteractiveTargetInFront();
     if (!target) return this.log("There is nothing openable directly in front of you.", "warning");
     if (this.checkTrapBeforeAction(target)) return;
@@ -717,39 +800,44 @@ class GameOrchestrator {
   }
 
   getInteractiveTargetInFront() {
-    let dx = 0, dy = 0;
-    if (this.state.player.facing === 'NORTH') dy = -1;
-    if (this.state.player.facing === 'SOUTH') dy = 1;
-    if (this.state.player.facing === 'EAST') dx = 1;
-    if (this.state.player.facing === 'WEST') dx = -1;
-
-    const targetX = this.state.player.x + dx;
-    const targetY = this.state.player.y + dy;
-
-    if (targetY >= 0 && targetY < this.spec.map.length && targetX >= 0 && targetX < this.spec.map[0].length) {
-      const tileId = this.spec.map[targetY][targetX];
-      const key = `${targetX},${targetY}`;
-      if ((tileId === 2 || tileId === 8) && !this.state.openedDoors.has(key)) {
-        const tileDef = this.spec.legend[tileId];
-        return { x: targetX, y: targetY, type: 'door', locked: tileDef?.locked && !this.state.unlockedDoors.has(key), tileDef };
-      }
-      if (tileId === 3 && !this.state.openedChests.has(key)) {
-        const tileDef = this.spec.legend[tileId];
-        return { x: targetX, y: targetY, type: 'chest', locked: tileDef?.locked && !this.state.unlockedChests.has(key), tileDef };
-      }
-      if (!this.state.openedChests.has(key) && this.spec.entities) {
-        if (this.spec.entities.find(e => e.model === 'chest' && e.x === targetX && e.y === targetY)) {
-          const tileDef = this.spec.legend[3] || { name: 'Chest', locked: null };
-          return { x: targetX, y: targetY, type: 'chest', locked: !!tileDef.locked && !this.state.unlockedChests.has(key), tileDef };
-        }
-      }
-    }
-    return null;
+    return this.state.getInteractiveTargetInFront();
   }
 
   getLockInFront() {
-    const target = this.getInteractiveTargetInFront();
-    return (target && target.locked) ? target : null;
+    return this.state.getLockInFront();
+  }
+
+  handleTrapResult(trap, sourceName = 'Hazard') {
+    if (!trap) return false;
+    this.playSFX('backstab');
+    setTimeout(() => this.playSFX('falling'), 500);
+
+    trap.results.forEach((r, idx) => {
+      const modStr = r.save.abilityMod ? (r.save.abilityMod > 0 ? `+${r.save.abilityMod}` : `${r.save.abilityMod}`) : '';
+      const rollDetail = `(d20=${r.save.roll}${modStr} vs Target ${r.save.target})`;
+      
+      if (r.save.success) {
+        this.log(`🛡️ HEROIC FORTITUDE: ${r.save.narrative} ${rollDetail} [${r.damage} dmg resisted]`, "success");
+      } else {
+        this.log(`💀 MORTAL BREACH: ${r.save.narrative} ${rollDetail} [${r.damage} dmg taken]`, "danger");
+      }
+
+      if (idx === 0 || !r.save.success) {
+        this.uiController.showSavingThrowCue(r.save);
+      }
+
+      this.flashHeroCardRed(r.heroIndex);
+      if (r.isDead) this.log(`💀 ${r.heroName} collapses from fatal trauma!`, "danger");
+    });
+
+    this.uiController.updateHUD();
+
+    if (trap.partyWiped || this.state.isPartyWiped()) {
+      this.log(`💀 PARTY WIPED! The expedition succumbed to ${sourceName}.`, "danger");
+      this.showGameOver();
+      return true;
+    }
+    return false;
   }
 
   checkTrapBeforeAction(target) {
@@ -763,30 +851,9 @@ class GameOrchestrator {
       }
 
       this.state.disarmedTraps.add(trapKey);
-      this.playSFX('backstab'); setTimeout(() => this.playSFX('falling'), 500);
-
-      const trap = this.state.triggerTrap(target.tileDef.trap);
       this.log(`⚠️ CONCEALED TRAP TRIGGERED! The ${target.tileDef.name} unleashes ${target.tileDef.trap.name}!`, "danger");
-
-      trap.results.forEach((r, idx) => {
-        const modStr = r.save.abilityMod ? (r.save.abilityMod > 0 ? `+${r.save.abilityMod}` : `${r.save.abilityMod}`) : '';
-        const rollDetail = `(d20=${r.save.roll}${modStr} vs Target ${r.save.target})`;
-        
-        if (r.save.success) {
-          this.log(`🛡️ HEROIC FORTITUDE: ${r.save.narrative} ${rollDetail} [${r.damage} dmg resisted]`, "success");
-        } else {
-          this.log(`💀 MORTAL BREACH: ${r.save.narrative} ${rollDetail} [${r.damage} dmg taken]`, "danger");
-        }
-
-        if (idx === 0 || !r.save.success) {
-          this.uiController.showSavingThrowCue(r.save);
-        }
-
-        this.flashHeroCardRed(r.heroIndex);
-        if (r.isDead) this.log(`💀 ${r.heroName} collapses from fatal trauma!`, "danger");
-      });
-
-      this.uiController.updateHUD();
+      const trap = this.state.triggerTrap(target.tileDef.trap);
+      this.handleTrapResult(trap, target.tileDef.trap.name);
       return true;
     }
     return false;
@@ -797,7 +864,7 @@ class GameOrchestrator {
   // ===========================================================================
 
   handleRestCamp() {
-    if (this.isActionActive || this.state.combat.active) return;
+    if (this.isGameOver || this.state.isPartyWiped() || this.isActionActive || this.state.combat.active) return;
 
     const cx = this.state.player.x;
     const cy = this.state.player.y;
@@ -907,10 +974,18 @@ class GameOrchestrator {
   }
 
   showGameOver() {
+    if (this.isGameOver) return;
+    this.isGameOver = true;
+    this.audioManager.stopCombatBgm();
+    if (this.currentAmbientTrack) {
+      this.audioManager.stopLoop(this.currentAmbientTrack);
+      this.currentAmbientTrack = null;
+    }
+    this.playSFX('death');
     const wipedText = this.spec.endings?.party_wiped || 'The flooded dark keeps what it takes. The expedition is over.';
     this.uiElements.interactionTitle.textContent = '💀 PARTY WIPED';
     this.uiElements.interactionPrompt.textContent = wipedText;
-    this.uiElements.interactionActions.innerHTML = `<button class="action-tab primary" style="width:100%; padding:12px;" onclick="location.reload()">RESTART EXPEDITION</button>`;
+    this.uiElements.interactionActions.innerHTML = `<button class="action-tab primary" style="width:100%; padding:14px; font-size:14px; font-family:'Cinzel', serif;" onclick="location.reload()">↺ RESTART EXPEDITION</button>`;
     this.uiElements.interactionModal.style.display = 'flex';
   }
 }

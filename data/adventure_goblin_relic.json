@@ -209,7 +209,7 @@
       "damageType": "piercing",
       "actionPhase": "FAST",
       "moraleThreshold": 35,
-      "xpReward": 25
+      "xpReward": 200
     },
     "goblin_warrior": {
       "id": "goblin_warrior",
@@ -228,7 +228,7 @@
       "damageType": "slashing",
       "actionPhase": "MEDIUM",
       "moraleThreshold": 45,
-      "xpReward": 45
+      "xpReward": 300
     },
     "goblin_shaman": {
       "id": "goblin_shaman",
@@ -247,7 +247,7 @@
       "damageType": "slashing",
       "actionPhase": "FAST",
       "moraleThreshold": 50,
-      "xpReward": 120
+      "xpReward": 600
     },
     "wilderness_spider": {
       "id": "wilderness_spider",
@@ -266,7 +266,7 @@
       "damageType": "piercing",
       "actionPhase": "MEDIUM",
       "moraleThreshold": 40,
-      "xpReward": 140,
+      "xpReward": 450,
       "special_attack": "poison",
       "save_category": "poison",
       "save_target": 13,
@@ -289,7 +289,7 @@
       "damageType": "slashing",
       "actionPhase": "MEDIUM",
       "moraleThreshold": 100,
-      "xpReward": 65,
+      "xpReward": 350,
       "creatureType": "undead",
       "undeadTier": "weak"
     },
@@ -310,7 +310,7 @@
       "damageType": "slashing",
       "actionPhase": "MEDIUM",
       "moraleThreshold": 60,
-      "xpReward": 350
+      "xpReward": 1500
     }
   },
   "encounters": [
@@ -322,7 +322,7 @@
       "enemies": [
         { "monsterId": "goblin_scout", "count": 2 }
       ],
-      "onVictoryXp": 50
+      "onVictoryXp": 450
     },
     {
       "id": "enc_forest_spider_nest",
@@ -333,7 +333,7 @@
         { "monsterId": "wilderness_spider", "count": 1 },
         { "monsterId": "goblin_scout", "count": 1 }
       ],
-      "onVictoryXp": 165
+      "onVictoryXp": 700
     },
     {
       "id": "enc_ruins_threshold",
@@ -344,7 +344,7 @@
         { "monsterId": "goblin_warrior", "count": 2 },
         { "monsterId": "goblin_scout", "count": 1 }
       ],
-      "onVictoryXp": 115
+      "onVictoryXp": 850
     },
     {
       "id": "enc_ruins_sanctum_guards",
@@ -355,7 +355,7 @@
         { "monsterId": "ruins_skeleton", "count": 2 },
         { "monsterId": "goblin_shaman", "count": 1 }
       ],
-      "onVictoryXp": 250
+      "onVictoryXp": 1350
     },
     {
       "id": "enc_graktar_throne_battle",
@@ -366,7 +366,7 @@
         { "monsterId": "chieftain_graktar_mob", "count": 1 },
         { "monsterId": "goblin_warrior", "count": 2 }
       ],
-      "onVictoryXp": 440
+      "onVictoryXp": 2200
     }
   ],
   "dialogues": {
@@ -466,7 +466,7 @@
             "requiresItem": "Sun-Forged Relic of Dawn",
             "takeItem": "Sun-Forged Relic of Dawn",
             "giveGold": 250,
-            "questXP": 500,
+            "questXP": 3500,
             "playSFX": "victory",
             "onSuccess": "node_patron_epilogue"
           }
@@ -538,7 +538,7 @@
             "id": "choice_take_relic_free",
             "text": "\"A wise decision. Open the chest.\"",
             "giveItem": "Sun-Forged Relic of Dawn",
-            "questXP": 300,
+            "questXP": 800,
             "onEnd": "despawn"
           }
         ]
@@ -550,7 +550,7 @@
             "id": "choice_claim_blessed_relic",
             "text": "\"The light has triumphed.\"",
             "giveItem": "Sun-Forged Relic of Dawn",
-            "questXP": 300,
+            "questXP": 800,
             "onEnd": "despawn"
           }
         ]
@@ -562,7 +562,7 @@
             "id": "choice_take_tricked_relic",
             "text": "\"Never duel wits with a wizard.\"",
             "giveItem": "Sun-Forged Relic of Dawn",
-            "questXP": 300,
+            "questXP": 800,
             "onEnd": "despawn"
           }
         ]
@@ -574,7 +574,7 @@
             "id": "choice_take_bribed_relic",
             "text": "\"Take your gold and begone.\"",
             "giveItem": "Sun-Forged Relic of Dawn",
-            "questXP": 200,
+            "questXP": 600,
             "onEnd": "despawn"
           }
         ]

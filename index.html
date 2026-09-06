@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Grid RPG Engine - AD&D 2nd Edition</title>
+  <meta name="description" content="AD&D 2nd Edition dungeon crawler engine featuring first-person 3D view, party management, turn-based combat, and interactive exploration.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -359,21 +360,25 @@
     .guard-fill {
       height: 100%;
       background: var(--guard-red);
+      transition: width 0.35s ease-out;
     }
 
     .cognition-fill {
       height: 100%;
       background: var(--cognition-purple);
+      transition: width 0.35s ease-out;
     }
 
     .favor-fill {
       height: 100%;
       background: var(--favor-blue);
+      transition: width 0.35s ease-out;
     }
 
     .tools-fill {
       height: 100%;
       background: var(--tools-orange);
+      transition: width 0.35s ease-out;
     }
 
     /* 45x45px Action Buttons */
@@ -539,18 +544,19 @@
     }
 
     .hero-buff-pill {
-      font-size: 8px;
-      padding: 1px 4px;
-      border-radius: 2px;
+      font-size: 9px;
+      padding: 2px 5px;
+      border-radius: 3px;
       font-family: 'Source Code Pro', monospace;
       font-weight: 700;
       letter-spacing: 0.2px;
       line-height: 1.2;
       display: inline-flex;
       align-items: center;
-      gap: 2px;
+      gap: 3px;
       animation: buffPulse 2.5s infinite ease-in-out;
       cursor: help;
+      white-space: nowrap;
     }
 
     .hero-buff-pill.ac-buff {
@@ -565,10 +571,28 @@
       border: 1px solid #9e6a03;
     }
 
+    .hero-buff-pill.haste-buff {
+      background: #0d2826;
+      color: #39d353;
+      border: 1px solid #238636;
+    }
+
     .hero-buff-pill.stealth-buff {
       background: #211938;
       color: #d2a8ff;
       border: 1px solid #8957e5;
+    }
+
+    .hero-buff-pill.spec-buff {
+      background: #2a1b04;
+      color: #ffd700;
+      border: 1px solid #d29922;
+    }
+
+    .hero-buff-pill.mastery-buff {
+      background: #1c2738;
+      color: #a5d6ff;
+      border: 1px solid #388bfd;
     }
 
     @keyframes buffPulse {
@@ -618,7 +642,6 @@
     }
 
     /* Modals & Character Sheet */
-    #interaction-modal,
     #char-sheet-modal,
     #camp-modal {
       display: none;
@@ -629,6 +652,19 @@
       height: 100vh;
       background: rgba(4, 5, 7, 0.88);
       z-index: 2500;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #interaction-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(4, 5, 7, 0.88);
+      z-index: 3000;
       justify-content: center;
       align-items: center;
     }
@@ -975,6 +1011,15 @@
       box-shadow: 0 0 16px rgba(188, 140, 255, 0.4);
     }
 
+    .floating-combat-pill.heal {
+      background: rgba(14, 44, 25, 0.95);
+      color: #3fb950;
+      border: 1.5px solid #2ea043;
+      font-size: 13px;
+      font-weight: bold;
+      box-shadow: 0 0 16px rgba(46, 160, 67, 0.5);
+    }
+
     .floating-combat-pill.graze {
       background: rgba(26, 29, 36, 0.92);
       color: #8b949e;
@@ -1287,7 +1332,7 @@
 
   <div id="game-wrapper">
     <div id="left-main-panel" class="tsr-panel">
-      <div id="main-panel-title" class="panel-header">The Stolen Relic of Greenfall Ruins</div>
+      <div id="main-panel-title" class="panel-header">The Shadow of Blackstone Keep</div>
       <div id="view-3d-box">
         <div id="saving-throw-cue-banner">
           <div class="st-cue-header">
@@ -1396,7 +1441,7 @@
 
   <!-- Village Training & Level-Up Modal -->
   <div id="level-up-modal"
-    style="display:none; position:fixed; inset:0; background:rgba(4,5,7,0.92); z-index:210; align-items:center; justify-content:center;">
+    style="display:none; position:fixed; inset:0; background:rgba(4,5,7,0.92); z-index:3100; align-items:center; justify-content:center;">
     <div class="modal-box" style="width: min(540px, 94vw); max-height: 88vh; overflow-y: auto; text-align: left; border-color: var(--accent-gold); box-shadow: 0 0 24px rgba(210,153,34,0.3);">
       <div id="level-up-title" class="panel-header" style="font-size: 14px; margin-bottom: 12px;">
         ⭐ HERO ADVANCEMENT

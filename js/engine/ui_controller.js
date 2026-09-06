@@ -91,13 +91,33 @@ export class UIController {
 
         const buffBadges = [];
         if (hero.tempAcBonus > 0) {
-            buffBadges.push(`<span class="hero-buff-pill ac-buff" title="${hero.tempAcSource || 'AC Ward'}: -${hero.tempAcBonus} AC (${hero.tempAcRounds} rnds remaining)">🛡️ -${hero.tempAcBonus} AC (${hero.tempAcRounds}r)</span>`);
+            buffBadges.push(`<span class="hero-buff-pill ac-buff" title="${hero.tempAcSource || 'AC Ward'}: -${hero.tempAcBonus} AC protection (${hero.tempAcRounds} round${hero.tempAcRounds === 1 ? '' : 's'} remaining)">🛡️ -${hero.tempAcBonus} AC (${hero.tempAcRounds}r)</span>`);
         }
         if (hero.tempAttackBonus > 0) {
-            buffBadges.push(`<span class="hero-buff-pill atk-buff" title="Bless: +${hero.tempAttackBonus} to-hit (${hero.tempAttackRounds} rnds remaining)">✨ +${hero.tempAttackBonus} Atk (${hero.tempAttackRounds}r)</span>`);
+            const isHaste = hero.tempAttackBonus >= 2;
+            const buffClass = isHaste ? 'haste-buff' : 'atk-buff';
+            const buffTitle = isHaste ? `Haste: +${hero.tempAttackBonus} to-hit attack surge (${hero.tempAttackRounds} round${hero.tempAttackRounds === 1 ? '' : 's'} remaining)` : `Bless: +${hero.tempAttackBonus} to-hit divine favor (${hero.tempAttackRounds} round${hero.tempAttackRounds === 1 ? '' : 's'} remaining)`;
+            const buffLabel = isHaste ? `⏩ Haste +${hero.tempAttackBonus} (${hero.tempAttackRounds}r)` : `✨ Bless +${hero.tempAttackBonus} (${hero.tempAttackRounds}r)`;
+            buffBadges.push(`<span class="hero-buff-pill ${buffClass}" title="${buffTitle}">${buffLabel}</span>`);
         }
         if (hero.isStealth) {
             buffBadges.push(`<span class="hero-buff-pill stealth-buff" title="Stealth: Hidden in shadows, Backstab primed">🗡️ Stealth</span>`);
+        }
+
+        // Martial Weapon Specialization / Mastery Badges
+        if (hero.classKey === 'fighter' && hero.specializedWeapon) {
+            const isWielding = hero.equippedWeapon === hero.specializedWeapon;
+            if (isWielding) {
+                buffBadges.push(`<span class="hero-buff-pill spec-buff" title="AD&D 2e Weapon Specialization: +1 to-hit, +2 damage with ${hero.specializedWeapon}">⚔️ ${hero.specializedWeapon} Spec (+1/+2)</span>`);
+            }
+        }
+
+        if (hero.equippedWeapon) {
+            const mastery = this.state.getWeaponMastery(hero, hero.equippedWeapon);
+            if (mastery && mastery.usageTier !== 'novice') {
+                const label = mastery.usageTier === 'mastery' ? `⭐ Mastery (+2/+1)` : `⭐ Familiar (+1)`;
+                buffBadges.push(`<span class="hero-buff-pill mastery-buff" title="Battle Mastery (${mastery.hits} hits): +${mastery.usageAtkBonus} to-hit${mastery.usageDmgBonus > 0 ? `, +${mastery.usageDmgBonus} damage` : ''}">${label}</span>`);
+            }
         }
 
         cache.buffs.innerHTML = buffBadges.length > 0
@@ -122,9 +142,13 @@ export class UIController {
         const lockTarget = this.state.getLockInFront();
         const trapInFront = this.state.getTrapInFront();
 
-        const partySig = this.state.party.map(h => `${h.canLevelUp ? 1 : 0}_${h.hp}_${h.level}`).join('_');
+        const partySig = this.state.party.map(h =>
+            `${h.canLevelUp ? 1 : 0}_${h.hp}_${h.level}_${h.toolsDurability ?? ''}_${h.cognition ?? ''}_${h.divineFavor ?? ''}_${h.isStealth ? 1 : 0}_${h.tempAcBonus || 0}_${h.tempAcRounds || 0}_${h.tempAttackBonus || 0}_${h.tempAttackRounds || 0}_${h.equippedWeapon || ''}_${h.specializedWeapon || ''}`
+        ).join('_');
         // Build a lightweight signature of contextual UI triggers to prevent unnecessary DOM reconstruction on every step
-        const currentSig = `${this.state.combat.active}_${this.state.player.x}_${this.state.player.y}_${this.state.player.facing}_${lockTarget ? lockTarget.x : ''}_${trapInFront ? trapInFront.detected : ''}_${this.state.activeNpc ? this.state.activeNpc.id : ''}_${partySig}`;
+        const lockSig = lockTarget ? `${lockTarget.x},${lockTarget.y},${lockTarget.locked}` : '';
+        const trapSig = trapInFront ? `${trapInFront.x},${trapInFront.y},${trapInFront.detected}` : '';
+        const currentSig = `${this.state.combat.active}_${this.state.player.x}_${this.state.player.y}_${this.state.player.facing}_${lockSig}_${trapSig}_${this.state.activeNpc ? this.state.activeNpc.id : ''}_${partySig}`;
 
         if (!force && this.lastSig === currentSig && !this.state.combat.active) {
             // Context hasn't changed during exploration movement; skip heavy innerHTML DOM rebuilding
