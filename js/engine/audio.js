@@ -44,6 +44,7 @@ export class AudioManager {
     sleep: '/assets/audio/sleep.mp3',
     bless: '/assets/audio/bless.mp3',
     turn_undead: '/assets/audio/turn_undead.mp3',
+    read_magic: '/assets/audio/study.mp3',
     relic: '/assets/audio/relic.mp3',
     goblin: '/assets/audio/goblin.mp3',
     level_up: '/assets/audio/level_up.mp3',

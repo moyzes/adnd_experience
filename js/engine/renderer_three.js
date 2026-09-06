@@ -67,8 +67,13 @@ export class RendererThreeJS {
 
     // 6. Unified GLTF Loader
     this.gltfLoader = new GLTFLoader();
+    this.manualTorchState = null;
 
     window.addEventListener('resize', () => this.onResize());
+  }
+
+  setTorchLight(active = true, type = 'torch') {
+    this.manualTorchState = active ? { active: true, type } : null;
   }
 
   /** Largest box matching this.aspectRatio that fits inside the container. */
@@ -851,7 +856,9 @@ export class RendererThreeJS {
     if (state) {
       const isWilderness = state.isWildernessTile ? state.isWildernessTile() : false;
       const isDarkDungeon = state.isDarknessActive ? state.isDarknessActive() : false;
-      const lightSource = state.getActiveLightSource ? state.getActiveLightSource() : { active: false, type: null };
+      const lightSource = (this.manualTorchState && this.manualTorchState.active)
+        ? this.manualTorchState
+        : (state.getActiveLightSource ? state.getActiveLightSource() : { active: false, type: null });
 
       if (isWilderness) {
         // Open wilderness: clear twilight atmosphere, gentle ambient light

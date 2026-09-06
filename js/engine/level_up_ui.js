@@ -26,7 +26,7 @@ export class LevelUpUI {
     }
 
     if (!this.state.canPartyTrain()) {
-      return this.context.log(`Mentors and quiet sanctuaries are only found in towns or villages. Return to the surface or outpost to train ${hero.name}.`, "warning");
+      return this.context.log(`Mentors and training sanctuaries are only found in patron camps, settlements, or temples. Return to the surface or outpost to train ${hero.name}.`, "warning");
     }
 
     if (!hero.canLevelUp) {
@@ -72,18 +72,47 @@ export class LevelUpUI {
     const opt = this.currentOptions;
     const hero = this.state.party[this.currentHeroIndex];
     const classIcon = opt.classKey === 'fighter' ? '🛡️' : opt.classKey === 'thief' ? '🗡️' : opt.classKey === 'cleric' ? '✨' : '🔮';
+    const trainingCost = opt.trainingCost || 10;
+    const partyGold = this.state.getPartyGold();
+    const canAfford = partyGold >= trainingCost;
+    const trainingLoc = opt.trainingLocation || "Patron Encampment & Town Sanctuary";
 
     this.titleEl.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
         <span>⭐ ${classIcon} ${opt.heroName.toUpperCase()} — LEVEL ${opt.currentLevel} → ${opt.nextLevel}</span>
-        <span style="font-size: 11px; background: rgba(210,153,34,0.2); border: 1px solid var(--accent-gold); color: var(--accent-gold); padding: 2px 8px; border-radius: 3px;">TOWN TRAINING</span>
+        <span style="font-size: 11px; background: rgba(210,153,34,0.2); border: 1px solid var(--accent-gold); color: var(--accent-gold); padding: 2px 8px; border-radius: 3px;">PATRON MENTOR TRAINING</span>
+      </div>
+    `;
+
+    // Training Location & Fee Banner
+    const feeBanner = `
+      <div style="background: #0d1117; border: 1px solid var(--border-iron); border-radius: 4px; padding: 8px 10px; margin-bottom: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <span style="font-weight: bold; color: var(--gold-tsr); font-size: 11px;">🏛️ Training Mentor & Facility</span>
+          <span style="font-size: 10px; color: var(--parchment); font-weight: bold;">${trainingLoc}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: #161b22; border: 1px solid #30363d; border-radius: 3px; margin-top: 4px;">
+          <div>
+            <span style="font-size: 11px; color: var(--text-parchment);">Mentor Training Fee: </span>
+            <b style="color: ${canAfford ? '#3fb950' : '#ff7b72'}; font-size: 12px;">${trainingCost} gp</b>
+            <span style="font-size: 10px; color: var(--text-muted); margin-left: 4px;">(${opt.currentLevel * 10} gp for Level ${opt.nextLevel})</span>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted);">
+            Party Gold: <b style="color: var(--gold-tsr);">${partyGold} gp</b>
+          </div>
+        </div>
+        ${!canAfford ? `
+          <div style="color: #ff7b72; font-size: 10px; margin-top: 5px; font-weight: bold;">
+            ⚠️ Insufficient funds to hire mentor! Earn ${trainingCost - partyGold} more gold pieces or sell dungeon loot at the outfitter.
+          </div>
+        ` : ''}
       </div>
     `;
 
     // Flavor narrative based on class
     let loreSnippet = "";
     if (opt.classKey === 'fighter') {
-      loreSnippet = "Under the tutelage of veteran armsmen in the village barracks, drills and weapon sparring refine martial edge and steadfast grit.";
+      loreSnippet = "Under the tutelage of veteran armsmen in the garrison barracks, drills and weapon sparring refine martial edge and steadfast grit.";
     } else if (opt.classKey === 'thief') {
       loreSnippet = "Conferring with shadowy guild contacts in secluded alleys, tradecraft secrets and delicate tumbler techniques are mastered.";
     } else if (opt.classKey === 'cleric') {
@@ -236,6 +265,8 @@ export class LevelUpUI {
     }
 
     this.bodyEl.innerHTML = `
+      ${feeBanner}
+
       <div style="font-size: 11px; color: var(--text-muted); font-style: italic; margin-bottom: 10px; line-height: 1.4;">
         "${loreSnippet}"
       </div>
@@ -263,7 +294,11 @@ export class LevelUpUI {
     this.actionsEl.innerHTML = `
       <div style="display: flex; gap: 8px; width: 100%;">
         <button id="cancel-levelup-btn" class="action-tab" style="flex: 1; padding: 10px; font-size: 11px;">POSTPONE</button>
-        <button id="confirm-levelup-btn" class="action-tab primary" style="flex: 2; padding: 10px; font-size: 11px; font-weight: bold; background: linear-gradient(180deg, #d29922 0%, #9e6a03 100%); border-color: var(--accent-gold); color: #fff;">⭐ COMPLETE TRAINING</button>
+        <button id="confirm-levelup-btn" class="action-tab primary" 
+          ${!canAfford ? 'disabled' : ''}
+          style="flex: 2; padding: 10px; font-size: 11px; font-weight: bold; ${canAfford ? 'background: linear-gradient(180deg, #d29922 0%, #9e6a03 100%); border-color: var(--accent-gold); color: #fff;' : 'opacity:0.4; cursor:not-allowed;'}">
+          ⭐ PAY ${trainingCost} GP & COMPLETE TRAINING
+        </button>
       </div>
     `;
 

@@ -17,10 +17,17 @@ import { SpellRegistry } from './engine/spell_registry.js';
  * and handles the transition from setup into the main game orchestrator.
  */
 async function init() {
-  const [classesData, spellsData] = await Promise.all([
-    loadJSON('data/classes.json'),
-    loadJSON('data/spells.json')
-  ]);
+  let classesData, spellsData;
+  try {
+    [classesData, spellsData] = await Promise.all([
+      loadJSON('data/classes.json'),
+      loadJSON('data/spells.json')
+    ]);
+  } catch (err) {
+    console.error("Critical error: Failed to load core game rules data:", err);
+    alert("Fatal: Failed to load classes or spells game data files. Please ensure data/classes.json and data/spells.json are present.");
+    return;
+  }
 
   SpellRegistry.init(spellsData, classesData);
 
@@ -37,7 +44,7 @@ async function init() {
     mageChoicesContainer.innerHTML += `
       <label class="spell-option-label">
         <input type="checkbox" name="mage-spell" value="${spell.id}" ${idx < 2 ? 'checked' : ''}>
-        <span><b>${spell.name}</b> (Load: ${spell.cognitive_load}) ${spell.description}</span>
+        <span><b>${spell.name}</b> (Load: ${spell.cognitive_load}) — ${spell.description}</span>
       </label>`;
   });
 
@@ -45,9 +52,30 @@ async function init() {
     clericChoicesContainer.innerHTML += `
       <label class="spell-option-label">
         <input type="checkbox" name="cleric-spell" value="${spell.id}" ${idx < 2 ? 'checked' : ''}>
-        <span><b>${spell.name}</b> ${spell.description}</span>
+        <span><b>${spell.name}</b> — ${spell.description}</span>
       </label>`;
   });
+
+  const enforceLimits = (container, inputName, maxAllowed) => {
+    const update = () => {
+      const checked = container.querySelectorAll(`input[name="${inputName}"]:checked`);
+      const all = container.querySelectorAll(`input[name="${inputName}"]`);
+      all.forEach(cb => {
+        if (!cb.checked && checked.length >= maxAllowed) {
+          cb.disabled = true;
+          cb.parentElement.style.opacity = '0.45';
+        } else {
+          cb.disabled = false;
+          cb.parentElement.style.opacity = '1';
+        }
+      });
+    };
+    container.addEventListener('change', update);
+    update();
+  };
+
+  enforceLimits(mageChoicesContainer, 'mage-spell', 2);
+  enforceLimits(clericChoicesContainer, 'cleric-spell', 2);
 
   document.getElementById('start-adventure-btn').addEventListener('click', async () => {
     const selectedMageIds = Array.from(document.querySelectorAll('input[name="mage-spell"]:checked')).map(cb => cb.value);
@@ -58,8 +86,21 @@ async function init() {
       return;
     }
 
-    const selectedModulePath = document.querySelector('input[name="adventure-module"]:checked')?.value || 'data/adventure_goblin_relic.json';
-    const adventureData = await loadJSON(selectedModulePath);
+    const selectedModulePath = document.querySelector('input[name="adventure-module"]:checked')?.value || '/data/adventure_shadows_blackstone.json';
+    let adventureData;
+    try {
+      adventureData = await loadJSON(selectedModulePath);
+    } catch (err) {
+      console.warn(`Primary load for "${selectedModulePath}" failed, attempting root fallback...`, err);
+      try {
+        const altPath = selectedModulePath.startsWith('/') ? selectedModulePath.slice(1) : '/' + selectedModulePath;
+        adventureData = await loadJSON(altPath);
+      } catch (fallbackErr) {
+        console.error(`Failed to load adventure module "${selectedModulePath}":`, fallbackErr);
+        alert(`Could not load adventure module at "${selectedModulePath}". Please verify the file path.`);
+        return;
+      }
+    }
 
     const chosenMageSpells = mageSpellTier1.filter(s => selectedMageIds.includes(s.id));
     const chosenClericSpells = clericSpellTier1.filter(s => selectedClericIds.includes(s.id));
@@ -228,19 +269,20 @@ class GameOrchestrator {
       }
     });
 
-    new InputController((action) => this.handleInput(action));
+    this.inputController = new InputController((action) => this.handleInput(action));
 
     // Global UI listeners
     document.getElementById('close-sheet-btn')?.addEventListener('click', () => this.characterSheet.close());
     document.getElementById('close-shop-btn')?.addEventListener('click', () => this.shopUI.close());
 
-    window.addEventListener('keydown', (e) => {
+    this.boundEscapeHandler = (e) => {
       if (e.key === 'Escape' || e.code === 'Escape') {
         this.characterSheet.close();
         this.shopUI.close();
         this.levelUpUI.close();
       }
-    });
+    };
+    window.addEventListener('keydown', this.boundEscapeHandler);
   }
 
   start() {
@@ -255,6 +297,12 @@ class GameOrchestrator {
     if (this.spec.briefing) this.log(this.spec.briefing, "info");
     const shopName = (this.spec.shop && this.spec.shop.name) || 'The Outfitter';
     this.log(`Expedition underway. Visit ${shopName} to stock up on gear before heading into danger.`, "info");
+
+    const mage = this.state.party.find(p => p.classKey === 'mage');
+    if (mage && mage.grimoire && mage.grimoire.length > 0) {
+      const spellNames = mage.grimoire.map(s => s.name).join(', ');
+      this.log(`📖 ${mage.name}'s grimoire contains: ${spellNames}. Mind begins unburdened (0 cognitive load). Study grimoire when ready to memorize.`, "info");
+    }
 
     requestAnimationFrame(() => this.renderer3D.onResize());
 
@@ -510,10 +558,11 @@ class GameOrchestrator {
     }
     else if (actionType === 'STUDY_GRIMOIRE') {
       if (!mage || mage.hp <= 0) return this.log("The mage is incapacitated.", "warning");
-      const result = this.state.studyGrimoire();
+      const result = this.state.studyGrimoire(payload);
       if (!result.success) return this.log(result.reason, "warning");
-      if (result.brainBurnDamage > 0) this.log(`BRAIN BURN! Forced memory (-${result.cognitiveCost} Cog, ${result.brainBurnDamage} HP).`, "danger");
-      else this.log(`Memorization complete. Cognitive burden -${result.cognitiveCost}.`, "warning");
+      this.playSFX('read_magic');
+      if (result.brainBurnDamage > 0) this.log(`🧠 BRAIN BURN! Forced memory into taxed mind (-${result.cognitiveCost} Cog, ${result.brainBurnDamage} HP).`, "danger");
+      else this.log(`📖 ${mage.name} studies the grimoire, memorizing ${result.rememorized.join(', ')} (-${result.cognitiveCost} Cognition).`, "success");
       this.uiController.updateHUD(true);
     }
     else if (actionType === 'CAST_MAGE_SPELL') {
@@ -561,13 +610,27 @@ class GameOrchestrator {
     }
     else if (actionType === 'READ_MAGIC') {
       if (!mage || mage.hp <= 0) return this.log("The mage is incapacitated.", "warning");
-      const target = this.getLockInFront();
-      if (!target || this.checkTrapBeforeAction(target)) return;
+      const target = this.getLockInFront() || this.getInteractiveTargetInFront();
+      if (!target) return this.log("There are no arcane runes or seals in front of you.", "info");
+      if (this.checkTrapBeforeAction(target)) return;
       const result = this.state.attemptReadMagic(mage, target);
+      this.playSFX('read_magic');
+      if (result.reason) {
+        return this.log(result.reason, "warning");
+      }
       if (result.success) {
-        this.state.unlockTarget(target.x, target.y, target.type);
-        this.log("Arcane runes deciphered! The seal fades.", "success");
-      } else this.log("The arcane runes remain stubborn. Cognition drained.", "warning");
+        if (target.locked || target.type === 'door' || target.type === 'chest') {
+          this.state.unlockTarget(target.x, target.y, target.type);
+          this.log(`✨ Arcane runes deciphered! [d20=${result.roll} vs Target ${result.target}] The magical seal dissolves.`, "success");
+        } else if (target.tileDef?.puzzle || target.tileDef?.inscription || target.tileDef?.runes) {
+          const text = target.tileDef.puzzle?.solvedText || target.tileDef.inscription || target.tileDef.runes || "Ancient runes deciphered.";
+          this.log(`📜 Read Magic: "${text}" [d20=${result.roll} vs Target ${result.target}]`, "success");
+        } else {
+          this.log(`✨ Arcane runes deciphered! [d20=${result.roll} vs Target ${result.target}]`, "success");
+        }
+      } else {
+        this.log(`The arcane runes remain stubborn. Cognition drained. [d20=${result.roll} vs Target ${result.target}]`, "warning");
+      }
       this.uiController.updateHUD(true);
     }
   }
@@ -987,6 +1050,22 @@ class GameOrchestrator {
     this.uiElements.interactionPrompt.textContent = wipedText;
     this.uiElements.interactionActions.innerHTML = `<button class="action-tab primary" style="width:100%; padding:14px; font-size:14px; font-family:'Cinzel', serif;" onclick="location.reload()">↺ RESTART EXPEDITION</button>`;
     this.uiElements.interactionModal.style.display = 'flex';
+  }
+
+  destroy() {
+    if (this.inputController) {
+      this.inputController.destroy();
+    }
+    if (this.boundEscapeHandler) {
+      window.removeEventListener('keydown', this.boundEscapeHandler);
+    }
+    if (this.audioManager) {
+      this.audioManager.stopCombatBgm();
+      if (this.currentAmbientTrack) {
+        this.audioManager.stopLoop(this.currentAmbientTrack);
+        this.currentAmbientTrack = null;
+      }
+    }
   }
 }
 

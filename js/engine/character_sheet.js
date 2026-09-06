@@ -13,10 +13,12 @@ export class CharacterSheetUI {
 
   open(heroName) {
     this.context.playSFX('sheet');
-    const hero = this.state.party.find(p => p.name === heroName);
-    if (!hero) return;
+    const heroIndex = this.state.party.findIndex(p => p && p.name === heroName);
+    if (heroIndex === -1) return;
+    const hero = this.state.party[heroIndex];
+    this.currentHeroIndex = heroIndex;
 
-    this.titleEl.textContent = `${hero.name.toUpperCase()} — LEVEL ${hero.level || 1} ${hero.className.toUpperCase()}`;
+    this.titleEl.textContent = `${(hero.name || 'Hero').toUpperCase()} — LEVEL ${hero.level || 1} ${(hero.className || 'Adventurer').toUpperCase()}`;
 
     const attrs = hero.attributes;
     const statsHTML = `
@@ -128,32 +130,58 @@ export class CharacterSheetUI {
       </div>`;
     } else if (hero.classKey === 'mage') {
       const heldLoad = (hero.spells || []).filter(s => !s.spent).reduce((sum, s) => sum + (s.cognitive_load || 0), 0);
-      const erasedCount = (hero.spells || []).filter(s => s.spent).length;
-      const spellsList = (hero.spells || []).map((s, idx) => {
-        if (s.spent) {
-          return `<li style="color: #484f58; text-decoration: line-through; margin-bottom: 3px; font-size: 11px;">[L${s.level}] ${s.name} — load ${s.cognitive_load || '?'} (Erased)</li>`;
-        }
-        const effType = s.effect ? s.effect.type : '';
-        const isCastableOffCombat = !this.state.combat.active && hero.hp > 0 && (
-          s.id === 'light' || effType === 'illumination' || effType === 'buff_attack' || effType === 'buff_ac' || effType === 'heal' || effType === 'party_heal'
-        );
-        const castBtn = isCastableOffCombat
-          ? `<button class="action-tab sheet-cast-mage-spell-btn" data-index="${idx}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Cast</button>`
+      const unmemorizedCount = (hero.spells || []).filter(s => s.spent).length;
+      const preparedList = (hero.spells || [])
+        .map((s, idx) => ({ ...s, originalIdx: idx }))
+        .filter(s => !s.spent)
+        .map(s => {
+          const effType = s.effect ? s.effect.type : '';
+          const isCastableOffCombat = !this.state.combat.active && hero.hp > 0 && (
+            s.id === 'light' || effType === 'illumination' || effType === 'buff_attack' || effType === 'buff_ac' || effType === 'heal' || effType === 'party_heal'
+          );
+          const castBtn = isCastableOffCombat
+            ? `<button class="action-tab sheet-cast-mage-spell-btn" data-index="${s.originalIdx}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Cast</button>`
+            : '';
+          return `<li style="color: #d2a8ff; margin-bottom: 3px; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+            <span>[L${s.level}] <b>${s.name}</b> <span style="color:var(--text-muted);font-size:10px;">(load ${s.cognitive_load || '?'})</span></span>
+            ${castBtn}
+          </li>`;
+        }).join('');
+
+      const grimoireEntries = (hero.spells || []).map((s, idx) => {
+        const statusBadge = s.spent
+          ? '<span style="color: #8b949e; font-size: 10px;">[In Grimoire]</span>'
+          : '<span style="color: #3fb950; font-size: 10px;">[Memorized]</span>';
+        const memBtn = (s.spent && hero.hp > 0 && !this.state.combat.active)
+          ? `<button class="action-tab sheet-memorize-spell-btn" data-index="${idx}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Memorize</button>`
           : '';
-        return `<li style="color: #d2a8ff; margin-bottom: 3px; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
-          <span>[L${s.level}] <b>${s.name}</b> <span style="color:var(--text-muted);font-size:10px;">(load ${s.cognitive_load || '?'})</span></span>
-          ${castBtn}
+        return `<li style="margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; background: #0d1117; padding: 4px 6px; border-radius: 3px; border: 1px solid var(--border-iron);">
+          <div>
+            <b style="color:#d2a8ff;">[L${s.level}] ${s.name}</b> <span style="color:var(--text-muted);font-size:10px;">(Load: ${s.cognitive_load || 20})</span> ${statusBadge}
+            <div style="color:var(--text-muted);font-size:10px;margin-top:1px;">${s.description || ''}</div>
+          </div>
+          ${memBtn}
         </li>`;
       }).join('');
+
       specializedHTML = `
       <div style="background: #161b22; padding: 10px; border: 1px solid var(--border-steel); border-radius: 4px; margin-bottom: 12px; font-size: 12px;">
         <div style="color: var(--accent-gold); font-weight: bold; margin-bottom: 6px; font-size: 13px;">⚡ Vancian Arcane Metrics</div>
-        <div>Cognition: <b style="color:#d2a8ff;">${hero.cognition}/${hero.maxCognition}</b> <span style="color:var(--text-muted);font-size:10px;">(held burden ${heldLoad})</span></div>
-        <div style="margin-top: 6px;">Prepared constructs:</div>
-        <ul style="margin: 4px 0 0 4px; padding: 0; list-style: none;">${spellsList}</ul>
+        <div>Cognition: <b style="color:#d2a8ff;">${hero.cognition}/${hero.maxCognition}</b> <span style="color:var(--text-muted);font-size:10px;">(held burden: ${heldLoad})</span></div>
+        
+        <div style="margin-top: 8px; font-weight: bold; color: var(--gold-tsr); font-size: 11px;">Active Constructs Held in Mind:</div>
+        <ul style="margin: 4px 0 6px 4px; padding: 0; list-style: none;">
+          ${preparedList || '<li style="color: var(--text-muted); font-style: italic; font-size: 11px;">No constructs currently held in mind (0 burden). Mind is completely free.</li>'}
+        </ul>
+
+        <div style="margin-top: 8px; font-weight: bold; color: var(--gold-tsr); font-size: 11px; border-top: 1px solid var(--border-iron); padding-top: 6px;">📖 Grimoire Inscriptions:</div>
+        <ul style="margin: 4px 0 0 0; padding: 0; list-style: none;">
+          ${grimoireEntries || '<li style="color: var(--text-muted); font-style: italic; font-size: 11px;">No spells inscribed in grimoire.</li>'}
+        </ul>
+
         <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <button id="sheet-study-grimoire-btn" class="action-tab" style="padding:4px 10px;font-size:10px;" ${erasedCount === 0 || hero.hp <= 0 ? 'disabled' : ''}>📖 Study Grimoire</button>
-          <span style="color:var(--text-muted);font-size:10px;">Reloads erased spells.</span>
+          <button id="sheet-study-grimoire-btn" class="action-tab" style="padding:4px 10px;font-size:10px;" ${unmemorizedCount === 0 || hero.hp <= 0 ? 'disabled' : ''}>📖 Study Grimoire (Memorize All)</button>
+          <span style="color:var(--text-muted);font-size:10px;">Commits grimoire formulas to active memory (deducts cognitive load).</span>
         </div>
       </div>`;
     } else if (hero.classKey === 'cleric') {
@@ -220,7 +248,6 @@ export class CharacterSheetUI {
       </div>`;
     }
 
-    const heroIndex = this.state.party.indexOf(hero);
     const equipped = hero.equippedWeapon || 'None';
     const equippedIsRanged = this.state.isRangedWeapon(hero.equippedWeapon);
     
@@ -239,34 +266,93 @@ export class CharacterSheetUI {
     const invRows = invItems.length === 0
       ? `<div style="color:var(--text-muted);">Empty</div>`
       : invItems.map(i => {
-        const isWeapon = this.state.isKnownWeapon(i.name);
-        const itemDef = this.state.getItemDef(i.name);
+        if (!i) return '';
+        const itemName = typeof i === 'string' ? i : i.name;
+        if (!itemName) return '';
+        const itemDef = this.state.getItemDef(itemName);
+        const isWeapon = this.state.isKnownWeapon(itemName);
         const isArmor = itemDef && itemDef.kind === 'armor';
         const isShield = itemDef && itemDef.kind === 'shield';
+        const isEquipped = hero.equippedWeapon === itemName || 
+                           (hero.equippedArmor && hero.equippedArmor.name === itemName) ||
+                           (hero.equippedShield && hero.equippedShield.name === itemName);
+
         let equipBtn = '';
         if (isWeapon) {
-          equipBtn = `<button class="action-tab equip-weapon-btn" data-hero-index="${heroIndex}" data-weapon="${i.name}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Equip</button>`;
+          const check = GameState.isClassAllowedItem(hero.classKey, itemName, itemDef);
+          if (!check.allowed) {
+            equipBtn = `<span style="color:var(--text-muted);font-size:10px;margin-left:8px;font-style:italic;" title="${check.reason}">(Class restricted)</span>`;
+          } else if (hero.equippedWeapon === itemName) {
+            equipBtn = `<span style="color:var(--gold-tsr);font-size:10px;margin-left:8px;font-weight:700;">[Wielded]</span>`;
+          } else {
+            equipBtn = `<button class="action-tab equip-weapon-btn" data-hero-index="${heroIndex}" data-weapon="${itemName}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Equip</button>`;
+          }
         } else if (isArmor) {
-          equipBtn = `<button class="action-tab equip-armor-btn" data-hero-index="${heroIndex}" data-armor="${i.name}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Equip Armor</button>`;
+          const check = GameState.isClassAllowedItem(hero.classKey, itemName, itemDef);
+          if (!check.allowed) {
+            equipBtn = `<span style="color:var(--text-muted);font-size:10px;margin-left:8px;font-style:italic;" title="${check.reason}">(Class restricted)</span>`;
+          } else if (hero.equippedArmor && hero.equippedArmor.name === itemName) {
+            equipBtn = `<span style="color:#79c0ff;font-size:10px;margin-left:8px;font-weight:700;">[Worn]</span>`;
+          } else {
+            equipBtn = `<button class="action-tab equip-armor-btn" data-hero-index="${heroIndex}" data-armor="${itemName}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Equip Armor</button>`;
+          }
         } else if (isShield) {
-          equipBtn = `<button class="action-tab equip-shield-btn" data-hero-index="${heroIndex}" data-shield="${i.name}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Equip Shield</button>`;
+          const check = GameState.isClassAllowedItem(hero.classKey, itemName, itemDef);
+          if (!check.allowed) {
+            equipBtn = `<span style="color:var(--text-muted);font-size:10px;margin-left:8px;font-style:italic;" title="${check.reason}">(Class restricted)</span>`;
+          } else if (hero.equippedShield && hero.equippedShield.name === itemName) {
+            equipBtn = `<span style="color:#3fb950;font-size:10px;margin-left:8px;font-weight:700;">[Shielded]</span>`;
+          } else {
+            equipBtn = `<button class="action-tab equip-shield-btn" data-hero-index="${heroIndex}" data-shield="${itemName}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Equip Shield</button>`;
+          }
         }
-        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #21262d;">
-            <span>${i.amount || 1}× ${i.name}${isWeapon && this.state.isRangedWeapon(i.name) ? ' <span style="color:var(--favor-blue);font-size:10px;">(ranged)</span>' : ''}${isArmor ? ` <span style="color:var(--accent-gold);font-size:10px;">(Base AC ${itemDef.baseAc})</span>` : ''}${isShield ? ` <span style="color:#3fb950;font-size:10px;">(-${itemDef.acBonus || 1} AC)</span>` : ''}</span>
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #21262d;">
+            <span>${i.amount || 1}× <b>${itemName}</b>${isWeapon && this.state.isRangedWeapon(itemName) ? ' <span style="color:var(--favor-blue);font-size:10px;">(ranged)</span>' : ''}${isArmor ? ` <span style="color:var(--accent-gold);font-size:10px;">(Base AC ${itemDef.baseAc})</span>` : ''}${isShield ? ` <span style="color:#3fb950;font-size:10px;">(-${itemDef.acBonus || 1} AC)</span>` : ''}</span>
             ${equipBtn}
           </div>`;
-      }).join('');
+      }).filter(Boolean).join('');
 
-    const usableDefs = Object.entries(GameState.ITEM_CATALOG || {}).filter(([, d]) => d.usable && d.scope === 'party');
-    const partyUsableRows = usableDefs.map(([name]) => {
-      const qty = this.state.getPartyItemQty(name);
-      if (qty < 1) return '';
-      const def = this.state.getItemDef(name);
+    // Party Usable Consumables
+    const partyInv = this.state.inventory || [];
+    const usableRows = partyInv.filter(i => {
+      const def = this.state.getItemDef(i.name);
+      return def && def.usable;
+    }).map(i => {
+      const def = this.state.getItemDef(i.name);
+      const qty = i.amount ?? i.count ?? 1;
       return `<div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #21262d;">
-          <span title="${def ? def.description : ''}">${qty}× ${name}</span>
-          <button class="action-tab use-item-btn" data-hero-index="${heroIndex}" data-item="${name}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Use</button>
+          <span title="${def ? def.description : ''}">🧪 ${qty}× <b>${i.name}</b> <span style="color:var(--text-muted);font-size:10px;">(${def.description || 'Consumable'})</span></span>
+          <button class="action-tab use-item-btn" data-hero-index="${heroIndex}" data-item="${i.name}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Use</button>
         </div>`;
-    }).filter(Boolean).join('') || `<div style="color:var(--text-muted);">No usable items in the party pack.</div>`;
+    }).join('') || `<div style="color:var(--text-muted);font-size:11px;">No usable potions or supplies in party pack.</div>`;
+
+    // Party Dungeon Loot & Valuables (Gems, Jewelry, Quest Relics, Ammo, Supplies)
+    const lootRows = partyInv.filter(i => {
+      if (i.name === 'Gold Pieces') return false;
+      const def = this.state.getItemDef(i.name);
+      return !def || !def.usable;
+    }).map(i => {
+      const def = this.state.getItemDef(i.name);
+      const qty = i.amount ?? i.count ?? 1;
+      const isQuest = def && def.kind === 'quest';
+      const isTreasure = def && (def.kind === 'treasure' || def.kind === 'gem');
+      let icon = '📦';
+      let tag = '';
+      if (isQuest) {
+        icon = '⭐';
+        tag = `<span style="color:#ff7b72;font-size:10px;font-weight:700;">[Quest Artifact]</span>`;
+      } else if (isTreasure) {
+        icon = '💎';
+        tag = `<span style="color:var(--gold-tsr);font-size:10px;">(${def.price || 30} gp value)</span>`;
+      } else if (def && def.kind === 'ammo') {
+        icon = '🏹';
+      }
+
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #21262d;">
+          <span>${icon} ${qty}× <b>${i.name}</b> ${tag}</span>
+          <span style="color:var(--text-muted);font-size:10px;">${def ? (def.description || '') : ''}</span>
+        </div>`;
+    }).join('') || `<div style="color:var(--text-muted);font-size:11px;">No gems or artifacts recovered yet.</div>`;
 
     const gearHTML = `
     <div style="background: #161b22; padding: 10px; border: 1px solid var(--border-steel); border-radius: 4px; font-size: 12px;">
@@ -295,8 +381,10 @@ export class CharacterSheetUI {
       ${masteryInfo}
       <div style="color: var(--accent-gold); font-weight: bold; margin: 8px 0 4px; font-size: 12px;">Personal Inventory</div>
       ${invRows}
-      <div style="color: var(--accent-gold); font-weight: bold; margin: 10px 0 4px; font-size: 12px;">Party Pack (use on this hero)</div>
-      ${partyUsableRows}
+      <div style="color: var(--accent-gold); font-weight: bold; margin: 10px 0 4px; font-size: 12px;">Party Provisions & Usable Items</div>
+      ${usableRows}
+      <div style="color: var(--accent-gold); font-weight: bold; margin: 10px 0 4px; font-size: 12px;">Party Valuables & Dungeon Loot (Gems, Relics, Supplies)</div>
+      ${lootRows}
     </div>`;
 
     let levelUpBanner = '';
@@ -324,8 +412,9 @@ export class CharacterSheetUI {
     if (sheetLvlBtn) {
       sheetLvlBtn.addEventListener('click', () => {
         this.close();
-        const heroName = this.titleEl.textContent.split(' — ')[0].trim();
-        const hIdx = this.state.party.findIndex(p => p.name.toUpperCase() === heroName);
+        const hIdx = (this.currentHeroIndex != null && this.currentHeroIndex >= 0)
+          ? this.currentHeroIndex
+          : this.state.party.findIndex(p => p && p.name.toUpperCase() === (this.titleEl.textContent.split(' — ')[0] || '').trim().toUpperCase());
         if (hIdx !== -1 && this.context.onLevelUpClick) {
           this.context.onLevelUpClick(hIdx);
         }
@@ -404,6 +493,15 @@ export class CharacterSheetUI {
         if (mage) this.open(mage.name);
       });
     }
+
+    this.contentEl.querySelectorAll('.sheet-memorize-spell-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const sIdx = parseInt(btn.getAttribute('data-index'), 10);
+        this.context.onUIAction('STUDY_GRIMOIRE', sIdx);
+        const mage = this.state.party.find(p => p.classKey === 'mage');
+        if (mage) this.open(mage.name);
+      });
+    });
 
     const prayBtn = this.contentEl.querySelector('#sheet-study-prayers-btn');
     if (prayBtn) {

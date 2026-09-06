@@ -23,6 +23,7 @@ export class UIController {
             PRAY: `<svg viewBox="0 0 24 24"><path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2z"/></svg>`,
             BASH: `<svg viewBox="0 0 24 24"><path d="M5 15.7l3.3-3.3 2.8 2.8-3.3 3.3zM18.7 4.3c-.8-.8-2.1-.8-2.8 0l-5.4 5.4 2.8 2.8 5.4-5.4c.8-.7.8-2 0-2.8zM2 20.5L3.5 22l4-4-1.5-1.5z"/></svg>`,
             SCOUT: `<svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>`,
+            READ: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2zm0-4H7V7h10v2zm0 8H7v-2h7v2z"/></svg>`,
         };
 
         this.initListeners();
@@ -79,8 +80,8 @@ export class UIController {
         const baseAc = hero.armorClass != null ? hero.armorClass : 5;
         const activeSpellAc = hero.tempAcBonus || 0;
         const effectiveAc = baseAc - activeSpellAc;
-        const armorShort = hero.equippedArmor ? hero.equippedArmor.name.split(' ')[0] : 'None';
-        const shieldIcon = hero.equippedShield ? ' + 🛡️' : '';
+        const armorShort = (hero.equippedArmor && hero.equippedArmor.name) ? hero.equippedArmor.name.split(' ')[0] : 'None';
+        const shieldIcon = (hero.equippedShield && hero.equippedShield.name) ? ' + 🛡️' : '';
 
         cache.defense.innerHTML = `
           <div class="hero-defense-bar">
@@ -130,10 +131,10 @@ export class UIController {
         this.elements.coordVal.textContent = `${this.state.player.x}, ${this.state.player.y}`;
         this.elements.dirVal.textContent = this.state.player.facing;
 
-        const goldItem = this.state.inventory.find(i => i.name === "Gold Pieces");
+        const goldItem = (this.state.inventory || []).find(i => i && i.name === "Gold Pieces");
         if (this.elements.goldVal) this.elements.goldVal.textContent = goldItem ? goldItem.amount : 0;
 
-        const rationsItem = this.state.inventory.find(i => (i.name || "").toLowerCase().includes("ration"));
+        const rationsItem = (this.state.inventory || []).find(i => i && (i.name || "").toLowerCase().includes("ration"));
         const rationsVal = document.getElementById('rations-val');
         if (rationsVal) {
             rationsVal.textContent = rationsItem ? (rationsItem.amount !== undefined ? rationsItem.amount : rationsItem.count || 0) : 0;
@@ -171,15 +172,16 @@ export class UIController {
 
             this.state.party.forEach((hero, index) => {
                 const cache = this.hudCache.heroes[index];
-                const isInc = hero.hp <= 0;
+                const isDead = hero.hp <= -10;
+                const isInc = hero.hp <= 0 && !isDead;
 
                 if (cache.levelUp) cache.levelUp.innerHTML = '';
-                cache.card.className = isInc ? 'hero-card incapacitated' : 'hero-card';
+                cache.card.className = isDead ? 'hero-card dead' : isInc ? 'hero-card incapacitated' : 'hero-card';
                 const avatarMap = { fighter: '🛡️', thief: '🗡️', cleric: '✨', mage: '🔮' };
-                cache.avatar.textContent = avatarMap[hero.classKey] || '👤';
-                cache.hpText.textContent = `HP: ${hero.hp}/${hero.maxHp}`;
-                cache.hpText.style.color = isInc ? '#f85149' : '#3fb950';
-                cache.hpFill.style.width = `${Math.max(0, Math.round((hero.hp / hero.maxHp) * 100))}%`;
+                cache.avatar.textContent = isDead ? '💀' : (avatarMap[hero.classKey] || '👤');
+                cache.hpText.textContent = isDead ? 'HP: DEAD (-10)' : isInc ? `HP: ${hero.hp}/${hero.maxHp} (INC)` : `HP: ${hero.hp}/${hero.maxHp}`;
+                cache.hpText.style.color = isDead ? '#ff7b72' : isInc ? '#e3b341' : '#3fb950';
+                cache.hpFill.style.width = isDead || isInc ? '0%' : `${Math.max(0, Math.round((hero.hp / hero.maxHp) * 100))}%`;
 
                 const curXp = hero.xp || 0;
                 const targetXp = hero.nextLevelXp || 2000;
@@ -206,9 +208,12 @@ export class UIController {
                 }
 
                 let combatActions = '';
-                if (isInc) {
+                if (isDead) {
                     cache.card.classList.remove('channeling');
-                    combatActions = `<div class="incapacitated-badge">💀 INCAPACITATED</div>`;
+                    combatActions = `<div class="incapacitated-badge dead-badge">💀 PERMANENTLY DEAD</div>`;
+                } else if (isInc) {
+                    cache.card.classList.remove('channeling');
+                    combatActions = `<div class="incapacitated-badge">⚠️ INCAPACITATED (${hero.hp})</div>`;
                 } else {
                     const activeCmd = this.state.combat.queuedCommands[index];
                     const queuedType = activeCmd ? activeCmd.type : null;
@@ -241,11 +246,8 @@ export class UIController {
                             const short = (s.name || 'Pray').split(' ')[0];
                             return `<button class="tsr-sq-btn cmd-btn prayer-action ${q}" data-hero="${index}" data-cmd="PRAY" data-spell-index="${sIdx}" title="${s.name}">${this.SVG_ICONS.PRAY}<span class="btn-word">${short}</span></button>`;
                         }).join('');
-                        const hasUndead = this.state.combat.enemies.some(e => e.hp > 0 && e.creatureType === 'undead');
                         const turnQ = queuedType === 'TURN' ? 'queued' : '';
-                        const turnBtn = hasUndead
-                            ? `<button class="tsr-sq-btn cmd-btn prayer-action ${turnQ}" data-hero="${index}" data-cmd="TURN" title="Turn Undead">${this.SVG_ICONS.PRAY}<span class="btn-word">Turn</span></button>`
-                            : '';
+                        const turnBtn = `<button class="tsr-sq-btn cmd-btn prayer-action ${turnQ}" data-hero="${index}" data-cmd="TURN" title="Turn Undead — Brandish sacred holy symbol">${this.SVG_ICONS.PRAY}<span class="btn-word">Turn</span></button>`;
                         specialBtn = `${turnBtn}${prayBtns}`;
                     }
 
@@ -295,8 +297,14 @@ export class UIController {
                 cache.actions.innerHTML = combatActions;
                 const selectEl = cache.actions.querySelector('.target-select');
                 if (selectEl) {
+                    const livingEnemies = (this.state.combat.enemies || []).filter(e => e.hp > 0);
                     const existingCmd = this.state.combat.queuedCommands[index] || this.state.combat.previousCommands[index] || { type: 'ATTACK' };
-                    if (existingCmd.targetInstanceId) selectEl.value = existingCmd.targetInstanceId;
+                    const targetAlive = livingEnemies.some(e => e.instanceId === existingCmd.targetInstanceId);
+                    if (targetAlive) {
+                        selectEl.value = existingCmd.targetInstanceId;
+                    } else if (livingEnemies.length > 0) {
+                        selectEl.value = livingEnemies[0].instanceId;
+                    }
                 }
             });
         } else {
@@ -310,15 +318,16 @@ export class UIController {
                 const cache = this.hudCache.heroes[index];
                 let cardActions = '';
                 let secondaryMetricBar = '';
-                const isInc = hero.hp <= 0;
+                const isDead = hero.hp <= -10;
+                const isInc = hero.hp <= 0 && !isDead;
 
                 cache.card.classList.remove('channeling');
-                cache.card.className = isInc ? 'hero-card incapacitated' : 'hero-card';
+                cache.card.className = isDead ? 'hero-card dead' : isInc ? 'hero-card incapacitated' : 'hero-card';
                 const avatarMap = { fighter: '🛡️', thief: '🗡️', cleric: '✨', mage: '🔮' };
-                cache.avatar.textContent = avatarMap[hero.classKey] || '👤';
-                cache.hpText.textContent = `HP: ${hero.hp}/${hero.maxHp}`;
-                cache.hpText.style.color = isInc ? '#f85149' : '#3fb950';
-                cache.hpFill.style.width = `${Math.max(0, Math.round((hero.hp / hero.maxHp) * 100))}%`;
+                cache.avatar.textContent = isDead ? '💀' : (avatarMap[hero.classKey] || '👤');
+                cache.hpText.textContent = isDead ? 'HP: DEAD (-10)' : isInc ? `HP: ${hero.hp}/${hero.maxHp} (INC)` : `HP: ${hero.hp}/${hero.maxHp}`;
+                cache.hpText.style.color = isDead ? '#ff7b72' : isInc ? '#e3b341' : '#3fb950';
+                cache.hpFill.style.width = isDead || isInc ? '0%' : `${Math.max(0, Math.round((hero.hp / hero.maxHp) * 100))}%`;
 
                 const curXp = hero.xp || 0;
                 const targetXp = hero.nextLevelXp || 2000;
@@ -331,8 +340,10 @@ export class UIController {
 
                 this.renderHeroDefenseAndBuffs(cache, hero);
 
-                if (isInc) {
-                    cardActions = `<div class="incapacitated-badge">💀 INCAPACITATED</div>`;
+                if (isDead) {
+                    cardActions = `<div class="incapacitated-badge dead-badge">💀 PERMANENTLY DEAD</div>`;
+                } else if (isInc) {
+                    cardActions = `<div class="incapacitated-badge">⚠️ INCAPACITATED (${hero.hp})</div>`;
                 } else if (hero.classKey === 'fighter') {
                     secondaryMetricBar = `<div class="metric-label"><span>Tactical Guard</span><span>100%</span></div><div class="status-bar-bg"><div class="guard-fill" style="width: 100%;"></div></div>`;
                     if (lockTarget && lockTarget.methods?.includes('brute')) {
@@ -357,12 +368,18 @@ export class UIController {
                 } else if (hero.classKey === 'mage') {
                     let spellsButtonsHTML = (hero.spells || []).map((s, idx) => {
                         if (s.spent) {
-                            return `<button class="tsr-sq-btn spell-action disabled" disabled title="${s.name} (erased)">${this.SVG_ICONS.CAST}<span class="btn-word">${(s.name || '').split(' ')[0]}</span></button>`;
+                            return `<button class="tsr-sq-btn spell-action disabled" disabled title="${s.name} (in grimoire — unmemorized)">${this.SVG_ICONS.CAST}<span class="btn-word">${(s.name || '').split(' ')[0]}</span></button>`;
                         }
                         return `<button class="tsr-sq-btn mage-spell-btn spell-action" data-index="${idx}" title="${s.name}">${this.SVG_ICONS.CAST}<span class="btn-word">${(s.name || '').split(' ')[0]}</span></button>`;
                     }).join('');
-                    if (lockTarget && lockTarget.methods?.includes('arcane')) {
-                        spellsButtonsHTML += `<button id="read-magic-btn" class="tsr-sq-btn">${this.SVG_ICONS.READ}<span class="btn-word">Read</span></button>`;
+                    const interactiveTarget = this.state.getInteractiveTargetInFront ? this.state.getInteractiveTargetInFront() : null;
+                    const canReadMagic = (lockTarget && (lockTarget.methods?.includes('read_magic') || lockTarget.methods?.includes('arcane'))) ||
+                                         (interactiveTarget && (interactiveTarget.methods?.includes('read_magic') || interactiveTarget.methods?.includes('arcane') || interactiveTarget.tileDef?.runes || interactiveTarget.tileDef?.inscription || interactiveTarget.tileDef?.puzzle));
+                    if (canReadMagic) {
+                        spellsButtonsHTML += `<button id="read-magic-btn" class="tsr-sq-btn" title="Read Magic — Decipher arcane runes, seals & wards">${this.SVG_ICONS.READ}<span class="btn-word">Read</span></button>`;
+                    }
+                    if (!this.state.combat.active && hero.hp > 0 && (hero.spells || []).some(s => s.spent)) {
+                        spellsButtonsHTML += `<button id="study-grimoire-btn" class="tsr-sq-btn" title="Study Grimoire to memorize formulas into active mind">${this.SVG_ICONS.READ}<span class="btn-word">Study</span></button>`;
                     }
                     cardActions = `<div class="card-actions-grid">${spellsButtonsHTML || '<span style="font-size:9px;color:var(--text-muted);">No constructs held</span>'}</div>`;
                     const cogPct = Math.round((hero.cognition / hero.maxCognition) * 100);

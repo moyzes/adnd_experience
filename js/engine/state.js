@@ -41,6 +41,11 @@ export class GameState {
     'Warhammer': { id: 'warhammer', kind: 'weapon', scope: 'personal', description: 'Bludgeoning weapon favored by clerics.', stackable: false, usable: false, price: 8 },
     'Quarterstaff': { id: 'quarterstaff', kind: 'weapon', scope: 'personal', description: 'Simple wooden staff.', stackable: false, usable: false, price: 2 },
     'Short Sword': { id: 'short_sword', kind: 'weapon', scope: 'personal', description: 'Light blade preferred by thieves.', stackable: false, usable: false, price: 8 },
+    'Two-Handed Sword': { id: 'two_handed_sword', kind: 'weapon', scope: 'personal', description: 'Massive greatsword requiring two hands to wield.', stackable: false, usable: false, price: 30 },
+    'Mace': { id: 'mace', kind: 'weapon', scope: 'personal', description: 'Heavy iron-headed bludgeon.', stackable: false, usable: false, price: 8 },
+    'Halberd': { id: 'halberd', kind: 'weapon', scope: 'personal', description: 'Long polearm combining axe blade and pike head.', stackable: false, usable: false, price: 18 },
+    'Crossbow': { id: 'crossbow', kind: 'weapon', scope: 'personal', description: 'Mechanical ranged weapon firing heavy bolts.', stackable: false, usable: false, price: 35 },
+    'Sling': { id: 'sling', kind: 'weapon', scope: 'personal', description: 'Simple leather strap weapon for hurling stones and lead bullets.', stackable: false, usable: false, price: 2 },
     'Leather Armor': { id: 'leather_armor', kind: 'armor', armorType: 'light', baseAc: 8, scope: 'personal', description: 'Cured and boiled animal hide. Light enough for thieves to move silently.', stackable: false, usable: false, price: 5 },
     'Studded Leather': { id: 'studded_leather', kind: 'armor', armorType: 'light', baseAc: 7, scope: 'personal', description: 'Tough leather reinforced with close-set steel rivets.', stackable: false, usable: false, price: 20 },
     'Scale Mail': { id: 'scale_mail', kind: 'armor', armorType: 'medium', baseAc: 6, scope: 'personal', description: 'Overlapping brass and iron scales laced to leather.', stackable: false, usable: false, price: 45 },
@@ -52,8 +57,20 @@ export class GameState {
     'Medium Shield': { id: 'medium_shield', kind: 'shield', acBonus: 1, scope: 'personal', description: 'Iron-banded heater shield turning aside weapon strikes (-1 AC).', stackable: false, usable: false, price: 10 },
     'Consecrated Shield': { id: 'consecrated_shield', kind: 'shield', acBonus: 1, scope: 'personal', description: 'Blessed kite shield inscribed with sacred holy heraldry (-1 AC).', stackable: false, usable: false, price: 35 },
     "Scholar's Robes": { id: 'scholars_robes', kind: 'armor', armorType: 'unarmored', baseAc: 10, scope: 'personal', description: 'Woven wool and silk mantle allowing unhindered somatic casting.', stackable: false, usable: false, price: 5 },
+    'Ancient Rubies': { id: 'rubies', kind: 'treasure', scope: 'party', description: 'Glittering faceted gemstones plundered from ancient vaults. High trade value.', stackable: true, usable: false, price: 50 },
+    'Masterwork Whetstone': { id: 'masterwork_whetstone', kind: 'treasure', scope: 'party', description: 'Fine dwarven honing stone with a mirrored polish. Highly prized by smiths.', stackable: true, usable: false, price: 25 },
+    'Astral Resonance Crystal': { id: 'astral_crystal', kind: 'treasure', scope: 'party', description: 'A glowing geode vibrating with latent astral hum. Sought after by arcanists.', stackable: true, usable: false, price: 40 },
+    'Consecrated Dawn Chime': { id: 'dawn_chime', kind: 'treasure', scope: 'party', description: 'An ornate silver sanctuary bell once rung during morning prayer litanies.', stackable: true, usable: false, price: 30 },
+    'Skeleton Keyblank': { id: 'skeleton_keyblank', kind: 'treasure', scope: 'party', description: 'Intricately notched brass keyblank crafted by master rogues.', stackable: true, usable: false, price: 35 },
+    'Vale Family Signet': { id: 'vale_signet', kind: 'treasure', scope: 'party', description: 'Tarnished signet ring bearing the aristocratic crest of the Vale lineage.', stackable: true, usable: false, price: 20 },
+    'Cracked Prayer Beads': { id: 'prayer_beads', kind: 'treasure', scope: 'party', description: 'Carved sandalwood beads imbued with decades of devotion.', stackable: true, usable: false, price: 8 },
     'Sun-Forged Relic of Dawn': { id: 'sun_relic', kind: 'quest', scope: 'party', description: 'A gleaming solar artifact consecrated in ancient times. Recovered from the goblin ruins.', stackable: false, usable: false, price: null },
-    'Ancient Rubies': { id: 'rubies', kind: 'treasure', scope: 'party', description: 'Glittering gemstones plundered by the goblins.', stackable: true, usable: false, price: null }
+    'Ashen Crown of Binding': { id: 'ashen_crown', kind: 'quest', scope: 'party', description: 'A dark iron coronet pulsing with necromantic authority and bound souls.', stackable: false, usable: false, price: null },
+    'Highstone Signet Ring': { id: 'highstone_signet', kind: 'quest', scope: 'party', description: 'The official signet ring of Baron Justinian Vane of Highstone.', stackable: false, usable: false, price: null },
+    'Albright Signet Ring': { id: 'albright_signet', kind: 'quest', scope: 'party', description: 'The hereditary signet of Lord Raymond Albright of Oakhaven.', stackable: false, usable: false, price: null },
+    "Saint Vane's Blessed Greatsword": { id: 'saint_vane_sword', kind: 'quest', scope: 'party', description: 'An ancient consecrated greatsword glowing with righteous wrath.', stackable: false, usable: false, price: null },
+    'Saint Orlan’s Femur': { id: 'saint_orlan_femur', kind: 'quest', scope: 'party', description: 'A sanctified relic bone of the venerable martyr Saint Orlan.', stackable: false, usable: false, price: null },
+    'Cult Ledger': { id: 'cult_ledger', kind: 'quest', scope: 'party', description: 'A leather-bound journal deciphering forbidden cult conspiracies.', stackable: false, usable: false, price: null }
   };
 
   /** Attack Bonus Growth per class, purely dependent on current level. */
@@ -168,6 +185,8 @@ export class GameState {
     this.detectedTraps = new Set();
     this.disarmedTraps = new Set();
     this.triggeredEvents = new Set();
+    this.exploredTiles = new Set();
+    this.consecratedSteps = 0;
     
     this.activeNpc = null;
     this.selectedSpeaker = null;
@@ -187,6 +206,79 @@ export class GameState {
     this.lightSpellUntil = 0;
 
     this.onLog = null; // UI Event Delegate Hook
+
+    // Initialize initial exploration vision for starting tile
+    this.revealExploration();
+  }
+
+  /**
+   * Fog of War: Unveils explored coordinates in line-of-sight around the party.
+   */
+  revealExploration(px = this.player.x, py = this.player.y, facing = this.player.facing) {
+    if (!this.spec || !this.spec.map) return;
+    const rows = this.spec.map.length;
+    const cols = this.spec.map[0].length;
+
+    const addTile = (x, y) => {
+      if (x >= 0 && x < cols && y >= 0 && y < rows) {
+        this.exploredTiles.add(`${x},${y}`);
+      }
+    };
+
+    // Always reveal current standing position
+    addTile(px, py);
+
+    // Reveal immediate 8 surrounding tiles (radius 1 around party)
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        addTile(px + dx, py + dy);
+      }
+    }
+
+    // Directional vector mapping
+    const fVecs = {
+      'NORTH': { fx: 0, fy: -1, lx: -1, ly: 0, rx: 1, ry: 0 },
+      'SOUTH': { fx: 0, fy: 1, lx: 1, ly: 0, rx: -1, ry: 0 },
+      'EAST': { fx: 1, fy: 0, lx: 0, ly: -1, rx: 0, ry: 1 },
+      'WEST': { fx: -1, fy: 0, lx: 0, ly: 1, rx: 0, ry: -1 }
+    };
+
+    const v = fVecs[facing] || fVecs['NORTH'];
+
+    // Cast line of sight forward (up to 4 tiles ahead)
+    let curX = px;
+    let curY = py;
+    for (let dist = 1; dist <= 4; dist++) {
+      curX += v.fx;
+      curY += v.fy;
+      if (curX < 0 || curX >= cols || curY < 0 || curY >= rows) break;
+
+      addTile(curX, curY);
+      addTile(curX + v.lx, curY + v.ly);
+      addTile(curX + v.rx, curY + v.ry);
+
+      // Line of sight stops at solid opaque walls (tile 1) or closed doors
+      const tileId = this.spec.map[curY][curX];
+      const isDoor = tileId === 2 || tileId === 8;
+      const isClosedDoor = isDoor && !this.openedDoors.has(`${curX},${curY}`);
+      if (tileId === 1 || isClosedDoor) {
+        break;
+      }
+    }
+
+    // If on surface/wilderness or lit by torch, reveal wider open perimeter (radius 3)
+    if (this.isWildernessTile(px, py)) {
+      for (let dy = -3; dy <= 3; dy++) {
+        for (let dx = -3; dx <= 3; dx++) {
+          addTile(px + dx, py + dy);
+        }
+      }
+    }
+  }
+
+  isTileExplored(x, y) {
+    if (!this.exploredTiles) return true;
+    return this.exploredTiles.has(`${x},${y}`);
   }
 
   /**
@@ -358,17 +450,33 @@ export class GameState {
       const maxCog = archetype.vancian_magic.cognition_max || 100;
       member.maxCognition = maxCog;
       member.cognition = maxCog;
-      member.hasStudiedSinceRest = true;
+      member.hasStudiedSinceRest = false;
       member.tempAcBonus = 0;
       member.tempAcRounds = 0;
       
       // Load user-chosen setup spells if provided, otherwise fallback to tier 1
-      if (chosenSpells && chosenSpells.length > 0) {
-        member.spells = chosenSpells.map(s => ({ ...s, spent: false }));
-      } else {
-        const tier1 = SpellRegistry.getSpellsForClass('mage', 1);
-        member.spells = tier1.slice(0, 2).map(s => ({ ...s, spent: false }));
-      }
+      const initialSpells = (chosenSpells && chosenSpells.length > 0)
+        ? chosenSpells
+        : SpellRegistry.getSpellsForClass('mage', 1).slice(0, 2);
+
+      // Transcribe picked spells into the Mage's Grimoire.
+      // They do NOT start memorized in active mind, so the Mage starts with 0 cognitive burden.
+      member.grimoire = initialSpells.map(s => ({
+        id: s.id,
+        name: s.name,
+        level: s.level || s.tier || 1,
+        tier: s.tier || s.level || 1,
+        cognitive_load: s.cognitive_load || 20,
+        casting_time: s.casting_time || 'normal',
+        target: s.target || 'single_enemy',
+        effect: s.effect ? { ...s.effect } : null,
+        description: s.description || '',
+        sfx: s.sfx || 'magic_missile'
+      }));
+
+      // Active prepared constructs list. Spells in grimoire start unmemorized (spent: true),
+      // ensuring 0 cognitive burden held until studied/memorized.
+      member.spells = member.grimoire.map(s => ({ ...s, spent: true }));
     }
 
     if (classKey === 'cleric' && archetype.divine_favor) {
@@ -440,12 +548,37 @@ export class GameState {
   }
 
   /**
-   * Checks whether the party is in town/village/wilderness where training mentors reside.
+   * Calculates required training gold cost based on current hero level.
+   * 1st level to 2nd level: 10 gp, 2nd to 3rd: 20 gp, etc.
+   */
+  getTrainingCost(hero) {
+    if (!hero) return 10;
+    return Math.max(10, (hero.level || 1) * 10);
+  }
+
+  /**
+   * Identifies the mentor, facility, patron camp, or sanctuary where this hero trains.
+   */
+  getTrainingLocation(hero) {
+    if (!hero) return "Patron Encampment & Town Sanctuary";
+    const key = (hero.classKey || '').toLowerCase();
+    if (key === 'fighter') return "Highstone Military Garrison (Captain Valerius)";
+    if (key === 'mage') return "Arcane Spire Sanctum (Archmage Cynthia Ravenwing)";
+    if (key === 'cleric') return "Sunfire Sanctuary (High Priestess Kaelen)";
+    if (key === 'thief') return "Thieves' Guild Crypt (Master Jax Quick-Fingers)";
+    if (this.spec?.shop?.name) return `${this.spec.shop.name} Guild Training Grounds`;
+    return "Lord Albright's Patron Pavilion & Encampment";
+  }
+
+  /**
+   * Checks whether the party is at the patron camp, town settlement, temple, or surface where training mentors reside.
    */
   canPartyTrain() {
     if (this.combat.active) return false;
     if (this.isWildernessTile()) return true;
     if (this.isNearShop()) return true;
+    const surfaceMin = this.spec.surface_y_min != null ? this.spec.surface_y_min : 8;
+    if (this.player.y >= surfaceMin) return true;
     return false;
   }
 
@@ -580,9 +713,89 @@ export class GameState {
     return !!GameState.WEAPON_CATALOG[weaponName];
   }
 
+  static isClassAllowedItem(classKey, itemName, itemDef = null) {
+    if (!classKey || !itemName) return { allowed: true };
+    const key = classKey.toLowerCase();
+    const def = itemDef || GameState.ITEM_CATALOG[itemName] || (GameState.WEAPON_CATALOG[itemName] ? { kind: 'weapon' } : null);
+    if (!def) return { allowed: true };
+
+    const kind = def.kind;
+
+    if (kind === 'gear' && itemName === 'Thief Tools') {
+      if (key !== 'thief') return { allowed: false, reason: 'Only Thieves have training with lockpicks and trap probes.' };
+      return { allowed: true };
+    }
+
+    if (kind === 'shield') {
+      if (key === 'mage') return { allowed: false, reason: 'Mages cannot wield shields without disrupting somatic spellcasting.' };
+      if (key === 'thief') return { allowed: false, reason: 'Thieves cannot wield shields without hindering agility and stealth.' };
+      return { allowed: true };
+    }
+
+    if (kind === 'armor') {
+      const type = def.armorType || 'medium';
+      if (key === 'mage' && type !== 'unarmored') {
+        return { allowed: false, reason: 'Mages cannot wear metallic armor while weaving somatic spells.' };
+      }
+      if (key === 'thief' && type !== 'light' && type !== 'unarmored') {
+        return { allowed: false, reason: 'Thieves cannot wear heavy armor without crippling thieving tradecraft.' };
+      }
+      return { allowed: true };
+    }
+
+    if (kind === 'weapon') {
+      if (key === 'fighter') return { allowed: true };
+      if (key === 'cleric') {
+        const allowedCleric = ['Warhammer', 'Mace', 'Quarterstaff', 'Sling', 'Flail', 'Club'];
+        if (!allowedCleric.includes(itemName)) {
+          return { allowed: false, reason: 'Clerical holy vows forbid shedding blood with edged or piercing weapons.' };
+        }
+        return { allowed: true };
+      }
+      if (key === 'thief') {
+        const allowedThief = ['Dagger', 'Short Sword', 'Longsword', 'Short Bow', 'Crossbow', 'Sling', 'Club'];
+        if (!allowedThief.includes(itemName)) {
+          return { allowed: false, reason: 'Thieves are only trained in light, concealable, or ranged rogue weaponry.' };
+        }
+        return { allowed: true };
+      }
+      if (key === 'mage') {
+        const allowedMage = ['Dagger', 'Quarterstaff', 'Sling', 'Dart'];
+        if (!allowedMage.includes(itemName)) {
+          return { allowed: false, reason: 'Mages lack martial conditioning required to wield heavier weapons.' };
+        }
+        return { allowed: true };
+      }
+    }
+
+    return { allowed: true };
+  }
+
   getItemDef(name) {
+    if (!name) return null;
     if (this.spec.items && this.spec.items[name]) return this.spec.items[name];
-    return GameState.ITEM_CATALOG[name] || null;
+    if (GameState.ITEM_CATALOG[name]) return GameState.ITEM_CATALOG[name];
+    if (GameState.WEAPON_CATALOG[name]) {
+      const w = GameState.WEAPON_CATALOG[name];
+      return {
+        id: name.toLowerCase().replace(/\s+/g, '_'),
+        name,
+        kind: 'weapon',
+        scope: 'personal',
+        category: w.category || 'melee',
+        damageType: w.damageType || 'slashing',
+        price: 15,
+        description: `Martial ${w.category || 'weapon'}.`
+      };
+    }
+    return {
+      id: name.toLowerCase().replace(/\s+/g, '_'),
+      name,
+      kind: 'treasure',
+      scope: 'party',
+      price: 25,
+      description: 'A valuable discovery recovered during the expedition.'
+    };
   }
   
   isRangedWeapon(weaponName) {
@@ -826,6 +1039,9 @@ export class GameState {
     if (hero.classKey === 'mage') {
       return { success: false, reason: 'Mages cannot wield shields without disrupting spellcraft somatic components.' };
     }
+    if (hero.classKey === 'thief') {
+      return { success: false, reason: 'Thieves cannot wield shields without hindering stealth and nimble evasion.' };
+    }
 
     const inv = hero.inventory || (hero.inventory = []);
     const slot = inv.find(i => i.name === shieldName);
@@ -909,7 +1125,8 @@ export class GameState {
     const hero = (heroIndex != null) ? this.party[heroIndex] : null;
 
     if (def.useEffect === 'heal') {
-      if (!hero || hero.hp <= 0) return { success: false, reason: 'Choose a living hero to drink the potion.' };
+      if (!hero) return { success: false, reason: 'Choose an ally to drink the potion.' };
+      if (hero.hp <= -10) return { success: false, reason: `${hero.name} is permanently dead (-10 HP) and cannot be revived by a potion.` };
       if (hero.hp >= hero.maxHp) return { success: false, reason: `${hero.name} is already at full health.` };
       
       const healed = Math.floor(Math.random() * 4) + 1 + 1; // 1d4+1
@@ -917,7 +1134,15 @@ export class GameState {
       hero.hp = Math.min(hero.maxHp, hero.hp + healed);
       const actual = hero.hp - before;
       this.removePartyItem(itemName, 1);
-      return { success: true, healed: actual, log: `${hero.name} drinks a Healing Potion and recovers ${actual} HP (${hero.hp}/${hero.maxHp}).` };
+      const wasInc = before <= 0;
+      return {
+        success: true,
+        healed: actual,
+        wasIncapacitated: wasInc,
+        log: wasInc
+          ? `❤️ Healing draught poured down ${hero.name}'s throat! Revived from incapacitation (+${actual} HP, now ${hero.hp}/${hero.maxHp})!`
+          : `${hero.name} drinks a Healing Potion and recovers ${actual} HP (${hero.hp}/${hero.maxHp}).`
+      };
     }
 
     if (def.useEffect === 'holy_water') {
@@ -961,6 +1186,44 @@ export class GameState {
     return { success: false, reason: 'Unknown use effect.' };
   }
 
+  /**
+   * Temple Sanctuary Resuscitation: Cures an incapacitated ally for 100 GP, restoring them to 1 HP.
+   * Permanently dead characters (-10 HP or less) cannot be revived by normal temple care.
+   */
+  cureIncapacitatedHeroAtTemple(heroIndex) {
+    const hero = this.party[heroIndex];
+    if (!hero) return { success: false, reason: "Hero not found." };
+    if (hero.hp > 0) return { success: false, reason: `${hero.name} is conscious and does not need temple resuscitation.` };
+    if (hero.hp <= -10) return { success: false, reason: `${hero.name} is permanently dead (-10 HP). Their soul has crossed the veil beyond standard temple care.` };
+
+    const goldQty = this.getPartyGold();
+    const COST = 100;
+    if (goldQty < COST) {
+      return { success: false, reason: `Insufficient gold for temple cure. Requires 100 GP (You have ${goldQty} GP).` };
+    }
+
+    this.removePartyItem("Gold Pieces", COST);
+    hero.hp = 1; // Restored with 1 HP per AD&D rules
+
+    return {
+      success: true,
+      heroName: hero.name,
+      hp: hero.hp,
+      maxHp: hero.maxHp,
+      cost: COST,
+      remainingGold: this.getPartyGold(),
+      log: `✨ Temple Resuscitation: The priests consecrate ${hero.name}'s wounds with sacred balm and prayers (-100 GP). Revived with 1 HP!`
+    };
+  }
+
+  getIncapacitatedHeroes() {
+    return (this.party || []).filter(h => h && h.hp <= 0 && h.hp > -10);
+  }
+
+  getDeadHeroes() {
+    return (this.party || []).filter(h => h && h.hp <= -10);
+  }
+
   isNearShop() {
     const shop = this.spec.shop;
     if (!shop || !shop.tile) return false;
@@ -970,6 +1233,84 @@ export class GameState {
   }
 
   getShopTile() { return (this.spec.shop && this.spec.shop.tile) ? this.spec.shop.tile : null; }
+
+  sellItem(itemName, qty = 1, heroIndex = null) {
+    const def = this.getItemDef(itemName);
+    if (!def) return { success: false, reason: `Unknown item: ${itemName}` };
+    if (def.kind === 'quest') return { success: false, reason: `"${itemName}" is an essential quest artifact and cannot be sold!` };
+    if (def.kind === 'currency') return { success: false, reason: "Cannot sell coin currency." };
+
+    let unitPrice = 0;
+    if (def.kind === 'treasure' || def.kind === 'gem') {
+      unitPrice = def.price || 30; // Full appraised treasure value
+    } else {
+      unitPrice = Math.max(1, Math.floor((def.price || 2) * 0.5)); // 50% for standard gear and provisions
+    }
+
+    const totalEarned = unitPrice * qty;
+    let fromSource = 'Party Pack';
+    let heroName = '';
+
+    if (heroIndex != null && heroIndex >= 0 && this.party[heroIndex]) {
+      const hero = this.party[heroIndex];
+      heroName = hero.name;
+      fromSource = hero.name;
+      if (!hero.inventory) hero.inventory = [];
+      const itemSlot = hero.inventory.find(i => (typeof i === 'string' ? i === itemName : i.name === itemName));
+      if (!itemSlot) return { success: false, reason: `${hero.name} does not have ${itemName} in their inventory.` };
+      
+      const currentAmt = typeof itemSlot === 'string' ? 1 : (itemSlot.amount || 1);
+      if (currentAmt < qty) return { success: false, reason: `Not enough ${itemName} to sell.` };
+      
+      if (typeof itemSlot === 'object') {
+        itemSlot.amount = currentAmt - qty;
+        if (itemSlot.amount <= 0) {
+          hero.inventory = hero.inventory.filter(i => i !== itemSlot);
+        }
+      } else {
+        hero.inventory = hero.inventory.filter(i => i !== itemSlot);
+      }
+
+      // If hero has this weapon/armor/shield equipped and has no more in inventory, unequip it
+      if (hero.equippedWeapon === itemName) {
+        const stillHas = hero.inventory.some(i => (typeof i === 'string' ? i === itemName : i.name === itemName));
+        if (!stillHas) {
+          hero.equippedWeapon = null;
+        }
+      }
+      if (hero.equippedArmor && hero.equippedArmor.name === itemName) {
+        const stillHas = hero.inventory.some(i => (typeof i === 'string' ? i === itemName : i.name === itemName));
+        if (!stillHas) {
+          hero.equippedArmor = null;
+          this.recalculateHeroAC(hero);
+        }
+      }
+      if (hero.equippedShield && hero.equippedShield.name === itemName) {
+        const stillHas = hero.inventory.some(i => (typeof i === 'string' ? i === itemName : i.name === itemName));
+        if (!stillHas) {
+          hero.equippedShield = null;
+          this.recalculateHeroAC(hero);
+        }
+      }
+    } else {
+      // Selling from Party Pack
+      const partyQty = this.getPartyItemQty(itemName);
+      if (partyQty < qty) return { success: false, reason: `Party pack does not have ${qty}× ${itemName}.` };
+      const ok = this.removePartyItem(itemName, qty);
+      if (!ok) return { success: false, reason: `Could not remove ${itemName} from party pack.` };
+    }
+
+    this.addPartyItem('Gold Pieces', totalEarned);
+    return {
+      success: true,
+      itemName,
+      qty,
+      unitPrice,
+      totalEarned,
+      fromSource,
+      heroName
+    };
+  }
 
   buyItem(itemName, qty = 1, heroIndex = null) {
     const def = this.getItemDef(itemName);
@@ -981,8 +1322,20 @@ export class GameState {
     if (!this.spendGold(total)) return { success: false, reason: 'Payment failed.' };
 
     if (def.scope === 'personal') {
-      const hero = heroIndex != null ? this.party[heroIndex] : this.party.find(p => p.classKey === 'thief') || this.party[0];
-      if (!hero) return { success: false, reason: 'No hero to receive the item.' };
+      let hero = null;
+      if (itemName === 'Thief Tools') {
+        hero = this.party.find(p => p.classKey === 'thief');
+        if (!hero) {
+          this.addPartyGold(total);
+          return { success: false, reason: 'No rogue or thief in the party to utilize Thief Tools.' };
+        }
+      } else {
+        hero = heroIndex != null ? this.party[heroIndex] : (this.party.find(p => p.hp > 0) || this.party[0]);
+      }
+      if (!hero) {
+        this.addPartyGold(total);
+        return { success: false, reason: 'No hero to receive the item.' };
+      }
       if (!hero.inventory) hero.inventory = [];
       const existing = hero.inventory.find(i => i.name === itemName);
       if (existing) {
@@ -1129,11 +1482,13 @@ export class GameState {
     this.party.forEach((hero, index) => {
       if (this.combat.round === 1 && this.combat.alertedRound) return;
       if (hero.hp <= 0) return;
-      const cmd = this.combat.queuedCommands[index] || this.combat.previousCommands[index];
+      // GUARD is only active when explicitly queued for the active round
+      const cmd = this.combat.queuedCommands[index];
       if (!cmd || cmd.type !== 'GUARD') return;
       const targetIdx = cmd.guardTargetIndex;
       if (targetIdx == null || targetIdx < 0 || targetIdx >= this.party.length) return;
-      if (this.party[targetIdx].hp <= 0) return;
+      const targetHero = this.party[targetIdx];
+      if (!targetHero || targetHero.hp <= 0) return;
       if (targetIdx === index) selfGuardAc[index] = 1;
       else guardedBy[targetIdx] = index;
     });
@@ -1142,12 +1497,32 @@ export class GameState {
       if (hero.hp <= 0) return;
 
       let cmd = this.combat.queuedCommands[index] || this.combat.previousCommands[index];
+
+      // Non-repeatable or situational actions (GUARD, CAST, PRAY, BACKSTAB, TURN) must not auto-repeat from memory
+      if (!this.combat.queuedCommands[index] && cmd) {
+        if (cmd.type === 'GUARD' || cmd.type === 'CAST' || cmd.type === 'PRAY' || cmd.type === 'BACKSTAB' || cmd.type === 'TURN') {
+          cmd = null;
+        }
+      }
+
       if (!cmd) {
         const defaultTarget = this.combat.enemies.find(e => e.hp > 0);
         cmd = { type: 'ATTACK', targetInstanceId: defaultTarget ? defaultTarget.instanceId : null };
+      } else if (cmd.type === 'ATTACK' || cmd.type === 'SHOOT') {
+        const targetAlive = this.combat.enemies.some(e => e.instanceId === cmd.targetInstanceId && e.hp > 0);
+        if (!targetAlive) {
+          const defaultTarget = this.combat.enemies.find(e => e.hp > 0);
+          cmd = { ...cmd, targetInstanceId: defaultTarget ? defaultTarget.instanceId : null };
+        }
       }
 
-      this.combat.previousCommands[index] = cmd;
+      // Only preserve repeatable martial attacks in smart action memory
+      if (cmd.type === 'ATTACK' || cmd.type === 'SHOOT') {
+        this.combat.previousCommands[index] = { ...cmd };
+      } else {
+        delete this.combat.previousCommands[index];
+      }
+
       let phaseTier = 2;
       if (cmd.type === 'BACKSTAB') phaseTier = 0;
       else if (cmd.type === 'SHOOT') phaseTier = 1;
@@ -1215,7 +1590,9 @@ export class GameState {
           if (roll <= chance) {
             hero.backstabSuccesses = (hero.backstabSuccesses || 0) + 1;
 
-            const rawDmg = (Math.floor(Math.random() * 8) + 2) * 2;
+            const baseWepDmg = this.getWeaponMaxDamage(hero.equippedWeapon, 6) || 6;
+            const weaponRoll = Math.floor(Math.random() * baseWepDmg) + 1;
+            const rawDmg = weaponRoll * 2;
             const netDmg = this.applyArmorMitigation(rawDmg, 'slashing', target.armorType);
             simMobHp[target.instanceId] = Math.max(0, simMobHp[target.instanceId] - netDmg);
             const isDead = simMobHp[target.instanceId] <= 0;
@@ -1230,7 +1607,7 @@ export class GameState {
               targetNum: chance,
               rawDmg: rawDmg,
               netDmg: netDmg,
-              maxDamage: 20,
+              maxDamage: baseWepDmg * 2,
               isDead: isDead,
               isBoss: !!(target.isBoss || target.hp > 20),
               isBackstab: true
@@ -1278,10 +1655,12 @@ export class GameState {
           const mastery = this.getWeaponMastery(hero, hero.equippedWeapon);
           const targetNum = dexVal + (hero.attackBonus || 0) + this.getLevelAttackBonus(hero) + mastery.atkBonus + bless;
           const dmgType = this.getWeaponDamageType(hero.equippedWeapon, 'piercing');
-          const maxWepDmg = (this.getWeaponMaxDamage(hero.equippedWeapon, 6) || 6) + mastery.dmgBonus;
+          const baseMaxDmg = this.getWeaponMaxDamage(hero.equippedWeapon, 6) || 6;
+          const maxWepDmg = baseMaxDmg + mastery.dmgBonus;
 
           if (roll <= targetNum && roll !== 20) {
-            const rawDmg = Math.floor(Math.random() * 6) + 2 + mastery.dmgBonus; 
+            const weaponRoll = Math.floor(Math.random() * baseMaxDmg) + 1;
+            const rawDmg = weaponRoll + mastery.dmgBonus; 
             const netDmg = this.applyArmorMitigation(rawDmg, dmgType, target.armorType);
             simMobHp[target.instanceId] = Math.max(0, simMobHp[target.instanceId] - netDmg);
             const isDead = simMobHp[target.instanceId] <= 0;
@@ -1354,10 +1733,13 @@ export class GameState {
           const mastery = this.getWeaponMastery(hero, hero.equippedWeapon);
           const targetNum = strVal + (hero.attackBonus || 1) + this.getLevelAttackBonus(hero) + mastery.atkBonus + bless;
           const dmgType = this.getWeaponDamageType(hero.equippedWeapon, 'slashing');
-          const maxWepDmg = (this.getWeaponMaxDamage(hero.equippedWeapon, 8) || 8) + mastery.dmgBonus;
+          const baseMaxDmg = this.getWeaponMaxDamage(hero.equippedWeapon, 8) || 8;
+          const specBonus = (hero.classKey === 'fighter' && hero.specializedWeapon === hero.equippedWeapon) ? 2 : 0;
+          const maxWepDmg = baseMaxDmg + mastery.dmgBonus + specBonus;
 
           if (roll <= targetNum && roll !== 20) {
-            const rawDmg = Math.floor(Math.random() * 8) + 2 + mastery.dmgBonus;
+            const weaponRoll = Math.floor(Math.random() * baseMaxDmg) + 1;
+            const rawDmg = weaponRoll + mastery.dmgBonus + specBonus;
             const netDmg = this.applyArmorMitigation(rawDmg, dmgType, target.armorType);
             simMobHp[target.instanceId] = Math.max(0, simMobHp[target.instanceId] - netDmg);
             const isDead = simMobHp[target.instanceId] <= 0;
@@ -1545,8 +1927,9 @@ export class GameState {
         if (isHit) {
           const rawDmg = this.rollMonsterDamage(mob.damage);
           const maxMobDmg = this.getMonsterMaxDamage(mob.damage);
-          simHeroHp[finalHeroIndex] = Math.max(0, simHeroHp[finalHeroIndex] - rawDmg);
-          let isDead = simHeroHp[finalHeroIndex] <= 0;
+          simHeroHp[finalHeroIndex] = Math.max(-10, simHeroHp[finalHeroIndex] - rawDmg);
+          const isDead = simHeroHp[finalHeroIndex] <= -10;
+          const isIncapacitated = simHeroHp[finalHeroIndex] <= 0 && !isDead;
           castInterrupted[finalHeroIndex] = true;
 
           const rollRatio = rawDmg / Math.max(1, maxMobDmg);
@@ -1557,7 +1940,19 @@ export class GameState {
           let cueClass = 'normal';
           let logText = '';
 
-          if (isHeavy) {
+          if (isDead) {
+            cueBadge = `💀 DEAD (-10)`;
+            cueClass = 'heavy';
+            logText = redirected
+              ? `💀 FATAL TRAUMA: ${mob.name}'s blow crushes through ${finalHero.name} (-10 HP)! ${finalHero.name} is permanently dead.`
+              : `💀 FATAL TRAUMA: ${mob.name}'s strike sends ${finalHero.name} to -10 HP! ${finalHero.name} is permanently dead.`;
+          } else if (isIncapacitated) {
+            cueBadge = `⚠️ INCAPACITATED (${simHeroHp[finalHeroIndex]} HP)`;
+            cueClass = 'heavy';
+            logText = redirected
+              ? `⚠️ CRITICAL WOUND: ${mob.name} strikes at ${targetHero.name} — ${finalHero.name} interposes, falls to ${simHeroHp[finalHeroIndex]} HP, and collapses incapacitated!`
+              : `⚠️ CRITICAL WOUND: ${mob.name} drops ${finalHero.name} to ${simHeroHp[finalHeroIndex]} HP! ${finalHero.name} collapses incapacitated!`;
+          } else if (isHeavy) {
             cueBadge = `💀 -${rawDmg} CRUSHING!`;
             cueClass = 'heavy';
             logText = redirected
@@ -1584,11 +1979,13 @@ export class GameState {
             targetHeroName: finalHero.name,
             damage: rawDmg,
             isDead: isDead,
+            isIncapacitated: isIncapacitated,
+            currentHp: simHeroHp[finalHeroIndex],
             redirected: redirected,
             cueBadge: cueBadge,
             cueClass: cueClass,
             logText: logText,
-            logType: 'danger'
+            logType: isDead ? 'danger' : isIncapacitated ? 'warning' : 'danger'
           });
 
           // Saving throw trigger for monsters with venom, paralyzation, breath, or spells
@@ -1610,8 +2007,9 @@ export class GameState {
               });
             } else {
               const extraDmg = mob.poison_damage || mob.special_damage || 4;
-              simHeroHp[finalHeroIndex] = Math.max(0, simHeroHp[finalHeroIndex] - extraDmg);
-              isDead = simHeroHp[finalHeroIndex] <= 0;
+              simHeroHp[finalHeroIndex] = Math.max(-10, simHeroHp[finalHeroIndex] - extraDmg);
+              const isPoisonDead = simHeroHp[finalHeroIndex] <= -10;
+              const isPoisonInc = simHeroHp[finalHeroIndex] <= 0 && !isPoisonDead;
               const modStr = saveRes.abilityMod ? (saveRes.abilityMod > 0 ? `+${saveRes.abilityMod}` : `${saveRes.abilityMod}`) : '';
               combatEvents.push({
                 eventType: 'SAVE_FAILURE',
@@ -1619,9 +2017,15 @@ export class GameState {
                 targetHeroIndex: finalHeroIndex,
                 targetHeroName: finalHero.name,
                 damage: extraDmg,
-                isDead: isDead,
+                isDead: isPoisonDead,
+                isIncapacitated: isPoisonInc,
+                currentHp: simHeroHp[finalHeroIndex],
                 sourceName: mob.name,
-                logText: `💀 MORTAL BREACH: ${saveRes.narrative} (Takes +${extraDmg} toxic damage! d20=${saveRes.roll}${modStr} vs Target ${saveRes.target})`,
+                logText: isPoisonDead
+                  ? `💀 FATAL TOXIN: ${saveRes.narrative} (Fatal venom brings ${finalHero.name} to -10 HP! Dead.)`
+                  : isPoisonInc
+                  ? `⚠️ VENOMOUS INCAPACITATION: ${saveRes.narrative} (Takes +${extraDmg} toxic damage, dropping ${finalHero.name} to ${simHeroHp[finalHeroIndex]} HP! Incapacitated.)`
+                  : `💀 MORTAL BREACH: ${saveRes.narrative} (Takes +${extraDmg} toxic damage! d20=${saveRes.roll}${modStr} vs Target ${saveRes.target})`,
                 logType: 'danger'
               });
             }
@@ -1802,13 +2206,21 @@ export class GameState {
     const rolledDie = Math.floor(Math.random() * hitDie) + 1;
     const calculatedHpGain = Math.max(1, rolledDie + conMod);
     const atkGrowth = GameState.ATTACK_BONUS_GROWTH[hero.classKey] ?? 0.5;
+    const trainingCost = this.getTrainingCost(hero);
+    const trainingLocation = this.getTrainingLocation(hero);
+    const partyGold = this.getPartyGold();
+    const canAfford = partyGold >= trainingCost;
 
     // Available unlearned spells for Casters
     let availableSpells = [];
     if (hero.classKey === 'mage' || hero.classKey === 'cleric') {
       const maxAllowedTier = nextLevel >= 9 ? 4 : nextLevel >= 6 ? 3 : nextLevel >= 3 ? 2 : 1;
       const classSpells = SpellRegistry.getSpellsForClass(hero.classKey, maxAllowedTier);
-      availableSpells = classSpells.filter(s => !hero.spells.some(hs => hs.id === s.id));
+      availableSpells = classSpells.filter(s => {
+        const inSpells = hero.spells && hero.spells.some(hs => hs.id === s.id);
+        const inGrimoire = hero.grimoire && hero.grimoire.some(gs => gs.id === s.id);
+        return !inSpells && !inGrimoire;
+      });
     }
 
     const availableWeapons = [
@@ -1837,6 +2249,10 @@ export class GameState {
       currentMaxHp: hero.maxHp,
       atkGrowth,
       currentAtk: hero.attackBonus || 1,
+      trainingCost,
+      trainingLocation,
+      partyGold,
+      canAfford,
       thiefPoints: hero.classKey === 'thief' ? (archetype.discretionary_skill_points_per_level || 15) : 0,
       skills: hero.skills ? JSON.parse(JSON.stringify(hero.skills)) : {},
       availableSpells,
@@ -1852,6 +2268,16 @@ export class GameState {
     const hero = this.party[heroIndex];
     if (!hero) return { success: false, reason: "Hero not found." };
     if (!hero.canLevelUp) return { success: false, reason: "Hero is not ready to level up." };
+
+    const trainingCost = this.getTrainingCost(hero);
+    const trainingLocation = this.getTrainingLocation(hero);
+    if (this.getPartyGold() < trainingCost) {
+      return { success: false, reason: `Insufficient gold for mentor training fee (Need ${trainingCost} gp, have ${this.getPartyGold()} gp).` };
+    }
+
+    if (!this.spendGold(trainingCost)) {
+      return { success: false, reason: "Payment for training fee failed." };
+    }
 
     const oldLevel = hero.level;
     const hpGain = choices.hpGain || 5;
@@ -1891,19 +2317,25 @@ export class GameState {
       hero.maxCognition = (hero.maxCognition || 100) + 10;
       hero.cognition = hero.maxCognition;
       if (choices.newSpells && Array.isArray(choices.newSpells)) {
+        if (!hero.grimoire) hero.grimoire = [];
         choices.newSpells.forEach(spellDef => {
+          const formattedSpell = {
+            id: spellDef.id,
+            name: spellDef.name,
+            level: spellDef.level || spellDef.tier || 1,
+            tier: spellDef.tier || spellDef.level || 1,
+            cognitive_load: spellDef.cognitive_load || 20,
+            casting_time: spellDef.casting_time || 'normal',
+            target: spellDef.target || 'single_enemy',
+            effect: spellDef.effect ? { ...spellDef.effect } : null,
+            description: spellDef.description || '',
+            sfx: spellDef.sfx || 'magic_missile'
+          };
+          if (!hero.grimoire.some(s => s.id === spellDef.id)) {
+            hero.grimoire.push(formattedSpell);
+          }
           if (!hero.spells.some(s => s.id === spellDef.id)) {
-            hero.spells.push({
-              id: spellDef.id,
-              name: spellDef.name,
-              level: spellDef.level || 1,
-              cognitive_load: spellDef.cognitive_load || 20,
-              casting_time: spellDef.casting_time || 'normal',
-              target: spellDef.target || 'enemy',
-              effect: spellDef.effect ? { ...spellDef.effect } : null,
-              description: spellDef.description || '',
-              spent: false
-            });
+            hero.spells.push({ ...formattedSpell, spent: true });
           }
         });
       }
@@ -1930,7 +2362,7 @@ export class GameState {
       }
     }
 
-    this.addLog(`⭐ ${hero.name} has finished intensive training in town and attained Level ${hero.level}! (+${hpGain} HP, +${atkGrowth.toFixed(2)} to-hit)`, "success");
+    this.addLog(`⭐ ${hero.name} paid ${trainingCost} gp for mentor training at ${trainingLocation} and advanced to Level ${hero.level}! (+${hpGain} HP, +${atkGrowth.toFixed(2)} to-hit)`, "success");
 
     return {
       success: true,
@@ -1941,7 +2373,9 @@ export class GameState {
       hpGain,
       maxHp: hero.maxHp,
       attackBonus: hero.attackBonus,
-      classKey: hero.classKey
+      classKey: hero.classKey,
+      trainingCost,
+      trainingLocation
     };
   }
 
@@ -2029,7 +2463,7 @@ export class GameState {
     if (thief.toolsDurability <= 0) return { success: false, triggered: false, reason: "Thieves' tools are blunted or broken! Refurbish them at Grimm's Outfitter." };
     
     thief.toolsDurability = Math.max(0, thief.toolsDurability - 4);
-    const chance = this.getSkillTarget(thief, 'find_traps');
+    const chance = this.getSkillTarget(thief, 'disarm_traps');
     const roll = Math.floor(Math.random() * 100) + 1;
     const key = `${target.x},${target.y}`;
     
@@ -2156,8 +2590,10 @@ export class GameState {
     const results = activeMembers.map(member => {
       const save = this.checkSavingThrow(member, category, subCategory);
       const damage = save.success ? Math.ceil(damagePerPlayer / 2) : damagePerPlayer;
-      member.hp = Math.max(0, member.hp - damage);
-      return { heroName: member.name, heroIndex: this.party.indexOf(member), save, damage, isDead: member.hp <= 0 };
+      member.hp = Math.max(-10, member.hp - damage);
+      const isDead = member.hp <= -10;
+      const isIncapacitated = member.hp <= 0 && !isDead;
+      return { heroName: member.name, heroIndex: this.party.indexOf(member), save, damage, isDead, isIncapacitated, hp: member.hp };
     });
 
     const partyWiped = this.party.every(h => h.hp <= 0);
@@ -2211,7 +2647,10 @@ export class GameState {
     if (this.player.facing === 'WEST') dx = -1;
     const targetX = this.player.x + dx, targetY = this.player.y + dy;
     if (this.isWalkable(targetX, targetY)) {
-      this.player.x = targetX; this.player.y = targetY; return true;
+      this.player.x = targetX;
+      this.player.y = targetY;
+      this.revealExploration();
+      return true;
     }
     return false;
   }
@@ -2224,7 +2663,10 @@ export class GameState {
     if (this.player.facing === 'WEST') dx = 1;
     const targetX = this.player.x + dx, targetY = this.player.y + dy;
     if (this.isWalkable(targetX, targetY)) {
-      this.player.x = targetX; this.player.y = targetY; return true;
+      this.player.x = targetX;
+      this.player.y = targetY;
+      this.revealExploration();
+      return true;
     }
     return false;
   }
@@ -2234,6 +2676,7 @@ export class GameState {
     let index = directions.indexOf(this.player.facing);
     index = direction === 'RIGHT' ? (index + 1) % 4 : (index - 1 + 4) % 4;
     this.player.facing = directions[index];
+    this.revealExploration();
   }
 
   markDoorOpen(x, y) { this.openedDoors.add(`${x},${y}`); }
@@ -2287,7 +2730,7 @@ export class GameState {
         y: ty,
         type: 'door',
         locked: isLocked,
-        methods: tileDef?.locked?.methods || [],
+        methods: tileDef?.locked?.methods || tileDef?.methods || [],
         dc: tileDef?.locked?.dc || 0,
         tileDef
       };
@@ -2302,7 +2745,7 @@ export class GameState {
         y: ty,
         type: 'chest',
         locked: isLocked,
-        methods: tileDef?.locked?.methods || [],
+        methods: tileDef?.locked?.methods || tileDef?.methods || [],
         dc: tileDef?.locked?.dc || 0,
         tileDef
       };
@@ -2319,12 +2762,27 @@ export class GameState {
           y: ty,
           type: 'chest',
           locked: isLocked,
-          methods: tileDef?.locked?.methods || [],
+          methods: tileDef?.locked?.methods || tileDef?.methods || [],
           dc: tileDef?.locked?.dc || 0,
           tileDef,
           entity
         };
       }
+    }
+
+    // Generic Interactive / Puzzle / Runic / Inscription Tiles
+    const tileDef = this.spec.legend[tileId];
+    if (tileDef && (tileDef.interactive || tileDef.puzzle || tileDef.runes || tileDef.inscription || tileDef.locked)) {
+      const isLocked = Boolean(tileDef.locked && !this.unlockedDoors.has(key) && !this.unlockedChests.has(key));
+      return {
+        x: tx,
+        y: ty,
+        type: tileDef.type || 'interactive',
+        locked: isLocked,
+        methods: tileDef.locked?.methods || tileDef.methods || (tileDef.runes || tileDef.puzzle || tileDef.inscription ? ['read_magic'] : []),
+        dc: tileDef.locked?.dc || tileDef.dc || 0,
+        tileDef
+      };
     }
 
     return null;
@@ -2529,15 +2987,33 @@ export class GameState {
     return res;
   }
 
-  studyGrimoire() {
+  studyGrimoire(targetSpellIndex = null) {
     const mage = this.party.find(p => p.classKey === 'mage');
     if (!mage) return { success: false, reason: "No mage in party." };
     if (this.combat.active) return { success: false, reason: "Cannot study the grimoire during combat!" };
 
-    const spent = mage.spells.filter(s => s.spent);
-    if (spent.length === 0) return { success: false, reason: "All prepared constructs are still held in mind." };
+    // Synchronize spells array with grimoire if needed
+    if (mage.grimoire && Array.isArray(mage.grimoire)) {
+      if (!mage.spells) mage.spells = [];
+      mage.grimoire.forEach(gSpell => {
+        if (!mage.spells.some(s => s.id === gSpell.id)) {
+          mage.spells.push({ ...gSpell, spent: true });
+        }
+      });
+    }
 
-    const cognitiveCost = spent.reduce((sum, s) => sum + (s.cognitive_load || 20), 0);
+    let toMemorize = [];
+    if (targetSpellIndex !== null && targetSpellIndex !== undefined) {
+      const sp = mage.spells[targetSpellIndex];
+      if (!sp) return { success: false, reason: "Spell construct not found in grimoire." };
+      if (!sp.spent) return { success: false, reason: `${sp.name} is already memorized in active mind.` };
+      toMemorize = [sp];
+    } else {
+      toMemorize = mage.spells.filter(s => s.spent);
+      if (toMemorize.length === 0) return { success: false, reason: "All prepared constructs from the grimoire are already held in mind." };
+    }
+
+    const cognitiveCost = toMemorize.reduce((sum, s) => sum + (s.cognitive_load || 20), 0);
     let brainBurnDamage = 0;
     mage.cognition -= cognitiveCost;
     
@@ -2547,9 +3023,16 @@ export class GameState {
       mage.hp = Math.max(0, mage.hp - brainBurnDamage);
     }
     
-    spent.forEach(s => { s.spent = false; });
+    toMemorize.forEach(s => { s.spent = false; });
     mage.hasStudiedSinceRest = true;
 
-    return { success: true, cognitiveCost, brainBurnDamage, rememorized: spent.map(s => s.name), currentCognition: mage.cognition, mageHp: mage.hp };
+    return {
+      success: true,
+      cognitiveCost,
+      brainBurnDamage,
+      rememorized: toMemorize.map(s => s.name),
+      currentCognition: mage.cognition,
+      mageHp: mage.hp
+    };
   }
 }

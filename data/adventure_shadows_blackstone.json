@@ -697,8 +697,15 @@
     },
     "priestess_kaelen": {
       "node_kaelen_greet": {
-        "text": "May the Radiant Dawn illuminate your spirit. I am High Priestess Kaelen. Malakor’s necromancy defiles the ancient crypts beneath Blackstone. Turn your holy symbol against the walking dead and keep your party blessed. When you reach 1,500 XP through sacred service, return to our altar for holy anointing, expanded divine favor, and higher prayer circles!",
+        "text": "May the Radiant Dawn illuminate your spirit. I am High Priestess Kaelen. Malakor’s necromancy defiles the ancient crypts beneath Blackstone. Turn your holy symbol against the walking dead and keep your party blessed. When you reach 1,500 XP through sacred service, return to our altar for holy anointing, expanded divine favor, and higher prayer circles! If any member of your party falls incapacitated in battle (below 0 HP), our sanctuary can tend their wounds and revive them to 1 HP for 100 Gold Pieces.",
         "choices": [
+          {
+            "id": "choice_temple_cure",
+            "text": "✨ Sanctuary Resuscitation (100 GP) — Revive an incapacitated ally to 1 HP",
+            "templeCure": true,
+            "onSuccess": "node_kaelen_cure_success",
+            "onFail": "node_kaelen_cure_fail"
+          },
           {
             "id": "choice_cleric_train",
             "text": "[Cleric] \"I seek divine vigil and formal prayer training!\"",
@@ -714,6 +721,26 @@
           {
             "id": "choice_leave_kaelen",
             "text": "\"Bless us as we venture into darkness.\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      },
+      "node_kaelen_cure_success": {
+        "text": "The divine light of the Dawn flows into your comrade's spirit! Their critical wounds knit together, breath returns to their lungs, and they stand once more with 1 HP. Tend to them with potions or prayer before venturing back into danger.",
+        "choices": [
+          {
+            "id": "choice_cure_thanks",
+            "text": "\"Thank you, High Priestess. The dawn watches over us.\"",
+            "onEnd": "repeat_terminal"
+          }
+        ]
+      },
+      "node_kaelen_cure_fail": {
+        "text": "The altar requires 100 Gold Pieces in tithes for sacred balm and incenses, and can only restore living allies whose spirits linger (between 0 and -9 HP). Those whose bodies have suffered -10 HP or worse have crossed permanently into the beyond.",
+        "choices": [
+          {
+            "id": "choice_cure_back",
+            "text": "\"We understand.\"",
             "onEnd": "repeat_terminal"
           }
         ]

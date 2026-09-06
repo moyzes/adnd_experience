@@ -28,12 +28,16 @@ export class DialogueController {
 
         if (npcState.completed) {
             if (npcState.endBehavior === 'repeat_terminal' && npcState.currentNode) {
+                if (!this.state.activeSpeaker) {
+                    this.state.activeSpeaker = this.state.party.find(p => p && p.hp > 0) || this.state.party[0];
+                }
                 this.renderDialogueUI(npcId, npcState.currentNode);
                 return;
             } else {
+                const displayName = npcSpec && npcSpec.name ? npcSpec.name : 'Unknown NPC';
                 this.uiController.showInteractionModal({
-                    title: `ENCOUNTER: ${npcSpec.name.toUpperCase()}`,
-                    prompt: `"${npcSpec.name} acknowledges your presence, but has nothing further to say to the party."`,
+                    title: `ENCOUNTER: ${displayName.toUpperCase()}`,
+                    prompt: `"${displayName} acknowledges your presence, but has nothing further to say to the party."`,
                     choices: [{
                         text: "Leave",
                         callback: () => {
@@ -51,8 +55,8 @@ export class DialogueController {
             npcState.met = true;
         }
 
-        const consciousParty = this.state.party.filter(p => p.hp > 0);
-        const speakerChoices = consciousParty.map(hero => ({
+        const consciousParty = this.state.party.filter(p => p && p.hp > 0);
+        const speakerChoices = (consciousParty.length > 0 ? consciousParty : this.state.party).map(hero => ({
             text: `${hero.name} (${hero.className}) steps forward to speak.`,
             callback: () => {
                 this.state.activeSpeaker = hero;
@@ -60,49 +64,51 @@ export class DialogueController {
             }
         }));
 
+        const displayName = npcSpec && npcSpec.name ? npcSpec.name : 'Unknown NPC';
         this.uiController.showInteractionModal({
-            title: `ENCOUNTER: ${npcSpec.name.toUpperCase()}`,
+            title: `ENCOUNTER: ${displayName.toUpperCase()}`,
             prompt: `Select who will lead the conversation:`,
             choices: speakerChoices
         });
     }
 
     renderDialogueUI(npcId, nodeId) {
-        const npcSpec = this.adventureData.npcs[npcId];
-        const node = this.adventureData.dialogues[npcId][nodeId];
+        const npcSpec = (this.adventureData.npcs && this.adventureData.npcs[npcId]) || { name: 'NPC' };
+        const node = this.adventureData.dialogues && this.adventureData.dialogues[npcId] ? this.adventureData.dialogues[npcId][nodeId] : null;
         const npcState = this.state.getNPCState(npcId);
-        const speaker = this.state.activeSpeaker;
+        const speaker = this.state.activeSpeaker || this.state.party.find(p => p && p.hp > 0) || this.state.party[0] || { name: 'Adventurer', className: 'Fighter', classKey: 'fighter', attributes: {} };
+        this.state.activeSpeaker = speaker;
 
         if (!node) {
-            this.callbacks.log(`Conversation with ${npcSpec.name} concluded.`, "info");
+            this.callbacks.log(`Conversation with ${npcSpec.name || 'NPC'} concluded.`, "info");
             this.state.activeNpc = null;
             this.state.activeSpeaker = null;
             this.callbacks.updateHUD();
             return;
         }
 
-        const speakerHeader = `[Speaker: ${speaker.name} (${speaker.className}) | NPC Attitude: ${npcState.attitude}]`;
+        const speakerHeader = `[Speaker: ${speaker.name || 'Adventurer'} (${speaker.className || 'Fighter'}) | NPC Attitude: ${npcState ? npcState.attitude : 0}]`;
         const fullPrompt = `${speakerHeader}\n\n"${node.text}"`;
 
-        const choiceButtons = node.choices.map(choice => {
-            const hasSpecialty = choice.specialtyClass && (speaker.classKey.toLowerCase() === choice.specialtyClass.toLowerCase());
+        const choiceButtons = (node.choices || []).map(choice => {
+            const hasSpecialty = choice.specialtyClass && speaker.classKey && (speaker.classKey.toLowerCase() === choice.specialtyClass.toLowerCase());
             const bonusText = hasSpecialty ? ` ⭐ [${choice.specialtyClass} Specialty +${choice.specialtyBonus}]` : '';
 
             let canAfford = true;
             if (choice.cost) {
                 if (choice.cost.gold) {
-                    const goldItem = this.state.inventory.find(i => i.name === "Gold Pieces");
+                    const goldItem = (this.state.inventory || []).find(i => i && i.name === "Gold Pieces");
                     canAfford = goldItem && goldItem.amount >= choice.cost.gold;
                 }
                 if (choice.cost.rations) {
-                    const rationItem = this.state.inventory.find(i => (i.name || "").toLowerCase().includes("ration"));
+                    const rationItem = (this.state.inventory || []).find(i => i && (i.name || "").toLowerCase().includes("ration"));
                     const count = rationItem ? (rationItem.amount !== undefined ? rationItem.amount : rationItem.count || 0) : 0;
                     canAfford = count >= choice.cost.rations;
                 }
             }
 
             if (choice.requiresItem) {
-                const hasReqItem = this.state.inventory.some(i => i.name === choice.requiresItem && (i.amount || 1) > 0);
+                const hasReqItem = (this.state.inventory || []).some(i => i && i.name === choice.requiresItem && (i.amount || 1) > 0);
                 if (!hasReqItem) canAfford = false;
             }
 
@@ -113,16 +119,18 @@ export class DialogueController {
             };
         });
 
+        const titleName = (npcSpec.name || 'NPC').toUpperCase();
         this.uiController.showInteractionModal({
-            title: `CONVERSING WITH ${npcSpec.name.toUpperCase()}`,
+            title: `CONVERSING WITH ${titleName}`,
             prompt: fullPrompt,
             choices: choiceButtons
         });
     }
 
     resolveDialogueChoice(npcId, choice) {
-        const speaker = this.state.activeSpeaker;
-        const npcSpec = this.adventureData.npcs[npcId];
+        const speaker = this.state.activeSpeaker || this.state.party.find(p => p && p.hp > 0) || this.state.party[0] || { name: 'Adventurer', className: 'Fighter', classKey: 'fighter', attributes: {} };
+        this.state.activeSpeaker = speaker;
+        const npcSpec = (this.adventureData.npcs && this.adventureData.npcs[npcId]) || { name: 'NPC' };
         const npcState = this.state.getNPCState(npcId);
 
         if (choice.cost) {
@@ -188,7 +196,30 @@ export class DialogueController {
         }
 
         let success = true;
-        if (choice.trainClass) {
+        if (choice.templeCure) {
+            const incHeroes = this.state.party.map((h, idx) => ({ h, idx })).filter(item => item.h && item.h.hp <= 0 && item.h.hp > -10);
+            if (incHeroes.length === 0) {
+                const deadHeroes = this.state.party.filter(h => h && h.hp <= -10);
+                if (deadHeroes.length > 0) {
+                    this.callbacks.log(`Priestess Kaelen examines the fallen: "Alas, their wounds are fatal (-10 HP). Only a true Resurrection miracle far beyond standard temple care can restore a dead soul."`, "danger");
+                } else {
+                    this.callbacks.log(`Priestess Kaelen checks the party: "All members of your fellowship are conscious and standing."`, "info");
+                }
+                success = false;
+            } else {
+                const targetToCure = incHeroes[0];
+                const res = this.state.cureIncapacitatedHeroAtTemple(targetToCure.idx);
+                if (res.success) {
+                    success = true;
+                    this.callbacks.log(res.log, "success");
+                    if (this.callbacks.playSFX) this.callbacks.playSFX('holy');
+                    this.callbacks.updateHUD();
+                } else {
+                    success = false;
+                    this.callbacks.log(`Priestess Kaelen shakes her head: "${res.reason}"`, "warning");
+                }
+            }
+        } else if (choice.trainClass) {
             const heroIdx = this.state.party.findIndex(p => p.classKey.toLowerCase() === choice.trainClass.toLowerCase());
             if (heroIdx !== -1) {
                 const targetHero = this.state.party[heroIdx];
@@ -219,7 +250,8 @@ export class DialogueController {
                 const effectiveTarget = Math.min(99, Math.max(1, target + attitudeMod));
 
                 success = roll <= effectiveTarget;
-                this.callbacks.log(`${speaker.name} ${skill.name}: d100 Roll(${roll}) vs Target ${effectiveTarget}% (${target}% + Attitude:${attitudeMod}%) -> ${success ? 'SUCCESS' : 'FAILURE'}`, success ? 'success' : 'danger');
+                const skName = (skill && skill.name) ? skill.name : (skillKey || 'Skill');
+                this.callbacks.log(`${speaker.name} ${skName}: d100 Roll(${roll}) vs Target ${effectiveTarget}% (${target}% + Attitude:${attitudeMod}%) -> ${success ? 'SUCCESS' : 'FAILURE'}`, success ? 'success' : 'danger');
             } else {
                 const roll = Math.floor(Math.random() * 20) + 1;
                 const attrVal = speaker.attributes[choice.attribute || 'charisma'] || 10;

@@ -22,11 +22,13 @@ export class CombatController {
 
         this.callbacks.playSFX('combat_turn');
 
-        const encSpec = this.state.spec.encounters.find(e => e.id === encounterId);
-        const msg = encSpec.scouted
-            ? `👁️ Scouted and sprung! ${encSpec.name} never sees you coming.`
-            : `⚠️ AMBUSH! You stepped into ${encSpec.name}!`;
-        this.callbacks.log(msg, encSpec.scouted ? "success" : "danger");
+        const encSpec = (this.state.spec.encounters || []).find(e => e.id === encounterId);
+        const encName = encSpec ? encSpec.name : 'Unknown Hostiles';
+        const isScouted = encSpec ? !!encSpec.scouted : false;
+        const msg = isScouted
+            ? `👁️ Scouted and sprung! ${encName} never sees you coming.`
+            : `⚠️ AMBUSH! You stepped into ${encName}!`;
+        this.callbacks.log(msg, isScouted ? "success" : "danger");
 
         if (this.renderer3D && typeof this.renderer3D.renderEncounterMonsters === 'function') {
             this.renderer3D.renderEncounterMonsters(this.state.combat.enemies, this.state.player);
