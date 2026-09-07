@@ -1,1 +1,19 @@
-PLACEHOLDER_SPELLS
+{
+  "spells": [
+    {
+      "id": "magic_missile",
+      "name": "Magic Missile",
+      "class": "mage",
+      "tier": 1,
+      "cognitive_load": 20,
+      "casting_time": "instant",
+      "target": "single_enemy",
+      "timing": ["combat"],
+      "sfx": "magic_missile",
+      "badge": "🔮 DART",
+      "badgeClass": "normal",
+      "description": "Force darts that strike unfailingly (3d4+3).",
+      "effect": { "type": "damage", "dice": "3d4+3", "auto_hit": true }
+    }
+  ]
+}
