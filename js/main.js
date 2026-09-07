@@ -597,10 +597,20 @@ class GameOrchestrator {
     else if (actionType === 'STUDY_GRIMOIRE') {
       if (!mage || mage.hp <= 0) return this.log("The mage is incapacitated.", "warning");
       const result = this.state.studyGrimoire(payload);
-      if (!result.success) return this.log(result.reason, "warning");
+      if (result.minutes) this.log(`⏳ ${result.minutes} minutes pass over the grimoire...`, "muted");
+      if (result.turnResult && result.turnResult.wanderingSpawned) {
+        this.log(`⚠️ The muttered formulae draw a patrol: ${result.turnResult.patrolName || 'Wandering Monsters'}!`, "danger");
+      }
+      if (!result.success) {
+        this.uiController.updateHUD(true);
+        return this.log(result.reason, "warning");
+      }
       this.playSFX('read_magic');
-      if (result.brainBurnDamage > 0) this.log(`🧠 BRAIN BURN! Forced memory into taxed mind (+${result.cognitiveCost} Burden, ${result.brainBurnDamage} HP).`, "danger");
-      else this.log(`📖 ${mage.name} studies the grimoire, memorizing ${result.rememorized.join(', ')} (+${result.cognitiveCost} Burden).`, "success");
+      if (result.brainBurnDamage > 0) {
+        this.log(`🧠 BRAIN BURN! Forced memory into a full mind (+${result.cognitiveCost} Burden, ${result.brainBurnDamage} HP)${result.intBruise ? ', INT −1 until rest' : ''}.`, "danger");
+      } else {
+        this.log(`📖 ${mage.name} seats ${result.rememorized.join(', ')} (+${result.cognitiveCost} Burden, ${result.minutes || 0} min).`, "success");
+      }
       this.uiController.updateHUD(true);
     }
     else if (actionType === 'CAST_MAGE_SPELL') {

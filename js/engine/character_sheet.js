@@ -47,6 +47,9 @@ export class CharacterSheetUI {
     if (hero.isStealth) {
       activeBuffs.push(`<span style="background:#211938;color:#d2a8ff;border:1px solid #8957e5;padding:3px 8px;border-radius:3px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">🗡️ Shadow Stealth (Hidden in shadows, backstab primed)</span>`);
     }
+    if (hero.tempIntDrain) {
+      activeBuffs.push(`<span style="background:#3d1010;color:#ff7b72;border:1px solid #f85149;padding:3px 8px;border-radius:3px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">🧠 INT bruise −${hero.tempIntDrain} (clears on rest)</span>`);
+    }
     if (hero.classKey === 'fighter' && hero.specializedWeapon && hero.equippedWeapon === hero.specializedWeapon) {
       activeBuffs.push(`<span style="background:#2a1b04;color:#ffd700;border:1px solid #d29922;padding:3px 8px;border-radius:3px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">⚔️ Specialized: +1 to-hit / +2 dmg (${hero.specializedWeapon})</span>`);
     }
@@ -170,11 +173,11 @@ export class CharacterSheetUI {
       specializedHTML = `
       <div style="background: #161b22; padding: 10px; border: 1px solid var(--border-steel); border-radius: 4px; margin-bottom: 12px; font-size: 12px;">
         <div style="color: var(--accent-gold); font-weight: bold; margin-bottom: 6px; font-size: 13px;">⚡ Vancian Mental Burden</div>
-        <div>Burden: <b style="color:#d2a8ff;">${burden}/${maxBurden}</b> <span style="color:var(--text-muted);font-size:10px;">(Held constructs: ${heldLoad}${lingeringStrain > 0 ? `, Lingering strain: ${lingeringStrain}` : ''})</span></div>
+        <div>Burden: <b style="color:#d2a8ff;">${burden}/${maxBurden}</b> <span style="color:var(--text-muted);font-size:10px;">(Held constructs: ${heldLoad}${lingeringStrain > 0 ? `, spent residue: ${lingeringStrain} — clears on rest` : ''})</span></div>
         
         <div style="margin-top: 8px; font-weight: bold; color: var(--gold-tsr); font-size: 11px;">Active Constructs Held in Mind:</div>
         <ul style="margin: 4px 0 6px 4px; padding: 0; list-style: none;">
-          ${preparedList || '<li style="color: var(--text-muted); font-style: italic; font-size: 11px;">No constructs currently held in mind (0 Burden). Mind is completely unencumbered.</li>'}
+          ${preparedList || `<li style="color: var(--text-muted); font-style: italic; font-size: 11px;">${lingeringStrain > 0 ? 'No constructs held. Spent residue still occupies the mind until rest.' : 'No constructs currently held in mind (0 Burden). Mind is completely unencumbered.'}</li>`}
         </ul>
 
         <div style="margin-top: 8px; font-weight: bold; color: var(--gold-tsr); font-size: 11px; border-top: 1px solid var(--border-iron); padding-top: 6px;">📖 Grimoire Inscriptions:</div>
@@ -184,7 +187,7 @@ export class CharacterSheetUI {
 
         <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <button id="sheet-study-grimoire-btn" class="action-tab" style="padding:4px 10px;font-size:10px;" ${unmemorizedCount === 0 || hero.hp <= 0 ? 'disabled' : ''}>📖 Study Grimoire (Memorize All)</button>
-          <span style="color:var(--text-muted);font-size:10px;">Commits grimoire formulas to active memory (increases mental burden).</span>
+          <span style="color:var(--text-muted);font-size:10px;">Seats formulas (raises Burden). Field: one spell, 10 min/level. Sanctuary: Study All. Overfill burns HP and INT −1 until rest.</span>
         </div>
       </div>`;
     } else if (hero.classKey === 'cleric') {

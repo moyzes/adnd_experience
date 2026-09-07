@@ -509,6 +509,7 @@ export class GameState {
       member.maxCognition = maxCog;
       member.cognition = maxCog;
       member.hasStudiedSinceRest = false;
+      member.tempIntDrain = 0;
       member.tempAcBonus = 0;
       member.tempAcRounds = 0;
       
@@ -1865,11 +1866,9 @@ export class GameState {
             continue;
           }
 
-          const load = spell.cognitive_load || 20;
-          const refund = Math.floor(load * 0.8);
-          const residualStrain = load - refund;
           spell.spent = true;
-          hero.cognition = Math.min(hero.maxCognition || 100, (hero.cognition || 0) + refund);
+          // Vancian: the construct leaves the mind but the seat stays scorched.
+          // Burden does not drop on cast. Only rest clears it.
 
           if (castInterrupted[heroIndex]) {
             combatEvents.push({
@@ -1877,7 +1876,7 @@ export class GameState {
               sourceName: hero.name,
               spellId: spell.id,
               targetHeroIndex: heroIndex,
-              logText: `💫 ${hero.name}'s ${spell.name} collapses! Concentration broken — construct erased [Construct released (-${refund} Burden, +${residualStrain} Lingering Strain)].`,
+              logText: `💫 ${hero.name}'s ${spell.name} collapses! Concentration broken — construct erased. The scorched seat remains until rest.`,
               logType: 'danger'
             });
             continue;
@@ -1890,7 +1889,7 @@ export class GameState {
             simHeroHp,
             party: this.party,
             casterIndex: heroIndex,
-            casterRefundText: ` [Construct released (-${refund} Burden, +${residualStrain} Lingering Strain)]`
+            casterRefundText: ` The construct is gone; its burden remains until rest.`
           });
           combatEvents.push(...events);
         } else if (command.type === 'PRAY') {
@@ -3098,6 +3097,10 @@ export class GameState {
       if (member.classKey === 'mage') {
         member.cognition = member.maxCognition;
         member.hasStudiedSinceRest = false;
+        if (member.tempIntDrain) {
+          member.attributes.intelligence = (member.attributes.intelligence || 10) + member.tempIntDrain;
+          member.tempIntDrain = 0;
+        }
       }
       if (member.classKey === 'cleric') {
         member.divineFavor = Math.min(member.maxDivineFavor, (member.divineFavor || 0) + 12);
@@ -3223,18 +3226,13 @@ export class GameState {
     });
 
     if (res.success) {
-      const load = spell.cognitive_load || 20;
-      const refund = Math.floor(load * 0.8);
-      const residualStrain = load - refund;
-      mage.cognition = Math.min(mage.maxCognition, mage.cognition + refund);
+      // No burden refund. Spent construct still occupies capacity until rest.
       return {
         ...res,
-        refund,
-        residualBurn: residualStrain,
         currentCognition: mage.cognition,
         log: res.log
-          ? `${res.log} [Construct released (-${refund} Burden, +${residualStrain} Lingering Strain)]`
-          : `✨ ${mage.name} releases ${spell.name}! [Construct released (-${refund} Burden, +${residualStrain} Lingering Strain)]`
+          ? `${res.log} The construct is gone; its burden remains until rest.`
+          : `✨ ${mage.name} releases ${spell.name}! The construct is gone; its burden remains until rest.`
       };
     }
 
@@ -3267,16 +3265,49 @@ export class GameState {
       if (toMemorize.length === 0) return { success: false, reason: "All prepared constructs from the grimoire are already held in mind." };
     }
 
+    const zone = this.getCurrentZone ? this.getCurrentZone() : 'dungeon';
+    const inField = zone !== 'town';
+    if (inField && toMemorize.length > 1) {
+      return {
+        success: false,
+        reason: "In the field, seat one formula at a time. Study All is for sanctuary."
+      };
+    }
+
+    const minutes = toMemorize.reduce((sum, s) => sum + 10 * Math.max(1, s.level || s.tier || 1), 0);
+    const turnResult = this.advanceExplorationTurn(minutes, "Study Grimoire", false);
+
     const cognitiveCost = toMemorize.reduce((sum, s) => sum + (s.cognitive_load || 20), 0);
     let brainBurnDamage = 0;
-    mage.cognition -= cognitiveCost;
-    
-    if (mage.cognition < 0) {
-      brainBurnDamage = Math.abs(mage.cognition);
+    let intBruise = false;
+    const overflow = Math.max(0, cognitiveCost - (mage.cognition || 0));
+
+    if (overflow > 0) {
+      brainBurnDamage = overflow;
       mage.cognition = 0;
       mage.hp = Math.max(0, mage.hp - brainBurnDamage);
+      if (!mage.tempIntDrain) {
+        mage.tempIntDrain = 1;
+        mage.attributes.intelligence = Math.max(3, (mage.attributes.intelligence || 10) - 1);
+        intBruise = true;
+      }
+      if (mage.hp <= 0) {
+        return {
+          success: false,
+          reason: `${mage.name} collapses mid-formula. The construct was not seated.`,
+          brainBurnDamage,
+          intBruise,
+          minutes,
+          turnResult,
+          collapsed: true,
+          currentCognition: mage.cognition,
+          mageHp: mage.hp
+        };
+      }
+    } else {
+      mage.cognition -= cognitiveCost;
     }
-    
+
     toMemorize.forEach(s => { s.spent = false; });
     mage.hasStudiedSinceRest = true;
 
@@ -3284,6 +3315,9 @@ export class GameState {
       success: true,
       cognitiveCost,
       brainBurnDamage,
+      intBruise,
+      minutes,
+      turnResult,
       rememorized: toMemorize.map(s => s.name),
       currentCognition: mage.cognition,
       mageHp: mage.hp

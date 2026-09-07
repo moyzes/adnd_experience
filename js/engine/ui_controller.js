@@ -104,6 +104,9 @@ export class UIController {
         if (hero.isStealth) {
             buffBadges.push(`<span class="hero-buff-pill stealth-buff" title="Stealth: Hidden in shadows, Backstab primed">🗡️ Stealth</span>`);
         }
+        if (hero.tempIntDrain) {
+            buffBadges.push(`<span class="hero-buff-pill" title="Forced a construct into a full mind. Intelligence −${hero.tempIntDrain} until rest.">🧠 INT −${hero.tempIntDrain}</span>`);
+        }
 
         // Martial Weapon Specialization / Mastery Badges
         if (hero.classKey === 'fighter' && hero.specializedWeapon) {
@@ -144,7 +147,7 @@ export class UIController {
         const trapInFront = this.state.getTrapInFront();
 
         const partySig = this.state.party.map(h =>
-            `${h.canLevelUp ? 1 : 0}_${h.hp}_${h.level}_${h.toolsDurability ?? ''}_${h.cognition ?? ''}_${h.divineFavor ?? ''}_${h.isStealth ? 1 : 0}_${h.tempAcBonus || 0}_${h.tempAcRounds || 0}_${h.tempAttackBonus || 0}_${h.tempAttackRounds || 0}_${h.equippedWeapon || ''}_${h.specializedWeapon || ''}`
+            `${h.canLevelUp ? 1 : 0}_${h.hp}_${h.level}_${h.toolsDurability ?? ''}_${h.cognition ?? ''}_${h.divineFavor ?? ''}_${h.isStealth ? 1 : 0}_${h.tempIntDrain || 0}_${h.tempAcBonus || 0}_${h.tempAcRounds || 0}_${h.tempAttackBonus || 0}_${h.tempAttackRounds || 0}_${h.equippedWeapon || ''}_${h.specializedWeapon || ''}`
         ).join('_');
         // Build a lightweight signature of contextual UI triggers to prevent unnecessary DOM reconstruction on every step
         const lockSig = lockTarget ? `${lockTarget.x},${lockTarget.y},${lockTarget.locked}` : '';
