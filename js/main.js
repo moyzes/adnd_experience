@@ -212,6 +212,8 @@ class GameOrchestrator {
     // 3. Isolated Shop UI Module
     this.shopUI = new ShopUI(this.state, {
       playSFX: (id) => this.playSFX(id),
+      playShopBgm: () => this.audioManager.playShopBgm('outfitter'),
+      stopShopBgm: () => this.audioManager.stopShopBgm(),
       log: (msg, type) => this.log(msg, type),
       updateHUD: () => this.uiController.updateHUD()
     });
@@ -354,6 +356,7 @@ class GameOrchestrator {
   // ===========================================================================
 
   handleInput(action) {
+    if (this.audioManager) this.audioManager.unlockAudio();
     if (this.isGameOver || this.state.isPartyWiped() || this.isActionActive || this.state.combat.active) return;
 
     let updated = false;
@@ -380,15 +383,19 @@ class GameOrchestrator {
 
   updateEnvironmentAudio() {
     if (this.state.combat.active) return;
-    const isWilderness = this.state.isWildernessTile();
-    const desired = isWilderness ? 'wilderness' : 'dungeon';
-    if (this.currentAmbientTrack !== desired) {
-      if (this.currentAmbientTrack) {
-        this.audioManager.stopLoop(this.currentAmbientTrack);
-      }
-      this.audioManager.playLoop(desired);
-      this.currentAmbientTrack = desired;
+    if (this.shopUI && this.shopUI.isOpen()) return;
+    const zone = this.state.getCurrentZone ? this.state.getCurrentZone() : (this.state.isWildernessTile() ? 'wilderness' : 'dungeon');
+    
+    let trackList = [];
+    if (zone === 'town') {
+      trackList = this.spec.town_tracks || ['town_1', 'town_2'];
+    } else if (zone === 'wilderness') {
+      trackList = this.spec.wilderness_tracks || ['wilderness_1'];
+    } else {
+      trackList = this.spec.dungeon_tracks || ['dungeon_1', 'dungeon_2', 'dungeon_3'];
     }
+
+    this.audioManager.playEnvironmentBgm(zone, trackList);
   }
 
   processMovementTriggers() {
@@ -460,6 +467,7 @@ class GameOrchestrator {
   // ===========================================================================
 
   handleGlobalAction(actionType) {
+    if (this.audioManager) this.audioManager.unlockAudio();
     if (this.isGameOver || this.state.isPartyWiped()) return;
     if (actionType === 'RESOLVE_ROUND') this.combatController.resolveCombatRoundSequence();
     else if (actionType === 'OPEN_OBJECT') this.handleOpenObject();
@@ -468,6 +476,7 @@ class GameOrchestrator {
   }
 
   handleUIAction(actionType, payload) {
+    if (this.audioManager) this.audioManager.unlockAudio();
     if (this.isGameOver || this.state.isPartyWiped()) return;
     const fighter = this.state.party.find(p => p.classKey === 'fighter');
     const thief = this.state.party.find(p => p.classKey === 'thief');
@@ -1039,11 +1048,7 @@ class GameOrchestrator {
   showGameOver() {
     if (this.isGameOver) return;
     this.isGameOver = true;
-    this.audioManager.stopCombatBgm();
-    if (this.currentAmbientTrack) {
-      this.audioManager.stopLoop(this.currentAmbientTrack);
-      this.currentAmbientTrack = null;
-    }
+    this.audioManager.stopAll();
     this.playSFX('death');
     const wipedText = this.spec.endings?.party_wiped || 'The flooded dark keeps what it takes. The expedition is over.';
     this.uiElements.interactionTitle.textContent = '💀 PARTY WIPED';
@@ -1060,11 +1065,7 @@ class GameOrchestrator {
       window.removeEventListener('keydown', this.boundEscapeHandler);
     }
     if (this.audioManager) {
-      this.audioManager.stopCombatBgm();
-      if (this.currentAmbientTrack) {
-        this.audioManager.stopLoop(this.currentAmbientTrack);
-        this.currentAmbientTrack = null;
-      }
+      this.audioManager.stopAll();
     }
   }
 }

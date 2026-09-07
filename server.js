@@ -10,12 +10,18 @@ const PORT = 3000;
 
 // Explicitly serve static files with proper MIME headers and caching controls
 app.use(express.static(__dirname, {
-  etag: true,
-  lastModified: true,
+  etag: false,
+  lastModified: false,
   setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.json') || filePath.endsWith('.mp3')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
     if (filePath.endsWith('.json')) {
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    } else if (filePath.endsWith('.mp3')) {
+      res.setHeader('Content-Type', 'audio/mpeg');
     }
   }
 }));

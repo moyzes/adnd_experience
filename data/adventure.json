@@ -6,6 +6,18 @@
     "combat_2",
     "combat_3"
   ],
+  "town_tracks": [
+    "town_1",
+    "town_2"
+  ],
+  "wilderness_tracks": [
+    "wilderness_1"
+  ],
+  "dungeon_tracks": [
+    "dungeon_1",
+    "dungeon_2",
+    "dungeon_3"
+  ],
   "rest_duration_seconds": 12,
   "briefing": "Elder Harlan Marrow of Thorn has hired you. Young Mira Vale vanished near the ruined chapel on the ridge. He claims a rival cult seeks the bones of Saint Orlan beneath the flooded crypt. Recover the saint’s remains — and bring Mira home if she still lives. The village watches. The feud between Marrow and Vale runs deeper than any of them will say aloud.",
   "assets": {
@@ -14,7 +26,7 @@
     "kobold": "assets/glb/kobold.glb",
     "giant_spider": "assets/glb/giant_spider.glb",
     "ghoul": "assets/glb/goblin_ghoul.glb",
-    "chest": "assets/glb/chest.gltf"
+    "chest": "assets/glb/chest.glb"
   },
   "start": {
     "x": 7,
@@ -23,6 +35,7 @@
   },
   "dungeon_y_max": 12,
   "surface_y_min": 13,
+  "town_y_min": 13,
   "legend": {
     "0": {
       "name": "Flooded Flagstone",

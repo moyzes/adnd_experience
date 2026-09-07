@@ -36,6 +36,10 @@ export class ShopUI {
     this.activeCategory = 'all';
     this.render();
     this.modal.style.display = 'flex';
+
+    if (this.context.playShopBgm) {
+      this.context.playShopBgm();
+    }
   }
 
   render() {
@@ -460,6 +464,13 @@ export class ShopUI {
   close() {
     if (this.modal && this.modal.style.display !== 'none') {
       this.modal.style.display = 'none';
+      if (this.context.stopShopBgm) {
+        this.context.stopShopBgm();
+      }
     }
+  }
+
+  isOpen() {
+    return !!(this.modal && this.modal.style.display !== 'none');
   }
 }

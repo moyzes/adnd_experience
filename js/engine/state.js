@@ -307,6 +307,61 @@ export class GameState {
     return { active: false, type: null, remainingMs: 0, remainingSeconds: 0 };
   }
 
+  getCurrentZone(x = this.player.x, y = this.player.y) {
+    if (y < 0 || y >= this.spec.map.length || x < 0 || x >= this.spec.map[0].length) return 'dungeon';
+    const tileId = this.spec.map[y][x];
+    const legendEntry = this.spec.legend && this.spec.legend[String(tileId)];
+
+    // 1. Explicit tile legend zone markers
+    if (legendEntry) {
+      if (legendEntry.zone === 'town' || legendEntry.zone === 'village' || legendEntry.action === 'shop' || legendEntry.action === 'atonement') {
+        return 'town';
+      }
+      if (legendEntry.zone === 'wilderness') {
+        return 'wilderness';
+      }
+      if (legendEntry.zone === 'dungeon') {
+        return 'dungeon';
+      }
+    }
+
+    // 2. Proximity to shop / merchants
+    if (this.isNearShop(x, y)) return 'town';
+
+    // 3. Adventure spec town / village y boundaries
+    if (this.spec.town_y_min !== undefined && y >= this.spec.town_y_min) {
+      return 'town';
+    }
+
+    // 4. Default surface/village heuristics (NPC mentor presence or town coords)
+    if (this.spec.npcs) {
+      const nearNpc = Object.values(this.spec.npcs).some(npc => {
+        if (!npc.tile || npc.tile.length < 2) return false;
+        const isPatronOrMentor = npc.id === 'lord_albright' || npc.id === 'baron_vane' || npc.id?.includes('patron') || npc.id?.includes('mentor') || npc.id === 'captain_valerius' || npc.id === 'archmage_cynthia' || npc.id === 'priestess_kaelen' || npc.id === 'master_jax';
+        if (!isPatronOrMentor) return false;
+        const dist = Math.abs(npc.tile[0] - x) + Math.abs(npc.tile[1] - y);
+        return dist <= 3;
+      });
+      if (nearNpc) return 'town';
+    }
+
+    // 5. Wilderness check (surface moors, forest, trees)
+    if (tileId === 4 || tileId === 5) return 'wilderness';
+    if (this.spec.surface_y_min !== undefined && y >= this.spec.surface_y_min) return 'wilderness';
+    if (this.spec.dungeon_y_max !== undefined && y > this.spec.dungeon_y_max) return 'wilderness';
+
+    // 6. Default to dungeon
+    return 'dungeon';
+  }
+
+  isTownTile(x = this.player.x, y = this.player.y) {
+    return this.getCurrentZone(x, y) === 'town';
+  }
+
+  isDungeonTile(x = this.player.x, y = this.player.y) {
+    return this.getCurrentZone(x, y) === 'dungeon';
+  }
+
   isWildernessTile(x = this.player.x, y = this.player.y) {
     if (y < 0 || y >= this.spec.map.length || x < 0 || x >= this.spec.map[0].length) return false;
     const tileId = this.spec.map[y][x];

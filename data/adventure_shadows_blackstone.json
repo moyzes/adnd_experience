@@ -6,6 +6,18 @@
     "combat_2",
     "combat_3"
   ],
+  "town_tracks": [
+    "town_1",
+    "town_2"
+  ],
+  "wilderness_tracks": [
+    "wilderness_1"
+  ],
+  "dungeon_tracks": [
+    "dungeon_1",
+    "dungeon_2",
+    "dungeon_3"
+  ],
   "rest_duration_seconds": 12,
   "briefing": "Baron Justinian Vane of Highstone Hamlet summons your company. Beneath the ruined Blackstone Keep, the Ashen Hand cult has broken the ancient seals. Necromancer Malakor the Despoiler raises an army of ghouls and skeletal champions to lay waste to the borderlands. Visit your class mentors at the Military Garrison, Arcane Spire, Sunfire Temple, and Thieves' Guild in the village to prepare. Then breach the sunken warrens, disarm the deadly crypt traps, and destroy Malakor before his shadow consumes Highstone!",
   "assets": {
@@ -17,7 +29,7 @@
     "giant_spider": "assets/glb/giant_spider.glb",
     "kobold": "assets/glb/kobold.glb",
     "assassin": "assets/glb/assassin.glb",
-    "chest": "assets/glb/chest.gltf",
+    "chest": "assets/glb/chest.glb",
     "campfire": "assets/glb/campfire.glb"
   },
   "start": {
@@ -27,6 +39,7 @@
   },
   "dungeon_y_max": 7,
   "surface_y_min": 8,
+  "town_y_min": 11,
   "legend": {
     "0": {
       "name": "Flagstone Corridor",
@@ -266,9 +279,9 @@
       "id": "ashen_cultist",
       "name": "Ashen Cultist",
       "glbModel": "assets/glb/cultist.glb",
-      "rotationOffset": [0, 180, 0],
+      "rotationOffset": [0, 0, 0],
       "positionOffset": [0, 0, 0],
-      "scale": 2.0,
+      "scale": 2.5,
       "hp": 9,
       "maxHp": 9,
       "armorClass": 6,

@@ -6,6 +6,18 @@
     "combat_2",
     "combat_3"
   ],
+  "town_tracks": [
+    "town_1",
+    "town_2"
+  ],
+  "wilderness_tracks": [
+    "wilderness_1"
+  ],
+  "dungeon_tracks": [
+    "dungeon_1",
+    "dungeon_2",
+    "dungeon_3"
+  ],
   "rest_duration_seconds": 12,
   "briefing": "Lord Raymond Albright of Oakhaven has hired your company. A marauding band of forest goblins raided the village sanctum and stole the sacred Sun-Forged Relic of Dawn, retreating into the ancient wilderness ruins to the north. Equip your party at the village outfitter, journey through the haunted wilderness, breach the goblin-infested ruins, and return the relic safely to Lord Albright.",
   "assets": {
@@ -15,7 +27,7 @@
     "wizard": "assets/glb/strange_wizard.glb",
     "kobold": "assets/glb/kobold.glb",
     "giant_spider": "assets/glb/giant_spider.glb",
-    "chest": "assets/glb/chest.gltf"
+    "chest": "assets/glb/chest.glb"
   },
   "start": {
     "x": 2,
@@ -24,6 +36,7 @@
   },
   "dungeon_y_max": 5,
   "surface_y_min": 6,
+  "town_y_min": 11,
   "legend": {
     "0": {
       "name": "Cobblestone Floor",

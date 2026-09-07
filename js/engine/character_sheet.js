@@ -427,7 +427,7 @@ export class CharacterSheetUI {
         const weapon = btn.getAttribute('data-weapon');
         const result = this.state.equipHeroWeapon(hIdx, weapon);
         if (result.success) {
-          this.context.playSFX('button');
+          this.context.playSFX('equip');
           this.context.log(`${this.state.party[hIdx].name} equips ${result.equipped}.`, "success");
           this.open(this.state.party[hIdx].name);
           this.context.updateHUD();
@@ -443,7 +443,7 @@ export class CharacterSheetUI {
         const armor = btn.getAttribute('data-armor');
         const result = this.state.equipHeroArmor(hIdx, armor);
         if (result.success) {
-          this.context.playSFX('button');
+          this.context.playSFX('equip');
           this.context.log(`${this.state.party[hIdx].name} dons ${result.equipped}.`, "success");
           this.open(this.state.party[hIdx].name);
           this.context.updateHUD();
@@ -459,7 +459,7 @@ export class CharacterSheetUI {
         const shield = btn.getAttribute('data-shield');
         const result = this.state.equipHeroShield(hIdx, shield);
         if (result.success) {
-          this.context.playSFX('button');
+          this.context.playSFX('equip');
           this.context.log(`${this.state.party[hIdx].name} readies ${result.equipped}.`, "success");
           this.open(this.state.party[hIdx].name);
           this.context.updateHUD();

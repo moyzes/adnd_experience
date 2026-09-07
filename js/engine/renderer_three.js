@@ -327,7 +327,15 @@ export class RendererThreeJS {
   }
 
   #findChestLid(modelScene) {
-    return modelScene.getObjectByName('chest_lid');
+    let lid = modelScene.getObjectByName('chest_lid') || modelScene.getObjectByName('lid') || modelScene.getObjectByName('Lid') || modelScene.getObjectByName('Top');
+    if (!lid) {
+      modelScene.traverse((child) => {
+        if (!lid && child.name && child.name.toLowerCase().includes('lid')) {
+          lid = child;
+        }
+      });
+    }
+    return lid;
   }
 
   loadChestModel(path, x, y, isOpened) {
@@ -538,7 +546,7 @@ export class RendererThreeJS {
           pivot.userData = { gridX: x, gridY: y };
           this.worldGroup.add(pivot);
         } else if (tileId === 3) {
-          const chestPath = spec.assets && spec.assets.chest ? spec.assets.chest : 'assets/glb/chest.gltf';
+          const chestPath = spec.assets && spec.assets.chest ? spec.assets.chest : 'assets/glb/chest.glb';
           const isOpened = gameState && gameState.openedChests && gameState.openedChests.has(`${x},${y}`);
           this.loadChestModel(chestPath, x, y, isOpened);
         }
