@@ -189,7 +189,7 @@ export class LevelUpUI {
         <div style="margin-top: 10px; border-top: 1px solid var(--border-steel); padding-top: 10px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
             <span style="font-weight: bold; color: #d2a8ff; font-size: 12px;">🔮 Grimoire Scribing & Arcane Capacity</span>
-            <span style="font-size: 10px; color: #3fb950; font-weight: bold;">+10 Max Cognition</span>
+            <span style="font-size: 10px; color: #3fb950; font-weight: bold;">+10 Max Arcane Capacity</span>
           </div>
           <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 8px;">
             Choose newly mastered constructs to scribe into your active memory repertoire:

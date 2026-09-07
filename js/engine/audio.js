@@ -29,6 +29,7 @@ export class AudioManager {
     bash: '/assets/audio/bash.mp3',
     rested: '/assets/audio/rested.mp3',
     falling: '/assets/audio/falling.mp3',
+    fire_torch: '/assets/audio/fire_torch.mp3',
 
     // Combat hits / misses
     sword_hit: '/assets/audio/sword_hit.mp3',

@@ -950,5 +950,16 @@
         ]
       }
     }
+  },
+  "wandering_monsters": {
+    "dungeon": [
+      { "monsterId": "skeletal_sentinel", "count": 2, "name": "Patrolling Skeletal Sentinels" },
+      { "monsterId": "tomb_ghoul", "count": 1, "name": "Prowling Tomb Ghoul" },
+      { "monsterId": "kobold_sapper", "count": 2, "name": "Kobold Sapper Patrol" }
+    ],
+    "wilderness": [
+      { "monsterId": "ashen_cultist", "count": 2, "name": "Roaming Ashen Cultists" },
+      { "monsterId": "dread_spider", "count": 1, "name": "Stalking Dread Spider" }
+    ]
   }
 }

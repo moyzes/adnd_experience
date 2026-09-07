@@ -623,6 +623,17 @@
       }
     }
   },
+  "wandering_monsters": {
+    "dungeon": [
+      { "monsterId": "crypt_skeleton", "count": 2, "name": "Wandering Crypt Skeletons" },
+      { "monsterId": "cult_thrall", "count": 2, "name": "Wandering Cult Thralls" },
+      { "monsterId": "tomb_ghoul", "count": 1, "name": "Prowling Tomb Ghoul" }
+    ],
+    "wilderness": [
+      { "monsterId": "giant_spider", "count": 1, "name": "Stalking Giant Spider" },
+      { "monsterId": "cult_thrall", "count": 2, "name": "Wilderness Cult Thralls" }
+    ]
+  },
   "epilogue_notes": {
     "success_bones_returned": "You climb back into the grey light of Thorn with Saint Orlan’s femur wrapped in oilcloth. Elder Marrow pays the promised coin and speaks of piety. Mira’s eyes, if she lives, say otherwise. The feud is not ended — only postponed. The crypt still floods when it rains.",
     "success_truth_exposed": "The true rolls are read in the village square. Some call it justice. Some call it heresy. Divine favor remembers which side the Cleric chose when the bone was still warm from Corvin’s hands.",

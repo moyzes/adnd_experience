@@ -603,5 +603,16 @@
         ]
       }
     }
+  },
+  "wandering_monsters": {
+    "dungeon": [
+      { "monsterId": "ruins_skeleton", "count": 2, "name": "Patrolling Skeletal Sentinels" },
+      { "monsterId": "goblin_warrior", "count": 2, "name": "Goblin Warband Patrol" },
+      { "monsterId": "goblin_scout", "count": 2, "name": "Scouting Goblins" }
+    ],
+    "wilderness": [
+      { "monsterId": "goblin_scout", "count": 2, "name": "Wilderness Goblin Scouts" },
+      { "monsterId": "wilderness_spider", "count": 1, "name": "Prowling Canopy Spider" }
+    ]
   }
 }

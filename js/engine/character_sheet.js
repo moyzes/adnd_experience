@@ -129,7 +129,10 @@ export class CharacterSheetUI {
         </div>
       </div>`;
     } else if (hero.classKey === 'mage') {
+      const maxBurden = hero.maxCognition || 100;
+      const burden = Math.max(0, maxBurden - (hero.cognition ?? maxBurden));
       const heldLoad = (hero.spells || []).filter(s => !s.spent).reduce((sum, s) => sum + (s.cognitive_load || 0), 0);
+      const lingeringStrain = Math.max(0, burden - heldLoad);
       const unmemorizedCount = (hero.spells || []).filter(s => s.spent).length;
       const preparedList = (hero.spells || [])
         .map((s, idx) => ({ ...s, originalIdx: idx }))
@@ -143,7 +146,7 @@ export class CharacterSheetUI {
             ? `<button class="action-tab sheet-cast-mage-spell-btn" data-index="${s.originalIdx}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Cast</button>`
             : '';
           return `<li style="color: #d2a8ff; margin-bottom: 3px; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
-            <span>[L${s.level}] <b>${s.name}</b> <span style="color:var(--text-muted);font-size:10px;">(load ${s.cognitive_load || '?'})</span></span>
+            <span>[L${s.level}] <b>${s.name}</b> <span style="color:var(--text-muted);font-size:10px;">(load: +${s.cognitive_load || 20} Burden)</span></span>
             ${castBtn}
           </li>`;
         }).join('');
@@ -151,7 +154,7 @@ export class CharacterSheetUI {
       const grimoireEntries = (hero.spells || []).map((s, idx) => {
         const statusBadge = s.spent
           ? '<span style="color: #8b949e; font-size: 10px;">[In Grimoire]</span>'
-          : '<span style="color: #3fb950; font-size: 10px;">[Memorized]</span>';
+          : '<span style="color: #3fb950; font-size: 10px;">[Construct Prepared]</span>';
         const memBtn = (s.spent && hero.hp > 0 && !this.state.combat.active)
           ? `<button class="action-tab sheet-memorize-spell-btn" data-index="${idx}" style="padding:2px 8px;font-size:10px;margin-left:8px;">Memorize</button>`
           : '';
@@ -166,12 +169,12 @@ export class CharacterSheetUI {
 
       specializedHTML = `
       <div style="background: #161b22; padding: 10px; border: 1px solid var(--border-steel); border-radius: 4px; margin-bottom: 12px; font-size: 12px;">
-        <div style="color: var(--accent-gold); font-weight: bold; margin-bottom: 6px; font-size: 13px;">⚡ Vancian Arcane Metrics</div>
-        <div>Cognition: <b style="color:#d2a8ff;">${hero.cognition}/${hero.maxCognition}</b> <span style="color:var(--text-muted);font-size:10px;">(held burden: ${heldLoad})</span></div>
+        <div style="color: var(--accent-gold); font-weight: bold; margin-bottom: 6px; font-size: 13px;">⚡ Vancian Mental Burden</div>
+        <div>Burden: <b style="color:#d2a8ff;">${burden}/${maxBurden}</b> <span style="color:var(--text-muted);font-size:10px;">(Held constructs: ${heldLoad}${lingeringStrain > 0 ? `, Lingering strain: ${lingeringStrain}` : ''})</span></div>
         
         <div style="margin-top: 8px; font-weight: bold; color: var(--gold-tsr); font-size: 11px;">Active Constructs Held in Mind:</div>
         <ul style="margin: 4px 0 6px 4px; padding: 0; list-style: none;">
-          ${preparedList || '<li style="color: var(--text-muted); font-style: italic; font-size: 11px;">No constructs currently held in mind (0 burden). Mind is completely free.</li>'}
+          ${preparedList || '<li style="color: var(--text-muted); font-style: italic; font-size: 11px;">No constructs currently held in mind (0 Burden). Mind is completely unencumbered.</li>'}
         </ul>
 
         <div style="margin-top: 8px; font-weight: bold; color: var(--gold-tsr); font-size: 11px; border-top: 1px solid var(--border-iron); padding-top: 6px;">📖 Grimoire Inscriptions:</div>
@@ -181,7 +184,7 @@ export class CharacterSheetUI {
 
         <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <button id="sheet-study-grimoire-btn" class="action-tab" style="padding:4px 10px;font-size:10px;" ${unmemorizedCount === 0 || hero.hp <= 0 ? 'disabled' : ''}>📖 Study Grimoire (Memorize All)</button>
-          <span style="color:var(--text-muted);font-size:10px;">Commits grimoire formulas to active memory (deducts cognitive load).</span>
+          <span style="color:var(--text-muted);font-size:10px;">Commits grimoire formulas to active memory (increases mental burden).</span>
         </div>
       </div>`;
     } else if (hero.classKey === 'cleric') {
@@ -464,7 +467,11 @@ export class CharacterSheetUI {
         const itemName = btn.getAttribute('data-item');
         const result = this.state.useConsumable(itemName, hIdx);
         if (result.success) {
-          this.context.playSFX('reward');
+          if (itemName && itemName.toLowerCase().includes('torch')) {
+            this.context.playSFX('fire_torch');
+          } else {
+            this.context.playSFX('reward');
+          }
           this.context.log(result.log || `Used ${itemName}.`, "success");
           this.open(this.state.party[hIdx].name);
           this.context.updateHUD();

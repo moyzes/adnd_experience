@@ -196,8 +196,10 @@ export class UIController {
 
                 // Keep secondary metrics visible in combat (cognition / divine favor / tools)
                 if (hero.classKey === 'mage' && hero.maxCognition) {
-                    const cogPct = Math.round((hero.cognition / hero.maxCognition) * 100);
-                    cache.secondary.innerHTML = `<div class="metric-label"><span>Cognition</span><span>${hero.cognition}/${hero.maxCognition}</span></div><div class="status-bar-bg"><div class="cognition-fill" style="width: ${cogPct}%;"></div></div>`;
+                    const maxBurden = hero.maxCognition || 100;
+                    const burden = Math.max(0, maxBurden - (hero.cognition ?? maxBurden));
+                    const burdenPct = Math.min(100, Math.max(0, Math.round((burden / maxBurden) * 100)));
+                    cache.secondary.innerHTML = `<div class="metric-label"><span>Burden</span><span>${burden}/${maxBurden}</span></div><div class="status-bar-bg"><div class="cognition-fill" style="width: ${burdenPct}%;"></div></div>`;
                 } else if (hero.classKey === 'cleric' && hero.maxDivineFavor) {
                     const favorPct = Math.round((hero.divineFavor / hero.maxDivineFavor) * 100);
                     cache.secondary.innerHTML = `<div class="metric-label"><span>Divine Favor</span><span>${hero.divineFavor}%</span></div><div class="status-bar-bg"><div class="favor-fill" style="width: ${favorPct}%;"></div></div>`;
@@ -382,8 +384,10 @@ export class UIController {
                         spellsButtonsHTML += `<button id="study-grimoire-btn" class="tsr-sq-btn" title="Study Grimoire to memorize formulas into active mind">${this.SVG_ICONS.READ}<span class="btn-word">Study</span></button>`;
                     }
                     cardActions = `<div class="card-actions-grid">${spellsButtonsHTML || '<span style="font-size:9px;color:var(--text-muted);">No constructs held</span>'}</div>`;
-                    const cogPct = Math.round((hero.cognition / hero.maxCognition) * 100);
-                    secondaryMetricBar = `<div class="metric-label"><span>Cognition</span><span>${hero.cognition}/${hero.maxCognition}</span></div><div class="status-bar-bg"><div class="cognition-fill" style="width: ${cogPct}%;"></div></div>`;
+                    const maxBurden = hero.maxCognition || 100;
+                    const burden = Math.max(0, maxBurden - (hero.cognition ?? maxBurden));
+                    const burdenPct = Math.min(100, Math.max(0, Math.round((burden / maxBurden) * 100)));
+                    secondaryMetricBar = `<div class="metric-label"><span>Burden</span><span>${burden}/${maxBurden}</span></div><div class="status-bar-bg"><div class="cognition-fill" style="width: ${burdenPct}%;"></div></div>`;
                 } else if (hero.classKey === 'cleric') {
                     if (hero.divineFavor <= 0 || hero.absoluteSilence) {
                         cardActions = `<div class="silence-badge">🚫 ABSOLUTE SILENCE</div>`;

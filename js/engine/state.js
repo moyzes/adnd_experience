@@ -186,6 +186,9 @@ export class GameState {
     this.disarmedTraps = new Set();
     this.triggeredEvents = new Set();
     this.exploredTiles = new Set();
+    this.failedLockAttempts = new Set(); // Tracks "${x},${y}:${thiefLevel}" lockout
+    this.spawnedPatrolZones = new Set(); // Tracks unique area patrol spawns so patrols do not spawn infinitely
+    this.explorationTurnCounter = 0;     // Accumulates 10-minute exploration turns for periodic 30-min hazard checks
     this.consecratedSteps = 0;
     
     this.activeNpc = null;
@@ -1217,7 +1220,7 @@ export class GameState {
     if (def.useEffect === 'light') {
       this.removePartyItem(itemName, 1);
       this.torchLitUntil = Date.now() + 3 * 60 * 1000;
-      return { success: true, log: `🔥 A torch is lit! Warm, flickering flames push back the dungeon darkness for 3 minutes.` };
+      return { success: true, useEffect: 'light', log: `🔥 A torch is lit! Warm, flickering flames push back the dungeon darkness for 3 minutes.` };
     }
 
     if (def.useEffect === 'repair_tools') {
@@ -1864,11 +1867,19 @@ export class GameState {
 
           const load = spell.cognitive_load || 20;
           const refund = Math.floor(load * 0.8);
+          const residualStrain = load - refund;
           spell.spent = true;
           hero.cognition = Math.min(hero.maxCognition || 100, (hero.cognition || 0) + refund);
 
           if (castInterrupted[heroIndex]) {
-            combatEvents.push({ eventType: 'SPELL_FIZZLE', sourceName: hero.name, spellId: spell.id, targetHeroIndex: heroIndex, logText: `💫 ${hero.name}'s ${spell.name} collapses! Concentration broken — construct erased (mind eases +${refund}).`, logType: 'danger' });
+            combatEvents.push({
+              eventType: 'SPELL_FIZZLE',
+              sourceName: hero.name,
+              spellId: spell.id,
+              targetHeroIndex: heroIndex,
+              logText: `💫 ${hero.name}'s ${spell.name} collapses! Concentration broken — construct erased [Construct released (-${refund} Burden, +${residualStrain} Lingering Strain)].`,
+              logType: 'danger'
+            });
             continue;
           }
 
@@ -1879,7 +1890,7 @@ export class GameState {
             simHeroHp,
             party: this.party,
             casterIndex: heroIndex,
-            casterRefundText: ` (mind eases +${refund})`
+            casterRefundText: ` [Construct released (-${refund} Burden, +${residualStrain} Lingering Strain)]`
           });
           combatEvents.push(...events);
         } else if (command.type === 'PRAY') {
@@ -2438,6 +2449,115 @@ export class GameState {
   // EXPLORATION & DUNGEONEERING
   // ===========================================================================
 
+  advanceExplorationTurn(minutes = 10, sourceAction = "Exploration", isLoud = false) {
+    // 1. Advance torch and light spell duration counters
+    if (this.torchLitUntil > 0) {
+      this.torchLitUntil = Math.max(0, this.torchLitUntil - minutes);
+      if (this.torchLitUntil === 0) {
+        this.addLog(`🔥 The party's torch flickers violently and burns out! Darkness closes in.`, "warning");
+      }
+    }
+    if (this.lightSpellUntil > 0) {
+      this.lightSpellUntil = Math.max(0, this.lightSpellUntil - minutes);
+      if (this.lightSpellUntil === 0) {
+        this.addLog(`✨ The radiant glow of the Light spell fades away.`, "info");
+      }
+    }
+
+    // 2. Wandering monster check: only in exploration areas (dungeon/wilderness), never in town
+    const zone = this.getCurrentZone ? this.getCurrentZone() : (this.isWildernessTile() ? 'wilderness' : 'dungeon');
+    if (zone === 'town' || this.combat.active) {
+      return { minutes, wanderingSpawned: false, zone };
+    }
+
+    // Accumulate quiet 10-minute actions towards a 30-minute interval check
+    this.explorationTurnCounter = (this.explorationTurnCounter || 0) + (minutes / 10);
+    
+    // Check wandering monsters if action was loud (bashing) OR if 3 turns (30 mins) have accumulated
+    const shouldCheck = isLoud || this.explorationTurnCounter >= 3;
+    if (!shouldCheck) {
+      return { minutes, wanderingSpawned: false, zone, turnsAccumulated: this.explorationTurnCounter };
+    }
+
+    // Reset accumulator on check
+    this.explorationTurnCounter = 0;
+
+    // 1-in-6 chance on a d6 check (or 2-in-6 if loud bashing)
+    const d6Roll = Math.floor(Math.random() * 6) + 1;
+    const triggerThreshold = isLoud ? 2 : 1;
+    let wanderingSpawned = false;
+    let isAmbush = false;
+    let chosenPatrolName = null;
+
+    if (d6Roll <= triggerThreshold) {
+      const areaKey = `${zone}_${this.player.x},${this.player.y}`;
+      if (!this.spawnedPatrolZones.has(areaKey)) {
+        this.spawnedPatrolZones.add(areaKey);
+        const table = this.spec.wandering_monsters ? (this.spec.wandering_monsters[zone] || this.spec.wandering_monsters['dungeon']) : null;
+        if (table && table.length > 0) {
+          const chosenPatrol = table[Math.floor(Math.random() * table.length)];
+          const monsterDef = this.spec.monsters ? this.spec.monsters[chosenPatrol.monsterId] : null;
+          if (monsterDef) {
+            chosenPatrolName = chosenPatrol.name;
+            const count = chosenPatrol.count || 1;
+            const enemies = [];
+            for (let i = 0; i < count; i++) {
+              enemies.push({
+                instanceId: `patrol_${chosenPatrol.monsterId}_${Date.now()}_${i}`,
+                id: monsterDef.id,
+                name: count > 1 ? `${monsterDef.name} ${String.fromCharCode(65 + i)}` : monsterDef.name,
+                hp: monsterDef.hp,
+                maxHp: monsterDef.maxHp,
+                armorClass: monsterDef.armorClass,
+                armorType: monsterDef.armorType || 'leather',
+                attackTarget: monsterDef.attackTarget,
+                thaco: monsterDef.thaco != null ? monsterDef.thaco : (monsterDef.attackTarget ? Math.max(10, 20 - (monsterDef.attackTarget - 11)) : 20),
+                damage: monsterDef.damage,
+                damageType: monsterDef.damageType || 'slashing',
+                actionPhase: monsterDef.actionPhase || 'MEDIUM',
+                moraleThreshold: monsterDef.moraleThreshold || 40,
+                xpReward: monsterDef.xpReward || 50,
+                glbModel: monsterDef.glbModel,
+                rotationOffset: monsterDef.rotationOffset || [0, 0, 0],
+                positionOffset: monsterDef.positionOffset || [0, 0, 0],
+                scale: monsterDef.scale !== undefined ? monsterDef.scale : 0.75,
+                creatureType: monsterDef.creatureType || 'mortal',
+                undeadTier: monsterDef.undeadTier || null
+              });
+            }
+
+            // Check if party is facing a wall, closed door, chest, or dead end
+            const facingBlocked = this.isFacingClosedObstacle();
+            if (facingBlocked) {
+              // Rear ambush! Enemies come from the open hall behind the party
+              isAmbush = true;
+              this.turnAround();
+              this.addLog(`⚠️ REAR AMBUSH! Clattering footsteps and guttural snarls echo from the corridor behind you! A patrol of ${chosenPatrol.name} has cornered the party against the obstacle!`, "danger");
+            } else {
+              this.addLog(`⚠️ WANDERING PATROL SPOTTED! The corridor echoes with approaching danger: ${chosenPatrol.name}!`, "danger");
+            }
+
+            this.combat = {
+              active: true,
+              round: 1,
+              encounterId: `wandering_${Date.now()}`,
+              enemies: enemies,
+              queuedCommands: {},
+              previousCommands: {},
+              channelingCast: null,
+              surpriseRound: isAmbush,
+              alertedRound: true
+            };
+
+            wanderingSpawned = true;
+          }
+        }
+      }
+    }
+
+    return { minutes, wanderingSpawned, isAmbush, patrolName: chosenPatrolName, zone };
+  }
+
   attemptPickpocket(npc) {
     const thief = this.party.find(p => p.classKey === 'thief');
     if (!thief || thief.hp <= 0) return { success: false, reason: "Thief is incapacitated or missing." };
@@ -2466,7 +2586,10 @@ export class GameState {
     const roll = Math.floor(Math.random() * 100) + 1;
     const success = roll <= chance;
     thief.isStealth = success;
-    return { success, roll, chance };
+    
+    // Blind roll: hide exact dice roll in blind mode
+    const turnResult = this.advanceExplorationTurn(10, "Hide in Shadows");
+    return { success, roll, chance, turnResult };
   }
 
   isFacingWall() {
@@ -2478,6 +2601,32 @@ export class GameState {
     const tx = this.player.x + dx, ty = this.player.y + dy;
     if (ty < 0 || ty >= this.spec.map.length || tx < 0 || tx >= this.spec.map[0].length) return true;
     return this.spec.map[ty][tx] === 1;
+  }
+
+  isFacingClosedObstacle() {
+    if (this.isFacingWall()) return true;
+    let dx = 0, dy = 0;
+    if (this.player.facing === 'NORTH') dy = -1;
+    else if (this.player.facing === 'SOUTH') dy = 1;
+    else if (this.player.facing === 'EAST') dx = 1;
+    else if (this.player.facing === 'WEST') dx = -1;
+    const tx = this.player.x + dx, ty = this.player.y + dy;
+    if (ty < 0 || ty >= this.spec.map.length || tx < 0 || tx >= this.spec.map[0].length) return true;
+    const tileId = this.spec.map[ty][tx];
+    const key = `${tx},${ty}`;
+    if ((tileId === 2 || tileId === 8) && !this.openedDoors.has(key)) return true;
+    if (tileId === 7) return true;
+    return false;
+  }
+
+  turnAround() {
+    const directions = ['NORTH', 'EAST', 'SOUTH', 'WEST'];
+    let index = directions.indexOf(this.player.facing);
+    if (index === -1) index = 0;
+    index = (index + 2) % 4;
+    this.player.facing = directions[index];
+    this.revealExploration();
+    this.isDirty = true;
   }
 
   getTrapInFront() {
@@ -2509,7 +2658,8 @@ export class GameState {
       this.detectedTraps.add(`${target.x},${target.y}`);
       this.awardQuestXP(100);
     }
-    return { success, roll, chance };
+    const turnResult = this.advanceExplorationTurn(10, "Find Traps");
+    return { success, roll, chance, turnResult };
   }
 
   attemptDisarmTrap(target) {
@@ -2522,19 +2672,22 @@ export class GameState {
     const roll = Math.floor(Math.random() * 100) + 1;
     const key = `${target.x},${target.y}`;
     
+    const turnResult = this.advanceExplorationTurn(10, "Disarm Trap");
+
     if (roll <= chance) {
       this.disarmedTraps.add(key);
       this.awardQuestXP(200);
-      return { success: true, triggered: false, roll, chance, durability: thief.toolsDurability };
+      return { success: true, triggered: false, roll, chance, durability: thief.toolsDurability, turnResult };
     } 
     // In AD&D 2e, a trap only springs inadvertently on a fumble (roll > 95)
     if (roll > 95) {
       this.disarmedTraps.add(key);
-      const trapResult = this.triggerTrap(target);
-      return { success: false, triggered: true, roll, chance, trapResult, durability: thief.toolsDurability };
+      // Fumble when disarming: roll specifically for the thief attempting the disarm!
+      const trapResult = this.triggerTrap(target, thief);
+      return { success: false, triggered: true, roll, chance, trapResult, durability: thief.toolsDurability, turnResult };
     } else {
       // Normal failure: the mechanism resists, but the trap is not sprung
-      return { success: false, triggered: false, roll, chance, durability: thief.toolsDurability };
+      return { success: false, triggered: false, roll, chance, durability: thief.toolsDurability, turnResult };
     }
   }
 
@@ -2579,7 +2732,17 @@ export class GameState {
       const nearby = (this.spec.encounters || []).find(e => !e.completed && Math.max(Math.abs(e.x - this.player.x), Math.abs(e.y - this.player.y)) <= range);
       if (nearby) nearby.alerted = true;
     }
-    return { success, roll, chance, discoveries };
+    const turnResult = this.advanceExplorationTurn(10, "Scout Ahead", false);
+
+    // If a wandering patrol spawned while scouting, the thief spotted them approaching ahead!
+    // Party gains awareness/advantage rather than being ambushed.
+    if (turnResult && turnResult.wanderingSpawned && this.combat.active) {
+      this.combat.surpriseRound = false;
+      this.combat.alertedRound = true;
+      discoveries.unshift({ type: 'patrol', name: turnResult.patrolName || 'Wandering Patrol' });
+    }
+
+    return { success, roll, chance, discoveries, turnResult };
   }
 
   checkPassiveHearNoise() {
@@ -2634,15 +2797,25 @@ export class GameState {
     return { success, roll, chance, encounterName: encounter.name };
   }
 
-  triggerTrap(trapDef) {
+  triggerTrap(trapDef, specificTarget = null) {
     const totalDamage = trapDef.damage || 15;
     const category = trapDef.saveCategory || 'breath';
     const subCategory = trapDef.subCategory || trapDef.name;
     const activeMembers = this.party.filter(p => p.hp > 0);
     if (activeMembers.length === 0) return { totalDamage, category, damagePerPlayer: 0, results: [], partyWiped: true };
 
-    const damagePerPlayer = Math.ceil(totalDamage / activeMembers.length);
-    const results = activeMembers.map(member => {
+    let targetedMembers = [];
+    if (specificTarget && specificTarget.hp > 0) {
+      // Direct single target (e.g. Thief during disarm fumble)
+      targetedMembers = [specificTarget];
+    } else {
+      // Stepping on a trap / random triggering: roll saving throw for a random active party member
+      const luckyOrUnluckyHero = activeMembers[Math.floor(Math.random() * activeMembers.length)];
+      targetedMembers = [luckyOrUnluckyHero];
+    }
+
+    const damagePerPlayer = totalDamage;
+    const results = targetedMembers.map(member => {
       const save = this.checkSavingThrow(member, category, subCategory);
       const damage = save.success ? Math.ceil(damagePerPlayer / 2) : damagePerPlayer;
       member.hp = Math.max(-10, member.hp - damage);
@@ -2663,21 +2836,37 @@ export class GameState {
     return resolveSavingThrow(hero, category, subCategory, dcBonus);
   }
 
-  attemptPickLock(targetType) {
+  attemptPickLock(target) {
     const thief = this.party.find(p => p.classKey === 'thief' && p.hp > 0);
     if (!thief) return { success: false, reason: "The thief is incapacitated!" };
     if (thief.toolsDurability <= 0) return { success: false, reason: "Thieves' tools are blunted or broken! Refurbish them at Grimm's Outfitter." };
     
+    const lockKey = target ? `${target.x},${target.y}:${thief.level}` : null;
+    if (lockKey && this.failedLockAttempts.has(lockKey)) {
+      return { 
+        success: false, 
+        lockedOut: true, 
+        reason: `${thief.name} has already tried this lock at Level ${thief.level} and found the tumblers beyond their current skill. Try again after leveling up or bash the obstacle.` 
+      };
+    }
+
     const roll = Math.floor(Math.random() * 100) + 1;
     const wear = (roll > 95) ? 10 : 4;
     thief.toolsDurability = Math.max(0, thief.toolsDurability - wear);
 
     const chance = this.getSkillTarget(thief, 'pick_locks');
     const success = roll <= chance;
+    
+    const turnResult = this.advanceExplorationTurn(10, "Pick Lock");
+
     if (success) {
       this.awardQuestXP(150);
+    } else {
+      if (lockKey) {
+        this.failedLockAttempts.add(lockKey);
+      }
     }
-    return { success, roll, chance, durability: thief.toolsDurability, fumbled: roll > 95 };
+    return { success, roll, chance, durability: thief.toolsDurability, fumbled: roll > 95, turnResult };
   }
 
   unlockTarget(x, y, type) {
@@ -2851,13 +3040,19 @@ export class GameState {
   attemptBash(fighter) {
     const target = this.getSkillTarget(fighter, 'bash');
     const roll = Math.floor(Math.random() * 20) + 1;
-    return { success: (roll <= target) && (roll !== 20), roll, target };
+    const success = (roll <= target) && (roll !== 20);
+    
+    // Bashing makes violent noise — advance exploration turn and check wandering patrol / alert nearby
+    const turnResult = this.advanceExplorationTurn(10, "Bash Door");
+
+    // Also alert any nearby encounters within 3 tiles
+    const nearby = (this.spec.encounters || []).find(e => !e.completed && Math.max(Math.abs(e.x - this.player.x), Math.abs(e.y - this.player.y)) <= 3);
+    if (nearby) nearby.alerted = true;
+
+    return { success, roll, target, turnResult };
   }
 
   attemptReadMagic(mage, lock) {
-    const cogCost = 15;
-    if (mage.cognition < cogCost) return { success: false, reason: "Insufficient cognition!" };
-    mage.cognition -= cogCost;
     const target = this.getSkillTarget(mage, 'read_magic');
     const roll = Math.floor(Math.random() * 20) + 1;
     return { success: (roll <= target) && (roll !== 20), roll, target };
@@ -3030,12 +3225,16 @@ export class GameState {
     if (res.success) {
       const load = spell.cognitive_load || 20;
       const refund = Math.floor(load * 0.8);
+      const residualStrain = load - refund;
       mage.cognition = Math.min(mage.maxCognition, mage.cognition + refund);
       return {
         ...res,
         refund,
-        residualBurn: load - refund,
-        currentCognition: mage.cognition
+        residualBurn: residualStrain,
+        currentCognition: mage.cognition,
+        log: res.log
+          ? `${res.log} [Construct released (-${refund} Burden, +${residualStrain} Lingering Strain)]`
+          : `✨ ${mage.name} releases ${spell.name}! [Construct released (-${refund} Burden, +${residualStrain} Lingering Strain)]`
       };
     }
 

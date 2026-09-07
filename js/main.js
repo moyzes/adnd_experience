@@ -488,11 +488,12 @@ class GameOrchestrator {
       const target = this.getLockInFront();
       if (!target) return this.log("There is no locked mechanism in front of you.", "info");
       if (this.checkTrapBeforeAction(target)) return;
-      const result = this.state.attemptPickLock(target.type);
+      const result = this.state.attemptPickLock(target);
       if (result.reason) {
         this.playSFX('blocked');
         return this.log(result.reason, "warning");
       }
+      this.log(`⏳ An exploration turn passes (10 min) while tampering with the lock...`, "muted");
       if (result.success) {
         this.state.unlockTarget(target.x, target.y, target.type);
         this.playSFX('unlock'); this.playSFX('reward');
@@ -500,22 +501,30 @@ class GameOrchestrator {
       } else {
         this.playSFX('unlock_try');
         const fumbleMsg = result.fumbled ? " (CRITICAL JAM - extra tool wear)" : "";
-        this.log(`Pick lock failed: Tumblers resisted [d100=${result.roll} vs Target ${result.chance}%]${fumbleMsg} (Tools: ${result.durability}%)`, "warning");
+        this.log(`Pick lock failed: Tumblers resisted [d100=${result.roll} vs Target ${result.chance}%]${fumbleMsg} (Tools: ${result.durability}%).`, "warning");
+        this.log(`⚠️ Tumblers jammed for this level! ${thief.name} cannot retry this lock until gaining a level. (Bash or spell can still bypass).`, "info");
       }
       this.uiController.updateHUD(true);
+      if (result.turnResult && result.turnResult.wanderingSpawned) {
+        this.handlePostActionPatrol(result.turnResult);
+      }
     }
     else if (actionType === 'FIND_TRAP') {
       if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
       const target = this.state.getTrapInFront();
       if (!target) return this.log("No traps detected in the immediate area.", "info");
       const result = this.state.attemptFindTrap(target);
+      this.log(`⏳ An exploration turn passes (10 min) as ${thief.name} searches carefully...`, "muted");
       if (result.success) {
         this.playSFX('trap_found');
-        this.log(`Success! Trap detected: ${target.name} [d100=${result.roll} vs Target ${result.chance}%]! Ready to disarm.`, "warning");
+        this.log(`Success! Trap detected: ${target.name}! Concealed mechanism marked and ready to disarm.`, "warning");
       } else {
-        this.log(`Find traps: No signs found [d100=${result.roll} vs Target ${result.chance}%].`, "info");
+        this.log(`Find traps: ${thief.name} inspected carefully but found no apparent trigger or mechanism.`, "info");
       }
       this.uiController.updateHUD(true);
+      if (result.turnResult && result.turnResult.wanderingSpawned) {
+        this.handlePostActionPatrol(result.turnResult);
+      }
     }
     else if (actionType === 'DISARM_TRAP') {
       if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
@@ -526,6 +535,7 @@ class GameOrchestrator {
         this.playSFX('blocked');
         return this.log(result.reason, "warning");
       }
+      this.log(`⏳ An exploration turn passes (10 min) while probing delicate counterweights...`, "muted");
       if (result.success) {
         this.playSFX('unlock'); this.playSFX('reward');
         this.log(`Success! ${target.name} safely disabled [d100=${result.roll} vs Target ${result.chance}%] (Tools: ${result.durability}%).`, "success");
@@ -539,22 +549,41 @@ class GameOrchestrator {
         this.log(`Disarm failed: Mechanism resisted probes [d100=${result.roll} vs Target ${result.chance}%] (Tools: ${result.durability}%). Trap remains primed.`, "warning");
       }
       this.uiController.updateHUD(true);
+      if (result.turnResult && result.turnResult.wanderingSpawned) {
+        this.handlePostActionPatrol(result.turnResult);
+      }
     }
     else if (actionType === 'HIDE_SHADOWS') {
       if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
       const result = this.state.attemptHideInShadows();
+      this.log(`⏳ An exploration turn passes (10 min) while slipping into gloom...`, "muted");
       if (result.success) {
         this.playSFX('hide'); this.playSFX('reward');
-        this.log(`Success! Slips into shadows (Stealth Active).`, "success");
-      } else this.log(`Hide in shadows failed.`, "warning");
+        this.log(`${thief.name} melts into the shadows. (Stealth active, backstab primed).`, "success");
+      } else {
+        this.log(`${thief.name} tries to find cover in the ambient shadows.`, "info");
+      }
       this.uiController.updateHUD(true);
+      if (result.turnResult && result.turnResult.wanderingSpawned) {
+        this.handlePostActionPatrol(result.turnResult);
+      }
     }
     else if (actionType === 'SCOUT_AHEAD') {
       if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
       const result = this.state.attemptScout();
       if (!result.success) return this.log(result.reason || `Scouting turned up nothing.`, "info");
-      if (result.discoveries.length === 0) this.log(`The way ahead looks clear.`, "info");
-      else result.discoveries.forEach(d => this.log(`Scouted ahead: ${d.name} detected.`, "warning"));
+      this.log(`⏳ An exploration turn passes (10 min) while scouting ahead...`, "muted");
+      
+      const otherDiscoveries = (result.discoveries || []).filter(d => d.type !== 'patrol');
+
+      if (result.turnResult && result.turnResult.wanderingSpawned) {
+        this.log(`🗡️ Scouting Discovery! While creeping down the corridor, ${thief.name} spotted an incoming hostile patrol: ${result.turnResult.patrolName || 'Wandering Monsters'}! The party readies weapons with surprise advantage!`, "warning");
+        this.handlePostActionPatrol(result.turnResult);
+      } else if (otherDiscoveries.length > 0) {
+        otherDiscoveries.forEach(d => this.log(`Scouted ahead: ${d.name} detected.`, "warning"));
+      } else {
+        this.log(`The way ahead looks clear.`, "info");
+      }
       this.uiController.updateHUD();
     }
     else if (actionType === 'PICKPOCKET_NPC') {
@@ -570,8 +599,8 @@ class GameOrchestrator {
       const result = this.state.studyGrimoire(payload);
       if (!result.success) return this.log(result.reason, "warning");
       this.playSFX('read_magic');
-      if (result.brainBurnDamage > 0) this.log(`🧠 BRAIN BURN! Forced memory into taxed mind (-${result.cognitiveCost} Cog, ${result.brainBurnDamage} HP).`, "danger");
-      else this.log(`📖 ${mage.name} studies the grimoire, memorizing ${result.rememorized.join(', ')} (-${result.cognitiveCost} Cognition).`, "success");
+      if (result.brainBurnDamage > 0) this.log(`🧠 BRAIN BURN! Forced memory into taxed mind (+${result.cognitiveCost} Burden, ${result.brainBurnDamage} HP).`, "danger");
+      else this.log(`📖 ${mage.name} studies the grimoire, memorizing ${result.rememorized.join(', ')} (+${result.cognitiveCost} Burden).`, "success");
       this.uiController.updateHUD(true);
     }
     else if (actionType === 'CAST_MAGE_SPELL') {
@@ -609,13 +638,17 @@ class GameOrchestrator {
       if (!target || this.checkTrapBeforeAction(target)) return;
       const result = this.state.attemptBash(fighter);
       this.playSFX('sheet');
+      this.log(`⏳ An exploration turn passes (10 min) with forceful thuds and splintering wood...`, "muted");
       if (result.success) {
         this.state.unlockTarget(target.x, target.y, target.type);
-        this.playSFX('bash'); this.log("Success! The door gives way.", "success");
+        this.playSFX('bash'); this.log(`💥 CRASH! Success! ${fighter.name} violently forced the lock open [d20=${result.roll} vs Target ${result.target}].`, "success");
       } else {
-        this.playSFX('blocked'); this.log("Bash failed. Gate holds firm.", "danger");
+        this.playSFX('blocked'); this.log(`💥 THUD! Bash failed: Heavy wood and iron bands hold firm [d20=${result.roll} vs Target ${result.target}]. The noise echoes through corridors!`, "danger");
       }
       this.uiController.updateHUD(true);
+      if (result.turnResult && result.turnResult.wanderingSpawned) {
+        this.handlePostActionPatrol(result.turnResult);
+      }
     }
     else if (actionType === 'READ_MAGIC') {
       if (!mage || mage.hp <= 0) return this.log("The mage is incapacitated.", "warning");
@@ -638,10 +671,30 @@ class GameOrchestrator {
           this.log(`✨ Arcane runes deciphered! [d20=${result.roll} vs Target ${result.target}]`, "success");
         }
       } else {
-        this.log(`The arcane runes remain stubborn. Cognition drained. [d20=${result.roll} vs Target ${result.target}]`, "warning");
+        this.log(`The arcane runes remain stubborn. The cipher resists translation. [d20=${result.roll} vs Target ${result.target}]`, "warning");
       }
       this.uiController.updateHUD(true);
     }
+  }
+
+  handlePostActionPatrol(turnResult = null) {
+    if (!this.state.combat.active) return;
+    this.combatController.stopCombatMusic();
+    const tracks = this.state.spec.combat_tracks || ['combat_1', 'combat_2', 'combat_3'];
+    this.audioManager.playCombatBgm(tracks);
+    this.playSFX('combat_turn');
+
+    // If ambushed or turned around, update camera targetAngle so camera smoothly swings 180°
+    this.camera.targetAngle = this.facingToAngle(this.state.player.facing);
+
+    if (turnResult && turnResult.isAmbush) {
+      this.playSFX('death_groan');
+    }
+
+    if (this.renderer3D && typeof this.renderer3D.renderEncounterMonsters === 'function') {
+      this.renderer3D.renderEncounterMonsters(this.state.combat.enemies, this.state.player);
+    }
+    this.uiController.updateHUD(true);
   }
 
   handleCombatCommandQueue(hIdx, cmdType, extra) {
