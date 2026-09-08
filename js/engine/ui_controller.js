@@ -24,6 +24,7 @@ export class UIController {
             BASH: `<svg viewBox="0 0 24 24"><path d="M5 15.7l3.3-3.3 2.8 2.8-3.3 3.3zM18.7 4.3c-.8-.8-2.1-.8-2.8 0l-5.4 5.4 2.8 2.8 5.4-5.4c.8-.7.8-2 0-2.8zM2 20.5L3.5 22l4-4-1.5-1.5z"/></svg>`,
             SCOUT: `<svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>`,
             READ: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2zm0-4H7V7h10v2zm0 8H7v-2h7v2z"/></svg>`,
+            INTIMIDATE: `<svg viewBox="0 0 24 24"><path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/></svg>`,
         };
 
         this.initListeners();
@@ -152,7 +153,8 @@ export class UIController {
         // Build a lightweight signature of contextual UI triggers to prevent unnecessary DOM reconstruction on every step
         const lockSig = lockTarget ? `${lockTarget.x},${lockTarget.y},${lockTarget.locked}` : '';
         const trapSig = trapInFront ? `${trapInFront.x},${trapInFront.y},${trapInFront.detected}` : '';
-        const currentSig = `${this.state.combat.active}_${this.state.player.x}_${this.state.player.y}_${this.state.player.facing}_${lockSig}_${trapSig}_${this.state.activeNpc ? this.state.activeNpc.id : ''}_${partySig}`;
+        const surrenderedSig = this.state.surrenderedEnemy ? `${this.state.surrenderedEnemy.instanceId}_${this.state.surrenderedEnemy.interrogated ? 1 : 0}_${this.state.surrenderedEnemy.looted ? 1 : 0}` : '';
+        const currentSig = `${this.state.combat.active}_${this.state.player.x}_${this.state.player.y}_${this.state.player.facing}_${lockSig}_${trapSig}_${this.state.activeNpc ? this.state.activeNpc.id : ''}_${surrenderedSig}_${partySig}`;
 
         if (!force && this.lastSig === currentSig && !this.state.combat.active) {
             // Context hasn't changed during exploration movement; skip heavy innerHTML DOM rebuilding
@@ -166,7 +168,7 @@ export class UIController {
                 this.elements.globalActions.innerHTML = `<button id="resolve-round-btn" class="action-tab primary" style="width: 100%; padding: 10px; font-size: 11px;">🔥 RESOLVE ROUND ${this.state.combat.round}</button>`;
             }
 
-            const aliveEnemies = this.state.combat.enemies.filter(e => e.hp > 0);
+            const aliveEnemies = this.state.combat.enemies.filter(e => e.hp > 0 && !e.fled && !e.surrendered);
             this.#updateEnemyHpOverlay(aliveEnemies);
 
             const targetOptionsHTML = aliveEnemies.map(e =>
@@ -302,7 +304,7 @@ export class UIController {
                 cache.actions.innerHTML = combatActions;
                 const selectEl = cache.actions.querySelector('.target-select');
                 if (selectEl) {
-                    const livingEnemies = (this.state.combat.enemies || []).filter(e => e.hp > 0);
+                    const livingEnemies = (this.state.combat.enemies || []).filter(e => e.hp > 0 && !e.fled && !e.surrendered);
                     const existingCmd = this.state.combat.queuedCommands[index] || this.state.combat.previousCommands[index] || { type: 'ATTACK' };
                     const targetAlive = livingEnemies.some(e => e.instanceId === existingCmd.targetInstanceId);
                     if (targetAlive) {
@@ -314,10 +316,14 @@ export class UIController {
             });
         } else {
             this.#updateEnemyHpOverlay([]);
+            const releaseBtnHTML = this.state.surrenderedEnemy
+              ? `<button id="release-captive-btn" class="action-tab warning" style="color: #e3b341; border-color: #e3b341;">🏳️ Release Captive</button>`
+              : '';
             this.elements.globalActions.innerHTML = `
               <button id="open-btn" class="action-tab">🔓 Open (Object)</button>
               <button id="shop-btn" class="action-tab">🏪 Outfitter</button>
-              <button id="rest-btn" class="action-tab primary">⛺ Rest & Camp</button>`;
+              <button id="rest-btn" class="action-tab primary">⛺ Rest & Camp</button>
+              ${releaseBtnHTML}`;
 
             this.state.party.forEach((hero, index) => {
                 const cache = this.hudCache.heroes[index];
@@ -351,8 +357,14 @@ export class UIController {
                     cardActions = `<div class="incapacitated-badge">⚠️ INCAPACITATED (${hero.hp})</div>`;
                 } else if (hero.classKey === 'fighter') {
                     secondaryMetricBar = `<div class="metric-label"><span>Tactical Guard</span><span>100%</span></div><div class="status-bar-bg"><div class="guard-fill" style="width: 100%;"></div></div>`;
-                    if (lockTarget && lockTarget.methods?.includes('brute')) {
-                        cardActions = `<div class="card-actions-grid"><button id="bash-btn" class="tsr-sq-btn">${this.SVG_ICONS.BASH}<span class="btn-word">Bash</span></button></div>`;
+                    const bashBtnHTML = (lockTarget && lockTarget.methods?.includes('brute'))
+                        ? `<button id="bash-btn" class="tsr-sq-btn">${this.SVG_ICONS.BASH}<span class="btn-word">Bash</span></button>`
+                        : '';
+                    const intimidateBtnHTML = (this.state.surrenderedEnemy && this.state.surrenderedEnemy.info && !this.state.surrenderedEnemy.interrogated)
+                        ? `<button id="intimidate-btn" class="tsr-sq-btn" title="Intimidate — Extract secrets and trap locations from the surrendered captive">${this.SVG_ICONS.INTIMIDATE}<span class="btn-word">Coerce</span></button>`
+                        : '';
+                    if (bashBtnHTML || intimidateBtnHTML) {
+                        cardActions = `<div class="card-actions-grid">${bashBtnHTML}${intimidateBtnHTML}</div>`;
                     } else {
                         cardActions = `<div style="font-size: 9px; color: var(--text-muted); padding-top: 6px;">Ready (Melee Stance)</div>`;
                     }
@@ -360,6 +372,9 @@ export class UIController {
                     let disarmBtnHTML = trapInFront && trapInFront.detected ? `<button id="disarm-trap-btn" class="tsr-sq-btn">${this.SVG_ICONS.DISARM}<span class="btn-word">Disarm</span></button>` : '';
                     const pickLockBtnHTML = lockTarget && lockTarget.methods?.includes('mechanical') ? `<button id="pick-lock-btn" class="tsr-sq-btn">${this.SVG_ICONS.PICK}<span class="btn-word">Pick</span></button>` : '';
                     const pickpocketBtnHTML = this.state.activeNpc ? `<button id="pickpocket-npc-btn" class="tsr-sq-btn">${this.SVG_ICONS.STEAL}<span class="btn-word">Steal</span></button>` : '';
+                    const stealSurrenderedBtnHTML = (this.state.surrenderedEnemy && this.state.surrenderedEnemy.loot && !this.state.surrenderedEnemy.looted)
+                        ? `<button id="steal-surrendered-btn" class="tsr-sq-btn" title="Steal — Strip valuables from surrendered captive">${this.SVG_ICONS.STEAL}<span class="btn-word">Steal</span></button>`
+                        : '';
                     const scoutBtnHTML = this.state.isFacingWall()
                       ? ''
                       : `<button id="scout-btn" class="tsr-sq-btn">${this.SVG_ICONS.SCOUT}<span class="btn-word">Scout</span></button>`;
@@ -367,7 +382,7 @@ export class UIController {
                     cardActions = `<div class="card-actions-grid">
   <button id="find-trap-btn" class="tsr-sq-btn">${this.SVG_ICONS.FIND}<span class="btn-word">Find</span></button>
   ${scoutBtnHTML}
-  ${disarmBtnHTML}${pickLockBtnHTML}${pickpocketBtnHTML}
+  ${disarmBtnHTML}${pickLockBtnHTML}${pickpocketBtnHTML}${stealSurrenderedBtnHTML}
   <button id="hide-shadows-btn" class="tsr-sq-btn ${hero.isStealth ? 'queued' : ''}">${this.SVG_ICONS.HIDE}<span class="btn-word">Hide</span></button>
 </div>`;
                 } else if (hero.classKey === 'mage') {
@@ -467,6 +482,8 @@ export class UIController {
             if (e.target.closest('#study-grimoire-btn')) this.callbacks.onUIAction('STUDY_GRIMOIRE');
             if (e.target.closest('#study-prayers-btn')) this.callbacks.onUIAction('STUDY_PRAYERS');
             if (e.target.closest('#bash-btn')) this.callbacks.onUIAction('BASH_DOOR');
+            if (e.target.closest('#intimidate-btn')) this.callbacks.onUIAction('INTIMIDATE_CAPTIVE');
+            if (e.target.closest('#steal-surrendered-btn')) this.callbacks.onUIAction('STEAL_CAPTIVE');
             if (e.target.closest('#read-magic-btn')) this.callbacks.onUIAction('READ_MAGIC');
 
             const mageBtn = e.target.closest('.mage-spell-btn');
@@ -490,6 +507,7 @@ export class UIController {
             if (e.target.closest('#open-btn')) this.callbacks.onGlobalAction('OPEN_OBJECT');
             if (e.target.closest('#shop-btn')) this.callbacks.onGlobalAction('OPEN_SHOP');
             if (e.target.closest('#rest-btn')) this.callbacks.onGlobalAction('REST_CAMP');
+            if (e.target.closest('#release-captive-btn')) this.callbacks.onGlobalAction('RELEASE_CAPTIVE');
         });
     }
 

@@ -473,6 +473,17 @@ class GameOrchestrator {
     else if (actionType === 'OPEN_OBJECT') this.handleOpenObject();
     else if (actionType === 'OPEN_SHOP') this.shopUI.open();
     else if (actionType === 'REST_CAMP') this.handleRestCamp();
+    else if (actionType === 'RELEASE_CAPTIVE') {
+      if (!this.state.surrenderedEnemy) return;
+      const captiveName = this.state.surrenderedEnemy.name;
+      this.state.surrenderedEnemy = null;
+      if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
+        this.renderer3D.clearEncounterMonsters();
+      }
+      this.playSFX('button');
+      this.log(`🏳️ You release ${captiveName}. Trembling, they scramble into the darkness and vanish.`, "info");
+      this.uiController.updateHUD(true);
+    }
   }
 
   handleUIAction(actionType, payload) {
@@ -487,6 +498,11 @@ class GameOrchestrator {
       if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
       const target = this.getLockInFront();
       if (!target) return this.log("There is no locked mechanism in front of you.", "info");
+      if (target.entity && target.entity.facing && !this.state.isFacingPropFront(target.entity)) {
+        this.playSFX('blocked');
+        const relative = (this.state.player.facing === target.entity.facing.toUpperCase()) ? 'back' : 'side';
+        return this.log(`You are at the ${relative} of the ${target.entity.name || 'chest'}. You must face its lock from the front!`, "warning");
+      }
       if (this.checkTrapBeforeAction(target)) return;
       const result = this.state.attemptPickLock(target);
       if (result.reason) {
@@ -645,7 +661,13 @@ class GameOrchestrator {
     else if (actionType === 'BASH_DOOR') {
       if (!fighter || fighter.hp <= 0) return this.log("The fighter is incapacitated and cannot bash.", "warning");
       const target = this.getLockInFront();
-      if (!target || this.checkTrapBeforeAction(target)) return;
+      if (!target) return;
+      if (target.entity && target.entity.facing && !this.state.isFacingPropFront(target.entity)) {
+        this.playSFX('blocked');
+        const relative = (this.state.player.facing === target.entity.facing.toUpperCase()) ? 'back' : 'side';
+        return this.log(`You are at the ${relative} of the ${target.entity.name || 'chest'}. You must face its lock from the front!`, "warning");
+      }
+      if (this.checkTrapBeforeAction(target)) return;
       const result = this.state.attemptBash(fighter);
       this.playSFX('sheet');
       this.log(`⏳ An exploration turn passes (10 min) with forceful thuds and splintering wood...`, "muted");
@@ -682,6 +704,33 @@ class GameOrchestrator {
         }
       } else {
         this.log(`The arcane runes remain stubborn. The cipher resists translation. [d20=${result.roll} vs Target ${result.target}]`, "warning");
+      }
+      this.uiController.updateHUD(true);
+    }
+    else if (actionType === 'INTIMIDATE_CAPTIVE') {
+      if (!fighter || fighter.hp <= 0) return this.log("The fighter is incapacitated.", "warning");
+      if (!this.state.surrenderedEnemy) return this.log("No captive to interrogate.", "info");
+      const result = this.state.attemptIntimidate(this.state.surrenderedEnemy);
+      if (result.success) {
+        this.playSFX('reward');
+        this.log(result.log, "success");
+        if (result.revealedTrap) {
+          this.log(`🗺️ MAP MARKED: ${result.revealedTrap.name || 'Concealed Trap'} pinpointed on your minimap!`, "info");
+        }
+      } else {
+        this.log(result.log, "warning");
+      }
+      this.uiController.updateHUD(true);
+    }
+    else if (actionType === 'STEAL_CAPTIVE') {
+      if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
+      if (!this.state.surrenderedEnemy) return this.log("No captive to strip.", "info");
+      const result = this.state.attemptStealSurrendered(this.state.surrenderedEnemy);
+      if (result.success) {
+        this.playSFX('reward');
+        this.log(result.log, "success");
+      } else {
+        this.log(result.reason, "warning");
       }
       this.uiController.updateHUD(true);
     }
@@ -903,6 +952,13 @@ class GameOrchestrator {
     if (this.isGameOver || this.state.isPartyWiped() || this.isActionActive) return;
     const target = this.getInteractiveTargetInFront();
     if (!target) return this.log("There is nothing openable directly in front of you.", "warning");
+
+    if (target.entity && target.entity.facing && !this.state.isFacingPropFront(target.entity)) {
+      this.playSFX('blocked');
+      const relative = (this.state.player.facing === target.entity.facing.toUpperCase()) ? 'back' : 'side';
+      return this.log(`You are standing at the ${relative} of the ${target.entity.name || 'chest'}. You must stand directly in front of its latch to open it!`, "warning");
+    }
+
     if (this.checkTrapBeforeAction(target)) return;
     if (target.locked) {
       this.playSFX('blocked');

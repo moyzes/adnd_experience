@@ -177,6 +177,19 @@ export class CombatController {
                 }
             } else if (evt.eventType === 'TURN_UNDEAD') {
                 this.callbacks.playSFX('turn_undead');
+            } else if (evt.eventType === 'MORALE_SURRENDER') {
+                this.callbacks.playSFX('button');
+                const vMob = visualEnemies.find(m => m.instanceId === evt.targetInstanceId);
+                if (vMob) vMob.surrendered = true;
+            } else if (evt.eventType === 'MORALE_FLEE') {
+                this.callbacks.playSFX('sword_miss');
+                const vMobIdx = visualEnemies.findIndex(m => m.instanceId === evt.targetInstanceId);
+                if (vMobIdx !== -1) {
+                    visualEnemies.splice(vMobIdx, 1);
+                    if (this.renderer3D && typeof this.renderer3D.renderEncounterMonsters === 'function') {
+                        this.renderer3D.renderEncounterMonsters(visualEnemies, this.state.player);
+                    }
+                }
             } else if (evt.eventType === 'SAVE_SUCCESS') {
                 this.callbacks.playSFX('reward');
                 if (this.callbacks.showSavingThrowCue && evt.savingThrow) {
@@ -202,7 +215,12 @@ export class CombatController {
                 this.stopCombatMusic();
                 this.callbacks.playSFX('victory');
                 if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
-                    this.renderer3D.clearEncounterMonsters();
+                    const surrenderedMob = this.state.surrenderedEnemy || this.state.combat.enemies.find(e => e.surrendered);
+                    if (surrenderedMob && typeof this.renderer3D.renderEncounterMonsters === 'function') {
+                        this.renderer3D.renderEncounterMonsters([surrenderedMob], this.state.player);
+                    } else {
+                        this.renderer3D.clearEncounterMonsters();
+                    }
                 }
                 if (this.callbacks.applyVisualCombatHp) {
                     this.callbacks.applyVisualCombatHp([], visualHeroHp);
@@ -242,7 +260,11 @@ export class CombatController {
             this.state.combat.active = false;
             this.stopCombatMusic();
             if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
-                this.renderer3D.clearEncounterMonsters();
+                if (this.state.surrenderedEnemy && typeof this.renderer3D.renderEncounterMonsters === 'function') {
+                    this.renderer3D.renderEncounterMonsters([this.state.surrenderedEnemy], this.state.player);
+                } else {
+                    this.renderer3D.clearEncounterMonsters();
+                }
             }
             const currentEnc = this.state.spec.encounters.find(e => e.id === this.state.combat.encounterId);
             if (currentEnc) currentEnc.completed = true;

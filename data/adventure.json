@@ -148,18 +148,20 @@
     {
       "type": "prop",
       "id": "reliquary_chest",
+      "name": "Reliquary Chest",
       "model": "chest",
       "x": 2,
       "y": 2,
-      "rotation": 0
+      "facing": "SOUTH"
     },
     {
       "type": "prop",
       "id": "side_chest_east",
+      "name": "Side Crypt Chest",
       "model": "chest",
       "x": 12,
       "y": 7,
-      "rotation": 1.57
+      "facing": "WEST"
     }
   ],
   "npcs": {
@@ -189,9 +191,7 @@
       "id": "crypt_skeleton",
       "name": "Crypt Skeleton",
       "glbModel": "assets/glb/skeleton_animated.glb",
-      "rotationOffset": [0, 180, 0],
-      "positionOffset": [0, 0, 0],
-      "scale": 0.2,
+      "scale": 1.0,
       "hp": 8,
       "maxHp": 8,
       "armorClass": 7,
@@ -209,9 +209,7 @@
       "id": "tomb_ghoul",
       "name": "Tomb Ghoul",
       "glbModel": "assets/glb/goblin_ghoul.glb",
-      "rotationOffset": [360, 180, 0],
-      "positionOffset": [0, 0, 0],
-      "scale": 0.12,
+      "scale": 0.9,
       "hp": 14,
       "maxHp": 14,
       "armorClass": 6,
@@ -229,9 +227,7 @@
       "id": "cult_thrall",
       "name": "Cult Thrall",
       "glbModel": "assets/glb/kobold.glb",
-      "rotationOffset": [0, 180, 0],
-      "positionOffset": [0, 0.1, 0],
-      "scale": 0.5,
+      "scale": 0.8,
       "hp": 5,
       "maxHp": 5,
       "armorClass": 7,
@@ -241,15 +237,21 @@
       "damageType": "piercing",
       "actionPhase": "FAST",
       "moraleThreshold": 40,
-      "xpReward": 200
+      "xpReward": 200,
+      "info": "Mercy! The flooded corridor to the north has poisoned dart batteries wired into the floor tiles at (7, 9)! Watch your step!",
+      "revealTrapCoords": [7, 9],
+      "loot": {
+        "name": "Cultist Copper Talisman",
+        "gold": 18,
+        "type": "trinket",
+        "description": "A tarnished brass amulet inscribed with dark cult sigils."
+      }
     },
     "cult_guard": {
       "id": "cult_guard",
       "name": "Cult Guard",
       "glbModel": "assets/glb/kobold.glb",
-      "rotationOffset": [0, 180, 0],
-      "positionOffset": [0, 0.15, 0],
-      "scale": 0.35,
+      "scale": 0.85,
       "hp": 11,
       "maxHp": 11,
       "armorClass": 4,
@@ -259,14 +261,20 @@
       "damageType": "slashing",
       "actionPhase": "MEDIUM",
       "moraleThreshold": 50,
-      "xpReward": 400
+      "xpReward": 400,
+      "info": "Yield! Don't strike! Corvin placed an arcane ward on the inner sanctum gate at (3, 4)! Only a wizard who can Read Magic or his iron cipher key will bypass it safely!",
+      "revealTrapCoords": [3, 4],
+      "loot": {
+        "name": "Guard's Iron Key & Florins",
+        "gold": 45,
+        "type": "key",
+        "description": "Heavy pouch containing minted florins and an iron skeleton key."
+      }
     },
     "giant_spider": {
       "id": "giant_spider",
       "name": "Giant Spider",
       "glbModel": "assets/glb/giant_spider.glb",
-      "rotationOffset": [0, 180, 0],
-      "positionOffset": [0, 0, 0],
       "scale": 1.0,
       "hp": 14,
       "maxHp": 14,
@@ -277,6 +285,7 @@
       "damageType": "piercing",
       "actionPhase": "MEDIUM",
       "moraleThreshold": 45,
+      "creatureType": "beast",
       "xpReward": 500,
       "special_attack": "poison",
       "save_category": "poison",
@@ -287,9 +296,7 @@
       "id": "corvin_sorcerer",
       "name": "Corvin Vale",
       "glbModel": "assets/glb/strange_wizard.glb",
-      "rotationOffset": [0, 180, 0],
-      "positionOffset": [0, 0, 0],
-      "scale": 0.85,
+      "scale": 1.0,
       "hp": 16,
       "maxHp": 16,
       "armorClass": 5,
@@ -299,7 +306,16 @@
       "damageType": "bludgeoning",
       "actionPhase": "SLOW",
       "moraleThreshold": 70,
-      "xpReward": 1400
+      "isLeader": true,
+      "xpReward": 1400,
+      "info": "Curse your steel... the reliquary chest at the back of the chapel... it is bound with Explosive Runes! Do not touch the lid without deciphering the glyphs, or fire will consume you all!",
+      "revealTrapCoords": [7, 1],
+      "loot": {
+        "name": "Corvin's Obsidian Signet & Elixir",
+        "gold": 120,
+        "type": "treasure",
+        "description": "A dark obsidian signet ring and a potent draught of healing."
+      }
     }
   },
   "encounters": [

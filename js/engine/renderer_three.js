@@ -223,7 +223,7 @@ export class RendererThreeJS {
       const customPosOffset = Array.isArray(mob.positionOffset) ? mob.positionOffset : [0, 0, 0];
       const posX = targetWorldX + offsetX + (customPosOffset[0] || 0);
       const posZ = targetWorldZ + offsetZ + (customPosOffset[2] || 0);
-      const floorY = -ts / 2 + 0.15 + (customPosOffset[1] || 0);
+      const floorY = -ts / 2 + (customPosOffset[1] || 0);
 
       this.gltfLoader.load(
         modelPath,
@@ -233,26 +233,38 @@ export class RendererThreeJS {
 
           outerPivot.position.set(posX, floorY, posZ);
 
-          // Always face the party regardless of approach direction.
-          // Three.js lookAt aims the object's local -Z toward the target.
-          // Our GLBs appear to already be -Z-forward, so we do NOT add an extra
-          // 180° yaw (that was causing persistent backs-to-camera).
+          // Face the party: Three.js lookAt points outerPivot's local -Z directly at the party
           const playerWorldX = playerState.x * ts;
           const playerWorldZ = playerState.y * ts;
           outerPivot.lookAt(playerWorldX, floorY, playerWorldZ);
 
+          // Orientation & Facing Offset:
+          // Standard glTF / Sketchfab models are modeled forward-facing (+Z).
+          // Three.js lookAt aligns -Z to the camera, so a default 180° yaw (Math.PI) turns the model's front to face the party.
           const toRad = (angle) => Math.abs(angle) > 6.28 ? (angle * Math.PI) / 180 : angle;
-          const rawOffset = Array.isArray(mob.rotationOffset) ? mob.rotationOffset : [0, 0, 0];
-          const rotOffset = rawOffset.map(toRad);
+          const rawOffset = Array.isArray(mob.rotationOffset) ? mob.rotationOffset : null;
+          const rotOffset = rawOffset ? rawOffset.map(toRad) : [0, Math.PI, 0];
+          const localYaw = rotOffset[1] !== undefined ? rotOffset[1] : Math.PI;
 
-          // Apply pitch/roll only; yaw is fully handled by lookAt.
-          model.rotation.set(rotOffset[0] || 0, 0, rotOffset[2] || 0);
+          const innerPivot = new THREE.Group();
+          innerPivot.rotation.set(rotOffset[0] || 0, localYaw, rotOffset[2] || 0);
 
-          const rawScale = mob.scale !== undefined ? mob.scale : 0.75;
-          const scaleVec = Array.isArray(rawScale) ? rawScale : [rawScale, rawScale, rawScale];
-          model.scale.set(scaleVec[0], scaleVec[1], scaleVec[2]);
+          // Automatic GLB Normalization & Floor Grounding:
+          // Clamps model base flush to dungeon floor (groundY: 0), centers XZ on pivot, and normalizes height.
+          const userScale = (mob.scale !== undefined && mob.scale !== null)
+            ? (Array.isArray(mob.scale) ? mob.scale[1] : mob.scale)
+            : 1.0;
 
-          outerPivot.add(model);
+          this.#normalizeAndGroundModel(model, {
+            targetHeight: 1.35,
+            maxHorizDim: 1.3,
+            userScale: userScale,
+            groundY: 0,
+            centerXZ: true
+          });
+
+          innerPivot.add(model);
+          outerPivot.add(innerPivot);
 
           outerPivot.userData = {
             instanceId: mob.instanceId,
@@ -312,15 +324,70 @@ export class RendererThreeJS {
   // World Building & Asset Loaders
   // ---------------------------------------------------------------------------
 
-  loadExternalModel(path, x, y, scale = 1.0, rotationY = 0) {
+  // ---------------------------------------------------------------------------
+  // GLB Normalization & Floor Grounding Engine
+  // ---------------------------------------------------------------------------
+
+  #normalizeAndGroundModel(model, options = {}) {
+    const {
+      targetHeight = 1.35,
+      maxHorizDim = 1.3,
+      userScale = 1.0,
+      groundY = 0,
+      centerXZ = true
+    } = options;
+
+    model.updateMatrixWorld(true);
+    const rawBox = new THREE.Box3().setFromObject(model);
+    const rawSize = new THREE.Vector3();
+    rawBox.getSize(rawSize);
+
+    if (rawSize.y <= 0.001) return;
+
+    // Calculate baseline normalization factor to fit target world height
+    let normScale = targetHeight / rawSize.y;
+
+    // Constrain horizontal footprint so wide creatures (e.g. spiders) or broad props never pierce walls
+    if (maxHorizDim) {
+      const maxHoriz = Math.max(rawSize.x, rawSize.z) * normScale;
+      if (maxHoriz > maxHorizDim) {
+        normScale *= (maxHorizDim / maxHoriz);
+      }
+    }
+
+    const finalScale = normScale * (userScale !== undefined && userScale !== null ? userScale : 1.0);
+    model.scale.set(finalScale, finalScale, finalScale);
+    model.updateMatrixWorld(true);
+
+    // Measure scaled bounding box to center XZ and align lowest vertex flush to floor (groundY)
+    const scaledBox = new THREE.Box3().setFromObject(model);
+    const shiftX = centerXZ ? -(scaledBox.min.x + scaledBox.max.x) / 2 : 0;
+    const shiftY = groundY - scaledBox.min.y;
+    const shiftZ = centerXZ ? -(scaledBox.min.z + scaledBox.max.z) / 2 : 0;
+
+    model.position.set(shiftX, shiftY, shiftZ);
+    model.updateMatrixWorld(true);
+  }
+
+  loadExternalModel(path, x, y, scale = 1.0, rotationY = 0, ent = null) {
     this.gltfLoader.load(path, (gltf) => {
       const model = gltf.scene;
+      const pivot = new THREE.Group();
+      pivot.position.set(x * this.tileSize, -this.tileSize / 2, y * this.tileSize);
+      pivot.rotation.y = rotationY;
 
-      model.position.set(x * this.tileSize, -this.tileSize / 2, y * this.tileSize);
-      model.scale.set(scale, scale, scale);
-      model.rotation.y = rotationY;
+      this.#normalizeAndGroundModel(model, {
+        targetHeight: 1.2,
+        maxHorizDim: 1.4,
+        userScale: scale,
+        groundY: 0,
+        centerXZ: true
+      });
 
-      this.worldGroup.add(model);
+      pivot.add(model);
+      pivot.userData = { gridX: x, gridY: y, entity: ent };
+
+      this.worldGroup.add(pivot);
     }, undefined, (error) => {
       console.error(`Asset not found: ${path}`, error);
     });
@@ -338,18 +405,30 @@ export class RendererThreeJS {
     return lid;
   }
 
-  loadChestModel(path, x, y, isOpened) {
+  loadChestModel(path, x, y, isOpened, rotationY = 0, scale = 1.0) {
     this.gltfLoader.load(path, (gltf) => {
       const chest = gltf.scene;
-      chest.position.set(x * this.tileSize, -this.tileSize / 2, y * this.tileSize);
+      const pivot = new THREE.Group();
+      pivot.position.set(x * this.tileSize, -this.tileSize / 2, y * this.tileSize);
+      pivot.rotation.y = rotationY;
+
+      this.#normalizeAndGroundModel(chest, {
+        targetHeight: 0.65,
+        maxHorizDim: 0.9,
+        userScale: scale,
+        groundY: 0,
+        centerXZ: true
+      });
+
+      pivot.add(chest);
 
       const lid = this.#findChestLid(chest);
       if (isOpened && lid) {
         lid.rotation.x = -Math.PI / 1.5;
       }
 
-      chest.userData = { gridX: x, gridY: y, lid: lid };
-      this.worldGroup.add(chest);
+      pivot.userData = { gridX: x, gridY: y, lid: lid };
+      this.worldGroup.add(pivot);
     }, undefined, (error) => {
       console.error(`Chest asset not found: ${path}`, error);
     });
@@ -548,7 +627,7 @@ export class RendererThreeJS {
         } else if (tileId === 3) {
           const chestPath = spec.assets && spec.assets.chest ? spec.assets.chest : 'assets/glb/chest.glb';
           const isOpened = gameState && gameState.openedChests && gameState.openedChests.has(`${x},${y}`);
-          this.loadChestModel(chestPath, x, y, isOpened);
+          this.loadChestModel(chestPath, x, y, isOpened, 0, 1.0);
         }
       }
     }
@@ -577,9 +656,27 @@ export class RendererThreeJS {
 
     if (spec.entities) {
       spec.entities.forEach(ent => {
-        const modelPath = spec.assets[ent.model];
+        const modelPath = spec.assets ? spec.assets[ent.model] : null;
         if (modelPath) {
-          this.loadExternalModel(modelPath, ent.x, ent.y, 1.0, ent.rotation || 0);
+          let rotY = ent.rotation || 0;
+          if (ent.facing) {
+            const facingMap = {
+              'SOUTH': 0,
+              'WEST': Math.PI / 2,
+              'NORTH': Math.PI,
+              'EAST': -Math.PI / 2
+            };
+            if (facingMap[ent.facing.toUpperCase()] !== undefined) {
+              rotY = facingMap[ent.facing.toUpperCase()];
+            }
+          }
+
+          if (ent.model === 'chest' || ent.type === 'chest') {
+            const isOpened = gameState && gameState.openedChests && gameState.openedChests.has(`${ent.x},${ent.y}`);
+            this.loadChestModel(modelPath, ent.x, ent.y, isOpened, rotY, ent.scale || 1.0);
+          } else {
+            this.loadExternalModel(modelPath, ent.x, ent.y, ent.scale || 1.0, rotY, ent);
+          }
         }
       });
     }
@@ -629,7 +726,20 @@ export class RendererThreeJS {
 
   spawnCampfireModel(x, y) {
     if (this.loadedAssets && this.loadedAssets['campfire']) {
-      this.campfireMesh = this.loadedAssets['campfire'].clone();
+      const camp = this.loadedAssets['campfire'].clone();
+      const pivot = new THREE.Group();
+      pivot.position.set(x * this.tileSize, -this.tileSize / 2, y * this.tileSize);
+
+      this.#normalizeAndGroundModel(camp, {
+        targetHeight: 0.45,
+        maxHorizDim: 0.8,
+        userScale: 1.0,
+        groundY: 0,
+        centerXZ: true
+      });
+
+      pivot.add(camp);
+      this.campfireMesh = pivot;
     } else {
       const group = new THREE.Group();
       const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9 });
@@ -645,9 +755,9 @@ export class RendererThreeJS {
       fire.position.y = 0.2;
       group.add(fire);
       this.campfireMesh = group;
+      this.campfireMesh.position.set(x * this.tileSize, -this.tileSize / 2, y * this.tileSize);
     }
 
-    this.campfireMesh.position.set(x * this.tileSize, -this.tileSize / 2, y * this.tileSize);
     this.scene.add(this.campfireMesh);
   }
 

@@ -194,6 +194,7 @@ export class GameState {
     this.activeNpc = null;
     this.selectedSpeaker = null;
     this.npcStates = {};
+    this.surrenderedEnemy = null;
 
     this.combat = {
       active: false,
@@ -202,7 +203,10 @@ export class GameState {
       enemies: [],               // Active monster instances
       queuedCommands: {},        // Pending orders for the turn
       previousCommands: {},      // Smart Action Memory
-      channelingCast: null       // Track multi-turn casting
+      channelingCast: null,      // Track multi-turn casting
+      moraleCheckedFirstBlood: false,
+      moraleCheckedHalfSquad: false,
+      moraleCheckedLeader: false
     };
 
     this.torchLitUntil = 0;
@@ -1446,7 +1450,11 @@ export class GameState {
           positionOffset: monsterDef.positionOffset || [0, 0, 0],
           scale: monsterDef.scale !== undefined ? monsterDef.scale : 0.75,
           creatureType: monsterDef.creatureType || 'mortal',
-          undeadTier: monsterDef.undeadTier || null
+          undeadTier: monsterDef.undeadTier || null,
+          info: monsterDef.info || null,
+          revealTrapCoords: monsterDef.revealTrapCoords || null,
+          loot: monsterDef.loot ? JSON.parse(JSON.stringify(monsterDef.loot)) : null,
+          isLeader: !!monsterDef.isLeader
         });
       }
     });
@@ -1461,7 +1469,10 @@ export class GameState {
       previousCommands: {},
       channelingCast: null,
       surpriseRound: !isDarkAmbush && !!encSpec.scouted,
-      alertedRound: isDarkAmbush || !!encSpec.alerted
+      alertedRound: isDarkAmbush || !!encSpec.alerted,
+      moraleCheckedFirstBlood: false,
+      moraleCheckedHalfSquad: false,
+      moraleCheckedLeader: false
     };
 
     if (isDarkAmbush) {
@@ -1598,7 +1609,7 @@ export class GameState {
 
     this.combat.enemies.forEach(mob => {
       if (this.combat.round === 1 && this.combat.surpriseRound) return;
-      if (mob.hp <= 0 || (mob.asleepRounds || 0) > 0 || (mob.turnedRounds || 0) > 0) return;
+      if (mob.hp <= 0 || mob.fled || mob.surrendered || (mob.asleepRounds || 0) > 0 || (mob.turnedRounds || 0) > 0) return;
       const consciousParty = this.party.filter(p => p.hp > 0);
       if (consciousParty.length === 0) return;
 
@@ -1611,7 +1622,7 @@ export class GameState {
     actionQueue.sort((a, b) => a.phaseTier - b.phaseTier);
 
     for (const act of actionQueue) {
-      const livingMobs = this.combat.enemies.filter(e => simMobHp[e.instanceId] > 0);
+      const livingMobs = this.combat.enemies.filter(e => simMobHp[e.instanceId] > 0 && !e.fled && !e.surrendered);
       if (livingMobs.length === 0) break;
 
       if (act.sourceType === 'HERO') {
@@ -1949,9 +1960,11 @@ export class GameState {
           combatEvents.push({ eventType: 'TURN_UNDEAD', sourceName: hero.name, logText: `✨ ${hero.name} asserts divine authority! (d20=${roll}${skillBonus > 0 ? `+${skillBonus}` : ''}) — ${detail.join(', ') || 'no effect'}.`, logType: destroyed || fled ? 'success' : 'warning' });
         }
 
+        this.checkMorale(simMobHp, simHeroHp, combatEvents);
+
       } else if (act.sourceType === 'MONSTER') {
         const { mob, targetHero, targetHeroIndex } = act;
-        if (simMobHp[mob.instanceId] <= 0 || simHeroHp[targetHeroIndex] <= 0) continue;
+        if (simMobHp[mob.instanceId] <= 0 || mob.fled || mob.surrendered || simHeroHp[targetHeroIndex] <= 0) continue;
 
         let finalHeroIndex = targetHeroIndex;
         let finalHero = targetHero;
@@ -2171,12 +2184,16 @@ export class GameState {
       }
     }
 
-    const aliveAfter = this.combat.enemies.filter(e => (simMobHp[e.instanceId] ?? e.hp) > 0);
+    const activeThreats = this.combat.enemies.filter(e => (simMobHp[e.instanceId] ?? e.hp) > 0 && !e.fled && !e.surrendered);
     const livingHeroes = Object.values(simHeroHp).filter(hp => hp > 0).length;
     let victory = false, partyWiped = false, totalXp = 0;
     
-    if (aliveAfter.length === 0) {
+    if (activeThreats.length === 0) {
       victory = true;
+      const surrenderedMob = this.combat.enemies.find(e => e.surrendered);
+      if (surrenderedMob) {
+        this.surrenderedEnemy = surrenderedMob;
+      }
       const currentEnc = (this.spec.encounters || []).find(e => e.id === this.combat.encounterId);
       const mobXpSum = this.combat.enemies.reduce((sum, e) => sum + (e.xpReward || 0), 0);
       totalXp = Math.max(currentEnc?.onVictoryXp || 0, mobXpSum);
@@ -2223,6 +2240,10 @@ export class GameState {
     this.combat.round += 1;
     if (victory) {
       this.combat.active = false;
+      const surrenderedMob = this.combat.enemies.find(e => e.surrendered);
+      if (surrenderedMob) {
+        this.surrenderedEnemy = surrenderedMob;
+      }
       if (totalXp > 0) {
         this.awardQuestXP(totalXp);
       }
@@ -2255,6 +2276,233 @@ export class GameState {
     });
 
     return newlyReadyHeroes;
+  }
+
+  /**
+   * Evaluates psychological morale triggers for combatants during combat.
+   * AD&D 2nd Edition Morale System:
+   * Checks trigger on:
+   * - First Blood (first enemy slain in an encounter with 2+ enemies)
+   * - Half Squad (living enemies reduced to <= 50% of initial headcount)
+   * - Leader Slain (a designated leader or commander falls)
+   * - Bloodied (individual monster drops to <= 35% HP)
+   */
+  checkMorale(simMobHp, simHeroHp, combatEvents) {
+    if (!this.combat || !this.combat.active || !this.combat.enemies) return;
+
+    const initialEnemies = this.combat.enemies;
+    const aliveEnemies = initialEnemies.filter(e => (simMobHp[e.instanceId] ?? e.hp) > 0 && !e.fled && !e.surrendered);
+    const deadCount = initialEnemies.filter(e => (simMobHp[e.instanceId] ?? e.hp) <= 0).length;
+
+    const squadTriggers = [];
+
+    // 1. First Blood
+    if (!this.combat.moraleCheckedFirstBlood && deadCount >= 1 && initialEnemies.length > 1) {
+      this.combat.moraleCheckedFirstBlood = true;
+      squadTriggers.push('FIRST_BLOOD');
+    }
+
+    // 2. Squad casualties (50% or less remaining)
+    if (!this.combat.moraleCheckedHalfSquad && initialEnemies.length > 1 && aliveEnemies.length <= Math.floor(initialEnemies.length / 2)) {
+      this.combat.moraleCheckedHalfSquad = true;
+      squadTriggers.push('HALF_SQUAD');
+    }
+
+    // 3. Leader slain
+    const leaderDead = initialEnemies.some(e => e.isLeader && (simMobHp[e.instanceId] ?? e.hp) <= 0);
+    if (!this.combat.moraleCheckedLeader && leaderDead) {
+      this.combat.moraleCheckedLeader = true;
+      squadTriggers.push('LEADER_SLAIN');
+    }
+
+    // 4. Individual Bloodied checks (HP <= 35%)
+    for (const mob of aliveEnemies) {
+      const curHp = simMobHp[mob.instanceId] ?? mob.hp;
+      if (!mob.moraleCheckedBloodied && curHp <= Math.ceil(mob.maxHp * 0.35) && curHp > 0) {
+        mob.moraleCheckedBloodied = true;
+        this.resolveSingleMonsterMorale(mob, 'BLOODIED', simMobHp, simHeroHp, combatEvents);
+      }
+    }
+
+    // If a squad-wide trigger fired, test all active living non-broken monsters
+    if (squadTriggers.length > 0) {
+      const triggerReason = squadTriggers[0];
+      for (const mob of aliveEnemies) {
+        if (mob.fled || mob.surrendered) continue;
+        this.resolveSingleMonsterMorale(mob, triggerReason, simMobHp, simHeroHp, combatEvents);
+      }
+    }
+  }
+
+  resolveSingleMonsterMorale(mob, triggerReason, simMobHp, simHeroHp, combatEvents) {
+    // Mindless undead or fearless entities with moraleThreshold >= 100 never break
+    if (mob.creatureType === 'undead' || (mob.moraleThreshold || 0) >= 100) {
+      return;
+    }
+    if (mob.fled || mob.surrendered) return;
+
+    const baseThreshold = mob.moraleThreshold || 50;
+    let modifier = 0;
+
+    const initialEnemies = this.combat.enemies || [];
+    const leaderDead = initialEnemies.some(e => e.isLeader && (simMobHp[e.instanceId] ?? e.hp) <= 0);
+    if (leaderDead) modifier -= 15;
+
+    const aliveEnemies = initialEnemies.filter(e => (simMobHp[e.instanceId] ?? e.hp) > 0 && !e.fled && !e.surrendered);
+    if (aliveEnemies.length <= 1 && initialEnemies.length > 1) modifier -= 10;
+
+    const curHp = simMobHp[mob.instanceId] ?? mob.hp;
+    if (curHp <= Math.ceil(mob.maxHp * 0.35)) modifier -= 10;
+
+    // Emboldened if any hero is incapacitated (+10 morale)
+    const partyWeakened = this.party.some((h, idx) => (simHeroHp[idx] ?? h.hp) <= 0);
+    if (partyWeakened) modifier += 10;
+
+    const effectiveTarget = Math.max(10, Math.min(95, baseThreshold + modifier));
+    const roll = Math.floor(Math.random() * 100) + 1;
+
+    if (roll <= effectiveTarget) {
+      combatEvents.push({
+        eventType: 'MORALE_HOLD',
+        sourceName: mob.name,
+        targetInstanceId: mob.instanceId,
+        logText: `🛡️ MORALE HOLDS: ${mob.name} refuses to break! [d100=${roll} vs Target ${effectiveTarget}%]`,
+        logType: 'muted'
+      });
+    } else {
+      // Morale breaks!
+      if (mob.creatureType === 'beast') {
+        mob.fled = true;
+        mob.moraleStatus = 'FLED';
+        this.explorationTurnCounter = (this.explorationTurnCounter || 0) + 1;
+        combatEvents.push({
+          eventType: 'MORALE_FLEE',
+          cueBadge: '💨 FLEES',
+          cueClass: 'dodge',
+          targetInstanceId: mob.instanceId,
+          sourceName: mob.name,
+          logText: `💨 BEAST FLEES: Howling in terror, ${mob.name} retreats into the dark crevices! [d100=${roll} > ${effectiveTarget}%]`,
+          logType: 'warning'
+        });
+        combatEvents.push({
+          eventType: 'HAZARD_ALERT',
+          logText: `⚠️ The echoing screeches of the fleeing beast alert the dungeon corridors!`,
+          logType: 'danger'
+        });
+      } else {
+        // Humanoids surrender if cornered, alone, or critically wounded; otherwise rout
+        const isCornered = this.isFacingClosedObstacle();
+        const isAlone = aliveEnemies.length <= 1;
+        const isWounded = curHp <= Math.ceil(mob.maxHp * 0.35);
+
+        if (isCornered || isAlone || isWounded) {
+          mob.surrendered = true;
+          mob.moraleStatus = 'SURRENDERED';
+          combatEvents.push({
+            eventType: 'MORALE_SURRENDER',
+            cueBadge: '🏳️ SURRENDER',
+            cueClass: 'shield',
+            targetInstanceId: mob.instanceId,
+            sourceName: mob.name,
+            logText: `🏳️ YIELDS: Trembling and outmatched, ${mob.name} drops their weapon to the flagstones and begs for quarter! [d100=${roll} > ${effectiveTarget}%]`,
+            logType: 'success'
+          });
+        } else {
+          mob.fled = true;
+          mob.moraleStatus = 'FLED';
+          this.explorationTurnCounter = (this.explorationTurnCounter || 0) + 1;
+          combatEvents.push({
+            eventType: 'MORALE_FLEE',
+            cueBadge: '💨 ROUTED',
+            cueClass: 'dodge',
+            targetInstanceId: mob.instanceId,
+            sourceName: mob.name,
+            logText: `💨 ROUT: Panic overtakes ${mob.name}! They throw down their shield and bolt down the hall screaming in terror! [d100=${roll} > ${effectiveTarget}%]`,
+            logType: 'warning'
+          });
+          combatEvents.push({
+            eventType: 'HAZARD_ALERT',
+            logText: `⚠️ Panic echoes down the corridors—wandering patrols hear the commotion!`,
+            logType: 'danger'
+          });
+        }
+      }
+    }
+  }
+
+  attemptIntimidate(enemy) {
+    const fighter = this.party.find(p => p.classKey === 'fighter');
+    if (!fighter || fighter.hp <= 0) {
+      return { success: false, log: "No conscious fighter to intimidate the captive." };
+    }
+    if (!enemy) {
+      return { success: false, log: "No captive present." };
+    }
+    if (!enemy.info) {
+      return { success: false, log: `${enemy.name} quakes in fear, but knows nothing of tactical value.` };
+    }
+    if (enemy.interrogated) {
+      return { success: false, log: `${enemy.name} has already confessed everything they know.` };
+    }
+
+    enemy.interrogated = true;
+    let revealedTrap = null;
+
+    if (enemy.revealTrapCoords && Array.isArray(enemy.revealTrapCoords)) {
+      const key = `${enemy.revealTrapCoords[0]},${enemy.revealTrapCoords[1]}`;
+      this.detectedTraps.add(key);
+      const tileDef = this.spec.map && this.spec.map[enemy.revealTrapCoords[1]] ? this.spec.legend[this.spec.map[enemy.revealTrapCoords[1]][enemy.revealTrapCoords[0]]] : null;
+      revealedTrap = tileDef && tileDef.trap ? tileDef.trap : { name: "Concealed Mechanism" };
+    }
+
+    this.awardQuestXP(75);
+
+    return {
+      success: true,
+      fighterName: fighter.name,
+      enemyName: enemy.name,
+      revealedTrap,
+      log: `With blade gleaming and cold fury, ${fighter.name} corners ${enemy.name}. The terrified captive babbles: "${enemy.info}" (+75 XP)`
+    };
+  }
+
+  attemptStealSurrendered(enemy) {
+    const thief = this.party.find(p => p.classKey === 'thief');
+    if (!thief || thief.hp <= 0) {
+      return { success: false, reason: "No conscious thief to strip the captive." };
+    }
+    if (!enemy) {
+      return { success: false, reason: "No captive present." };
+    }
+    if (!enemy.loot) {
+      return { success: false, reason: `${enemy.name} carries nothing of monetary or tactical worth.` };
+    }
+    if (enemy.looted) {
+      return { success: false, reason: `${enemy.name} has already been stripped of all possessions.` };
+    }
+
+    enemy.looted = true;
+    const stolenItem = enemy.loot;
+    let goldAcquired = 0;
+
+    if (stolenItem.gold) {
+      this.addPartyItem('Gold Pieces', stolenItem.gold);
+      goldAcquired = stolenItem.gold;
+    }
+
+    if (stolenItem.name) {
+      this.addPartyItem(stolenItem.name, 1);
+    }
+
+    this.awardQuestXP(50);
+
+    return {
+      success: true,
+      thiefName: thief.name,
+      enemyName: enemy.name,
+      stolenItem,
+      log: `${thief.name} expertly strips ${enemy.name}'s gear, confiscating ${stolenItem.name}${goldAcquired > 0 ? ` and ${goldAcquired} gold florins` : ''}! (+50 XP)`
+    };
   }
 
   /**
@@ -2521,7 +2769,11 @@ export class GameState {
                 positionOffset: monsterDef.positionOffset || [0, 0, 0],
                 scale: monsterDef.scale !== undefined ? monsterDef.scale : 0.75,
                 creatureType: monsterDef.creatureType || 'mortal',
-                undeadTier: monsterDef.undeadTier || null
+                undeadTier: monsterDef.undeadTier || null,
+                info: monsterDef.info || null,
+                revealTrapCoords: monsterDef.revealTrapCoords || null,
+                loot: monsterDef.loot ? JSON.parse(JSON.stringify(monsterDef.loot)) : null,
+                isLeader: !!monsterDef.isLeader
               });
             }
 
@@ -2545,7 +2797,10 @@ export class GameState {
               previousCommands: {},
               channelingCast: null,
               surpriseRound: isAmbush,
-              alertedRound: true
+              alertedRound: true,
+              moraleCheckedFirstBlood: false,
+              moraleCheckedHalfSquad: false,
+              moraleCheckedLeader: false
             };
 
             wanderingSpawned = true;
@@ -2994,16 +3249,16 @@ export class GameState {
       };
     }
 
-    // Freestanding 3D Entity Chests
+    // Freestanding 3D Entity Chests & Props
     if (!this.openedChests.has(key) && this.spec.entities) {
-      const entity = this.spec.entities.find(e => e.model === 'chest' && e.x === tx && e.y === ty);
+      const entity = this.spec.entities.find(e => (e.model === 'chest' || e.type === 'chest' || e.type === 'prop') && e.x === tx && e.y === ty);
       if (entity) {
-        const tileDef = this.spec.legend[3] || { name: 'Chest', locked: null };
+        const tileDef = this.spec.legend[3] || { name: entity.name || 'Chest', locked: null };
         const isLocked = Boolean(tileDef.locked && !this.unlockedChests.has(key));
         return {
           x: tx,
           y: ty,
-          type: 'chest',
+          type: (entity.model === 'chest' || entity.type === 'chest') ? 'chest' : 'prop',
           locked: isLocked,
           methods: tileDef?.locked?.methods || tileDef?.methods || [],
           dc: tileDef?.locked?.dc || 0,
@@ -3029,6 +3284,19 @@ export class GameState {
     }
 
     return null;
+  }
+
+  isFacingPropFront(entity) {
+    if (!entity || !entity.facing) return true;
+    const requiredPlayerFacing = {
+      'SOUTH': 'NORTH',
+      'NORTH': 'SOUTH',
+      'EAST': 'WEST',
+      'WEST': 'EAST'
+    }[entity.facing.toUpperCase()];
+
+    if (!requiredPlayerFacing) return true;
+    return this.player.facing === requiredPlayerFacing;
   }
 
   getLockInFront() {
