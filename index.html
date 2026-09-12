@@ -625,6 +625,27 @@
       border: 1px solid #388bfd;
     }
 
+    .hero-buff-pill.ammo-buff {
+      background: #0d2826;
+      color: #56d364;
+      border: 1px solid #238636;
+    }
+
+    .hero-buff-pill.ammo-empty-buff {
+      background: #3d1414;
+      color: #ff7b72;
+      border: 1px solid #da3633;
+    }
+
+    .cmd-btn.swap-weapon-btn {
+      border-color: #388bfd;
+      color: #79c0ff;
+    }
+    .cmd-btn.swap-weapon-btn:hover {
+      background: rgba(56, 139, 253, 0.2);
+      border-color: #79c0ff;
+    }
+
     @keyframes buffPulse {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.82; transform: scale(0.98); }
@@ -669,6 +690,32 @@
 
     .action-tab.primary {
       border-color: var(--gold-tsr);
+    }
+
+    .action-tab.warning {
+      color: #e3b341;
+      border-color: #e3b341;
+    }
+
+    .action-tab.warning:hover {
+      border-color: #f2cc60;
+      color: #f2cc60;
+      box-shadow: 0 0 10px rgba(227, 179, 65, 0.4);
+    }
+
+    .action-tab.danger {
+      color: #ff7b72;
+      border-color: #ff7b72;
+    }
+
+    .action-tab.danger:hover {
+      border-color: #ffa198;
+      color: #ffa198;
+      box-shadow: 0 0 10px rgba(255, 123, 114, 0.4);
+    }
+
+    #global-actions > :only-child {
+      grid-column: 1 / -1;
     }
 
     /* Modals & Character Sheet */
@@ -1010,6 +1057,15 @@
       font-size: 15px;
       text-shadow: 0 0 4px rgba(255, 255, 255, 0.6);
       box-shadow: 0 0 25px rgba(255, 215, 0, 0.6), 0 4px 15px rgba(0,0,0,0.9);
+    }
+
+    .floating-combat-pill.specialist {
+      background: linear-gradient(180deg, #d29922 0%, #875908 100%);
+      color: #ffffff;
+      border: 1.5px solid #ffd700;
+      font-size: 14px;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+      box-shadow: 0 0 20px rgba(210, 153, 34, 0.6);
     }
 
     .floating-combat-pill.heavy {

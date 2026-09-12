@@ -51,7 +51,9 @@ export class CharacterSheetUI {
       activeBuffs.push(`<span style="background:#3d1010;color:#ff7b72;border:1px solid #f85149;padding:3px 8px;border-radius:3px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">🧠 INT bruise −${hero.tempIntDrain} (clears on rest)</span>`);
     }
     if (hero.classKey === 'fighter' && hero.specializedWeapon && hero.equippedWeapon === hero.specializedWeapon) {
-      activeBuffs.push(`<span style="background:#2a1b04;color:#ffd700;border:1px solid #d29922;padding:3px 8px;border-radius:3px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">⚔️ Specialized: +1 to-hit / +2 dmg (${hero.specializedWeapon})</span>`);
+      const isR = this.state.isRangedWeapon(hero.specializedWeapon);
+      const icon = isR ? '🏹' : '⚔️';
+      activeBuffs.push(`<span style="background:#2a1b04;color:#ffd700;border:1px solid #d29922;padding:3px 8px;border-radius:3px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">${icon} Specialized: +1 to-hit / +2 dmg (${hero.specializedWeapon})</span>`);
     }
 
     const buffsHTML = activeBuffs.length > 0 ? `
@@ -252,10 +254,48 @@ export class CharacterSheetUI {
           </div>
         </div>
       </div>`;
+    } else if (hero.classKey === 'fighter') {
+      const specWeapon = hero.specializedWeapon || 'Longsword';
+      const isSpecEquipped = hero.equippedWeapon === specWeapon;
+      const isSpecRanged = this.state.isRangedWeapon(specWeapon);
+      const specIcon = isSpecRanged ? '🏹' : '⚔️';
+      const specStatus = isSpecEquipped
+        ? `<span style="color:#3fb950; font-weight:700;">✓ Active (+1 To-Hit, +2 Dmg)</span>`
+        : `<span style="color:var(--text-muted); font-size:10.5px;">(Equip ${specWeapon} to activate)</span>`;
+
+      const usageEntries = Object.entries(hero.weaponUsage || {}).map(([wName, hits]) => {
+        const m = this.state.getWeaponMastery(hero, wName);
+        const isR = this.state.isRangedWeapon(wName);
+        return `<div style="display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-bottom:1px dashed #21262d; font-size:11px;">
+          <span>${isR ? '🏹' : '⚔️'} <b>${wName}</b> <span style="color:var(--text-muted); font-size:10px;">(${m.tier.toUpperCase()})</span></span>
+          <span style="color:var(--favor-blue); font-size:10px;">${hits} hits (+${m.atkBonus} / +${m.dmgBonus})</span>
+        </div>`;
+      }).join('') || `<div style="color:var(--text-muted); font-size:10px; font-style:italic;">No weapon strikes logged yet in this expedition.</div>`;
+
+      specializedHTML = `
+      <div style="background: #161b22; padding: 10px; border: 1px solid var(--border-steel); border-radius: 4px; margin-bottom: 12px; font-size: 12px;">
+        <div style="color: var(--accent-gold); font-weight: bold; margin-bottom: 6px; font-size: 13px;">⚔️ Martial Prowess & Weapon Specialization</div>
+        <div style="background: #0d1117; padding: 8px; border: 1px solid var(--border-iron); border-radius: 3px; margin-bottom: 8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
+            <span>${specIcon} Specialization: <b style="color:var(--gold-tsr);">${specWeapon}</b></span>
+            ${specStatus}
+          </div>
+          <div style="font-size:10px; color:var(--parchment); margin-top:4px;">
+            AD&D 2e Fighter Specialization grants +1 to-hit and +2 damage on attacks with ${specWeapon}.
+          </div>
+        </div>
+
+        <div style="color: var(--gold-tsr); font-weight: bold; font-size: 11px; margin-bottom: 4px;">Expedition Weapon Mastery Hits</div>
+        <div style="background: #0a0b0e; padding: 6px 8px; border: 1px solid #1a1e27; border-radius: 2px;">
+          ${usageEntries}
+        </div>
+      </div>`;
     }
 
     const equipped = hero.equippedWeapon || 'None';
     const equippedIsRanged = this.state.isRangedWeapon(hero.equippedWeapon);
+    const ammoType = equippedIsRanged ? this.state.getWeaponAmmoType(hero.equippedWeapon) : null;
+    const ammoCount = ammoType ? this.state.getAmmoCount(ammoType, hero) : 0;
     
     const weaponMastery = hero.equippedWeapon ? this.state.getWeaponMastery(hero, hero.equippedWeapon) : null;
     const weaponUsageCount = hero.weaponUsage?.[hero.equippedWeapon] || 0;
@@ -373,7 +413,7 @@ export class CharacterSheetUI {
         </div>
       </div>
       <div style="margin-bottom:6px;">Equipped Weapon: <b style="color:var(--gold-tsr);">${equipped}</b>
-        ${equippedIsRanged ? '<span style="color:var(--favor-blue);font-size:10px;"> — ranged</span>' : '<span style="color:var(--text-muted);font-size:10px;"> — melee</span>'}
+        ${equippedIsRanged ? `<span style="color:var(--favor-blue);font-size:10px;"> — ranged</span><span style="color:${ammoCount > 0 ? '#7ee787' : '#ff7b72'};font-size:10.5px;margin-left:6px;font-weight:600;">(${ammoCount} ${ammoType || 'ammo'} ready)</span>` : '<span style="color:var(--text-muted);font-size:10px;"> — melee</span>'}
       </div>
       ${masteryInfo}
       <div style="color: var(--accent-gold); font-weight: bold; margin: 8px 0 4px; font-size: 12px;">Personal Inventory</div>
@@ -423,9 +463,13 @@ export class CharacterSheetUI {
         const result = this.state.equipHeroWeapon(hIdx, weapon);
         if (result.success) {
           this.context.playSFX('equip');
-          this.context.log(`${this.state.party[hIdx].name} equips ${result.equipped}.`, "success");
+          const isR = this.state.isRangedWeapon(result.equipped);
+          const ammoT = isR ? this.state.getWeaponAmmoType(result.equipped) : null;
+          const ammoC = ammoT ? this.state.getAmmoCount(ammoT, this.state.party[hIdx]) : 0;
+          const ammoNote = isR ? ` (${ammoC} ${ammoT} ready)` : '';
+          this.context.log(`${this.state.party[hIdx].name} equips ${result.equipped}${ammoNote}.`, "success");
           this.open(this.state.party[hIdx].name);
-          this.context.updateHUD();
+          if (this.context.updateHUD) this.context.updateHUD(true);
         } else {
           this.context.log(result.reason || 'Could not equip.', "warning");
         }

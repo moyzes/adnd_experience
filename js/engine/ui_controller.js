@@ -25,6 +25,7 @@ export class UIController {
             SCOUT: `<svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>`,
             READ: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2zm0-4H7V7h10v2zm0 8H7v-2h7v2z"/></svg>`,
             INTIMIDATE: `<svg viewBox="0 0 24 24"><path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/></svg>`,
+            SWAP: `<svg viewBox="0 0 24 24"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>`,
         };
 
         this.initListeners();
@@ -113,8 +114,18 @@ export class UIController {
         if (hero.classKey === 'fighter' && hero.specializedWeapon) {
             const isWielding = hero.equippedWeapon === hero.specializedWeapon;
             if (isWielding) {
-                buffBadges.push(`<span class="hero-buff-pill spec-buff" title="AD&D 2e Weapon Specialization: +1 to-hit, +2 damage with ${hero.specializedWeapon}">⚔️ ${hero.specializedWeapon} Spec (+1/+2)</span>`);
+                const isRanged = this.state.isRangedWeapon(hero.specializedWeapon);
+                const specIcon = isRanged ? '🏹' : '⚔️';
+                buffBadges.push(`<span class="hero-buff-pill spec-buff" title="AD&D 2e Fighter Weapon Specialization: +1 to-hit, +2 damage with ${hero.specializedWeapon}">${specIcon} ${hero.specializedWeapon} Spec (+1/+2)</span>`);
             }
+        }
+
+        if (hero.equippedWeapon && this.state.isRangedWeapon(hero.equippedWeapon)) {
+            const ammoType = this.state.getWeaponAmmoType(hero.equippedWeapon);
+            const ammoCount = ammoType ? this.state.getAmmoCount(ammoType, hero) : 0;
+            const ammoClass = ammoCount > 0 ? 'ammo-buff' : 'ammo-empty-buff';
+            const ammoTitle = ammoCount > 0 ? `${ammoCount} ${ammoType} ready in quiver/pouch` : `Depleted: No ${ammoType} remaining!`;
+            buffBadges.push(`<span class="hero-buff-pill ${ammoClass}" title="${ammoTitle}">🏹 ${ammoCount} ${ammoType || 'Ammo'}</span>`);
         }
 
         if (hero.equippedWeapon) {
@@ -147,14 +158,18 @@ export class UIController {
         const lockTarget = this.state.getLockInFront();
         const trapInFront = this.state.getTrapInFront();
 
-        const partySig = this.state.party.map(h =>
-            `${h.canLevelUp ? 1 : 0}_${h.hp}_${h.level}_${h.toolsDurability ?? ''}_${h.cognition ?? ''}_${h.divineFavor ?? ''}_${h.isStealth ? 1 : 0}_${h.tempIntDrain || 0}_${h.tempAcBonus || 0}_${h.tempAcRounds || 0}_${h.tempAttackBonus || 0}_${h.tempAttackRounds || 0}_${h.equippedWeapon || ''}_${h.specializedWeapon || ''}`
-        ).join('_');
+        const partySig = this.state.party.map(h => {
+            const aType = this.state.getWeaponAmmoType(h.equippedWeapon);
+            const aQty = aType ? this.state.getAmmoCount(aType, h) : 0;
+            return `${h.canLevelUp ? 1 : 0}_${h.hp}_${h.level}_${h.toolsDurability ?? ''}_${h.cognition ?? ''}_${h.divineFavor ?? ''}_${h.isStealth ? 1 : 0}_${h.tempIntDrain || 0}_${h.tempAcBonus || 0}_${h.tempAcRounds || 0}_${h.tempAttackBonus || 0}_${h.tempAttackRounds || 0}_${h.equippedWeapon || ''}_${h.specializedWeapon || ''}_${aQty}`;
+        }).join('_');
         // Build a lightweight signature of contextual UI triggers to prevent unnecessary DOM reconstruction on every step
         const lockSig = lockTarget ? `${lockTarget.x},${lockTarget.y},${lockTarget.locked}` : '';
         const trapSig = trapInFront ? `${trapInFront.x},${trapInFront.y},${trapInFront.detected}` : '';
-        const surrenderedSig = this.state.surrenderedEnemy ? `${this.state.surrenderedEnemy.instanceId}_${this.state.surrenderedEnemy.interrogated ? 1 : 0}_${this.state.surrenderedEnemy.looted ? 1 : 0}` : '';
-        const currentSig = `${this.state.combat.active}_${this.state.player.x}_${this.state.player.y}_${this.state.player.facing}_${lockSig}_${trapSig}_${this.state.activeNpc ? this.state.activeNpc.id : ''}_${surrenderedSig}_${partySig}`;
+        const openableSig = (typeof this.state.canOpenObjectInFront === 'function' && this.state.canOpenObjectInFront()) ? 1 : 0;
+        const nearShopSig = (typeof this.state.isNearShop === 'function' && this.state.isNearShop()) ? 1 : 0;
+        const surrenderedSig = this.state.surrenderedEnemy ? `${this.state.surrenderedEnemy.instanceId}_${this.state.surrenderedEnemy.intimidateAttempted ? 1 : 0}_${this.state.surrenderedEnemy.stealAttempted ? 1 : 0}` : '';
+        const currentSig = `${this.state.combat.active}_${this.state.player.x}_${this.state.player.y}_${this.state.player.facing}_${lockSig}_${trapSig}_${openableSig}_${nearShopSig}_${this.state.activeNpc ? this.state.activeNpc.id : ''}_${surrenderedSig}_${partySig}`;
 
         if (!force && this.lastSig === currentSig && !this.state.combat.active) {
             // Context hasn't changed during exploration movement; skip heavy innerHTML DOM rebuilding
@@ -275,17 +290,35 @@ export class UIController {
                     if (isChanneling) {
                         actionGrid = `<div class="card-actions-grid">${specialBtn}</div>`;
                     } else {
-                        const canShoot = this.state.canHeroShoot(hero);
+                        const canShoot = this.state.hasRangedWeapon(hero);
                         const canMelee = this.state.canHeroMelee(hero);
+                        const ammoType = canShoot ? this.state.getWeaponAmmoType(hero.equippedWeapon) : null;
+                        const ammoCount = ammoType ? this.state.getAmmoCount(ammoType, hero) : 0;
+                        const hasAmmo = !ammoType || ammoCount > 0;
+                        const shootTitle = canShoot
+                            ? (hasAmmo ? `Shoot ${hero.equippedWeapon} (${ammoCount} ${ammoType} ready)` : `Cannot shoot — ${ammoType} depleted! Swap weapon or resupply.`)
+                            : 'Shoot';
                         const shootBtn = canShoot
-                            ? `<button class="tsr-sq-btn cmd-btn ${isShootQueued}" data-hero="${index}" data-cmd="SHOOT">${this.SVG_ICONS.SHOOT}<span class="btn-word">Shoot</span></button>`
+                            ? `<button class="tsr-sq-btn cmd-btn ${isShootQueued} ${!hasAmmo ? 'disabled' : ''}" data-hero="${index}" data-cmd="SHOOT" title="${shootTitle}" ${!hasAmmo ? 'style="opacity:0.6;filter:grayscale(0.8);"' : ''}>${this.SVG_ICONS.SHOOT}<span class="btn-word">Shoot${ammoType ? ` (${ammoCount})` : ''}</span></button>`
                             : '';
                         const strikeBtn = canMelee
-                            ? `<button class="tsr-sq-btn cmd-btn ${isAttackQueued}" data-hero="${index}" data-cmd="ATTACK">${this.SVG_ICONS.ATTACK}<span class="btn-word">Strike</span></button>`
+                            ? `<button class="tsr-sq-btn cmd-btn ${isAttackQueued}" data-hero="${index}" data-cmd="ATTACK" title="Strike with ${hero.equippedWeapon}">${this.SVG_ICONS.ATTACK}<span class="btn-word">Strike</span></button>`
                             : '';
+
+                        const availableWeps = this.state.getAvailableWeapons(index);
+                        const canSwap = availableWeps.length > 1;
+                        const nextAltWep = canSwap ? availableWeps.find(w => !w.isEquipped) : null;
+                        const swapTitle = nextAltWep
+                            ? `Mid-Combat Weapon Swap: Switch to ${nextAltWep.name} (Carrying ${availableWeps.length} weapons)`
+                            : 'Swap weapon';
+                        const swapBtn = canSwap
+                            ? `<button class="tsr-sq-btn cmd-btn swap-weapon-btn" data-hero="${index}" data-cmd="SWAP_WEAPON" title="${swapTitle}">${this.SVG_ICONS.SWAP}<span class="btn-word">Swap</span></button>`
+                            : '';
+
                         actionGrid = `<div class="card-actions-grid">
                       ${strikeBtn}
                       ${shootBtn}
+                      ${swapBtn}
                       <button class="tsr-sq-btn cmd-btn ${isGuardQueued}" data-hero="${index}" data-cmd="GUARD">${this.SVG_ICONS.DEFEND}<span class="btn-word">Guard</span></button>
                       ${specialBtn}
                     </div>`;
@@ -316,14 +349,26 @@ export class UIController {
             });
         } else {
             this.#updateEnemyHpOverlay([]);
+            const openBtnHTML = (typeof this.state.canOpenObjectInFront === 'function' && this.state.canOpenObjectInFront())
+              ? `<button id="open-btn" class="action-tab">🔓 Open (Object)</button>`
+              : '';
+            const shopBtnHTML = (typeof this.state.isNearShop === 'function' && this.state.isNearShop())
+              ? `<button id="shop-btn" class="action-tab">🏪 Outfitter</button>`
+              : '';
+            const restBtnHTML = `<button id="rest-btn" class="action-tab primary">⛺ Rest & Camp</button>`;
             const releaseBtnHTML = this.state.surrenderedEnemy
               ? `<button id="release-captive-btn" class="action-tab warning" style="color: #e3b341; border-color: #e3b341;">🏳️ Release Captive</button>`
               : '';
+            const strikeBtnHTML = this.state.surrenderedEnemy
+              ? `<button id="strike-captive-btn" class="action-tab danger" style="color: #ff7b72; border-color: #ff7b72;">🗡️ Strike Captive</button>`
+              : '';
+
             this.elements.globalActions.innerHTML = `
-              <button id="open-btn" class="action-tab">🔓 Open (Object)</button>
-              <button id="shop-btn" class="action-tab">🏪 Outfitter</button>
-              <button id="rest-btn" class="action-tab primary">⛺ Rest & Camp</button>
-              ${releaseBtnHTML}`;
+              ${openBtnHTML}
+              ${shopBtnHTML}
+              ${restBtnHTML}
+              ${releaseBtnHTML}
+              ${strikeBtnHTML}`;
 
             this.state.party.forEach((hero, index) => {
                 const cache = this.hudCache.heroes[index];
@@ -360,20 +405,26 @@ export class UIController {
                     const bashBtnHTML = (lockTarget && lockTarget.methods?.includes('brute'))
                         ? `<button id="bash-btn" class="tsr-sq-btn">${this.SVG_ICONS.BASH}<span class="btn-word">Bash</span></button>`
                         : '';
-                    const intimidateBtnHTML = (this.state.surrenderedEnemy && this.state.surrenderedEnemy.info && !this.state.surrenderedEnemy.interrogated)
-                        ? `<button id="intimidate-btn" class="tsr-sq-btn" title="Intimidate — Extract secrets and trap locations from the surrendered captive">${this.SVG_ICONS.INTIMIDATE}<span class="btn-word">Coerce</span></button>`
+                    const canIntimidate = (hero.skills?.intimidate || hero.classKey === 'fighter') &&
+                        Boolean(this.state.surrenderedEnemy && !this.state.surrenderedEnemy.intimidateAttempted);
+                    const intimidateBtnHTML = canIntimidate
+                        ? `<button id="intimidate-btn" class="tsr-sq-btn" title="Intimidate — Extract dungeon and quest secrets from captive">${this.SVG_ICONS.INTIMIDATE}<span class="btn-word">Intimidate</span></button>`
                         : '';
                     if (bashBtnHTML || intimidateBtnHTML) {
                         cardActions = `<div class="card-actions-grid">${bashBtnHTML}${intimidateBtnHTML}</div>`;
                     } else {
-                        cardActions = `<div style="font-size: 9px; color: var(--text-muted); padding-top: 6px;">Ready (Melee Stance)</div>`;
+                        const isR = this.state.isRangedWeapon(hero.equippedWeapon);
+                        const stance = isR ? `Ready (Ranged: ${hero.equippedWeapon})` : `Ready (Melee: ${hero.equippedWeapon || 'Unarmed'})`;
+                        cardActions = `<div style="font-size: 9px; color: var(--text-muted); padding-top: 6px;">${stance}</div>`;
                     }
                 } else if (hero.classKey === 'thief') {
                     let disarmBtnHTML = trapInFront && trapInFront.detected ? `<button id="disarm-trap-btn" class="tsr-sq-btn">${this.SVG_ICONS.DISARM}<span class="btn-word">Disarm</span></button>` : '';
                     const pickLockBtnHTML = lockTarget && lockTarget.methods?.includes('mechanical') ? `<button id="pick-lock-btn" class="tsr-sq-btn">${this.SVG_ICONS.PICK}<span class="btn-word">Pick</span></button>` : '';
                     const pickpocketBtnHTML = this.state.activeNpc ? `<button id="pickpocket-npc-btn" class="tsr-sq-btn">${this.SVG_ICONS.STEAL}<span class="btn-word">Steal</span></button>` : '';
-                    const stealSurrenderedBtnHTML = (this.state.surrenderedEnemy && this.state.surrenderedEnemy.loot && !this.state.surrenderedEnemy.looted)
-                        ? `<button id="steal-surrendered-btn" class="tsr-sq-btn" title="Steal — Strip valuables from surrendered captive">${this.SVG_ICONS.STEAL}<span class="btn-word">Steal</span></button>`
+                    const canStealCaptive = (hero.skills?.pick_pockets || hero.classKey === 'thief') &&
+                        Boolean(this.state.surrenderedEnemy && !this.state.surrenderedEnemy.stealAttempted);
+                    const stealSurrenderedBtnHTML = canStealCaptive
+                        ? `<button id="steal-surrendered-btn" class="tsr-sq-btn" title="Steal — Loot whatever the captive has in their pockets">${this.SVG_ICONS.STEAL}<span class="btn-word">Steal</span></button>`
                         : '';
                     const scoutBtnHTML = this.state.isFacingWall()
                       ? ''
@@ -508,6 +559,7 @@ export class UIController {
             if (e.target.closest('#shop-btn')) this.callbacks.onGlobalAction('OPEN_SHOP');
             if (e.target.closest('#rest-btn')) this.callbacks.onGlobalAction('REST_CAMP');
             if (e.target.closest('#release-captive-btn')) this.callbacks.onGlobalAction('RELEASE_CAPTIVE');
+            if (e.target.closest('#strike-captive-btn')) this.callbacks.onGlobalAction('STRIKE_CAPTIVE');
         });
     }
 

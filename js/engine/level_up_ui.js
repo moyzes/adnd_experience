@@ -232,7 +232,7 @@ export class LevelUpUI {
     } else if (opt.classKey === 'fighter') {
       const currentSpec = this.selectedSpecializedWeapon || opt.specializedWeapon || 'Longsword';
       const hits = (hero.weaponUsage && hero.weaponUsage[currentSpec]) || 0;
-      const weaponsList = (opt.availableWeapons || ['Longsword', 'Two-Handed Sword', 'Warhammer', 'Short Sword', 'Mace', 'Halberd', 'Short Bow', 'Quarterstaff']).map(w => {
+      const weaponsList = (opt.availableWeapons || ['Longsword', 'Two-Handed Sword', 'Warhammer', 'Short Sword', 'Mace', 'Halberd', 'Quarterstaff', 'Short Bow', 'Long Bow', 'Crossbow', 'Sling']).map(w => {
         const selected = w === currentSpec ? 'selected' : '';
         const wHits = (hero.weaponUsage && hero.weaponUsage[w]) || 0;
         return `<option value="${w}" ${selected}>${w} (${wHits} battle hits)</option>`;

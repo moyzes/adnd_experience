@@ -362,7 +362,14 @@ class GameOrchestrator {
     let updated = false;
     let didMove = false;
 
-    if (action === 'MOVE_FORWARD') { updated = didMove = this.state.moveForward(); }
+    if (action === 'MOVE_FORWARD') {
+      if (this.state.surrenderedEnemy) {
+        this.handleCaptiveFlee();
+      }
+      if (!this.state.combat.active) {
+        updated = didMove = this.state.moveForward();
+      }
+    }
     else if (action === 'MOVE_BACKWARD') { updated = didMove = this.state.moveBackward(); }
     else if (action === 'ROTATE_LEFT') { this.state.rotate('LEFT'); updated = true; }
     else if (action === 'ROTATE_RIGHT') { this.state.rotate('RIGHT'); updated = true; }
@@ -482,6 +489,29 @@ class GameOrchestrator {
       }
       this.playSFX('button');
       this.log(`🏳️ You release ${captiveName}. Trembling, they scramble into the darkness and vanish.`, "info");
+      this.uiController.updateHUD(true);
+    }
+    else if (actionType === 'STRIKE_CAPTIVE') {
+      if (!this.state.surrenderedEnemy) return;
+      const res = this.state.strikeSurrenderedEnemy();
+      if (!res) return;
+
+      if (this.renderer3D && typeof this.renderer3D.renderEncounterMonsters === 'function') {
+        this.renderer3D.renderEncounterMonsters([], this.state.player);
+      } else if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
+        this.renderer3D.clearEncounterMonsters();
+      }
+      this.playSFX('sword_hit');
+      this.playSFX('death_groan');
+      this.log(res.log, "danger");
+      if (res.lootedItem) {
+        const itemText = res.goldAcquired > 0 && res.lootedItem.name
+          ? `${res.lootedItem.name} and ${res.goldAcquired} gold florins`
+          : res.goldAcquired > 0
+          ? `${res.goldAcquired} gold florins`
+          : res.lootedItem.name;
+        this.log(`Searching the remains yields: ${itemText}.`, "info");
+      }
       this.uiController.updateHUD(true);
     }
   }
@@ -711,14 +741,15 @@ class GameOrchestrator {
       if (!fighter || fighter.hp <= 0) return this.log("The fighter is incapacitated.", "warning");
       if (!this.state.surrenderedEnemy) return this.log("No captive to interrogate.", "info");
       const result = this.state.attemptIntimidate(this.state.surrenderedEnemy);
-      if (result.success) {
+      if (result.passed) {
         this.playSFX('reward');
         this.log(result.log, "success");
         if (result.revealedTrap) {
           this.log(`🗺️ MAP MARKED: ${result.revealedTrap.name || 'Concealed Trap'} pinpointed on your minimap!`, "info");
         }
       } else {
-        this.log(result.log, "warning");
+        this.playSFX('blocked');
+        this.log(result.log || result.reason, "warning");
       }
       this.uiController.updateHUD(true);
     }
@@ -726,13 +757,32 @@ class GameOrchestrator {
       if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
       if (!this.state.surrenderedEnemy) return this.log("No captive to strip.", "info");
       const result = this.state.attemptStealSurrendered(this.state.surrenderedEnemy);
-      if (result.success) {
+      if (result.passed) {
         this.playSFX('reward');
         this.log(result.log, "success");
       } else {
-        this.log(result.reason, "warning");
+        this.playSFX('unlock_try');
+        this.log(result.log || result.reason, "warning");
       }
       this.uiController.updateHUD(true);
+    }
+  }
+
+  handleCaptiveFlee() {
+    if (!this.state.surrenderedEnemy) return;
+    const res = this.state.fleeSurrenderedEnemy();
+    if (!res) return;
+
+    if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
+      this.renderer3D.clearEncounterMonsters();
+    }
+    this.playSFX('sword_miss');
+    this.log(res.log, "warning");
+    this.log(res.hazardLog, "danger");
+    this.uiController.updateHUD(true);
+
+    if (res.turnResult && res.turnResult.wanderingSpawned) {
+      this.handlePostActionPatrol(res.turnResult);
     }
   }
 
@@ -757,12 +807,33 @@ class GameOrchestrator {
   }
 
   handleCombatCommandQueue(hIdx, cmdType, extra) {
-    this.playSFX('button');
     const hero = this.state.party[hIdx];
+    if (cmdType === 'SWAP_WEAPON') {
+      const res = this.state.swapHeroWeapon(hIdx);
+      if (res.success) {
+        this.playSFX('equip');
+        const isR = res.isRanged;
+        const ammoT = isR ? this.state.getWeaponAmmoType(res.newWeapon) : null;
+        const ammoC = ammoT ? this.state.getAmmoCount(ammoT, hero) : 0;
+        const ammoNote = isR ? ` (${ammoC} ${ammoT} ready)` : '';
+        this.log(`⚔️ ${hero.name} swaps weapon: readies ${res.newWeapon}${ammoNote}.`, "info");
+      } else {
+        this.log(res.reason || `${hero.name} has no alternate weapon to equip.`, "warning");
+      }
+      this.uiController.updateHUD(true);
+      return;
+    }
+
+    this.playSFX('button');
     const existing = this.state.combat.queuedCommands[hIdx];
 
     if (existing && existing.type === 'CAST' && cmdType !== 'CAST') return this.log(`${hero.name} is channeling — locked.`, "warning");
-    if (cmdType === 'SHOOT' && !this.state.canHeroShoot(hero)) return this.log(`${hero.name} needs a ranged weapon.`, "warning");
+    if (cmdType === 'SHOOT') {
+      if (!this.state.hasRangedWeapon(hero)) return this.log(`${hero.name} needs a ranged weapon equipped.`, "warning");
+      const ammoT = this.state.getWeaponAmmoType(hero.equippedWeapon);
+      const ammoC = ammoT ? this.state.getAmmoCount(ammoT, hero) : 0;
+      if (ammoT && ammoC <= 0) return this.log(`${hero.name} has no ${ammoT} remaining! Swap weapons or resupply.`, "warning");
+    }
     if (cmdType === 'ATTACK' && !this.state.canHeroMelee(hero)) return this.log(`${hero.name} needs a melee weapon.`, "warning");
 
     const selectEl = this.uiElements.partyContainer.querySelector(`.target-select[data-hero="${hIdx}"]`);
