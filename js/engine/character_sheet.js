@@ -18,7 +18,8 @@ export class CharacterSheetUI {
     const hero = this.state.party[heroIndex];
     this.currentHeroIndex = heroIndex;
 
-    this.titleEl.textContent = `${(hero.name || 'Hero').toUpperCase()} — LEVEL ${hero.level || 1} ${(hero.className || 'Adventurer').toUpperCase()}`;
+    const raceLabel = hero.race ? `${hero.race.toUpperCase()} ` : '';
+    this.titleEl.textContent = `${(hero.name || 'Hero').toUpperCase()} — LEVEL ${hero.level || 1} ${raceLabel}${(hero.className || 'Adventurer').toUpperCase()}`;
 
     const attrs = hero.attributes;
     const statsHTML = `

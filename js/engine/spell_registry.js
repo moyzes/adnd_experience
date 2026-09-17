@@ -32,6 +32,7 @@ export class SpellRegistry {
 
   static getAll() { return Array.from(this.#spellsById.values()); }
   static get(id) { return this.#spellsById.get(id) || null; }
+  static getSpell(id) { return this.#spellsById.get(id) || null; }
   static getSpellsForClass(classKey, maxTier = 4) {
     const list = this.#spellsByClass[(classKey || '').toLowerCase()] || [];
     return list.filter(s => (s.tier || 1) <= maxTier);

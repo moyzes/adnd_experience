@@ -11,6 +11,7 @@ import { CharacterSheetUI } from './engine/character_sheet.js';
 import { ShopUI } from './engine/shop_ui.js';
 import { LevelUpUI } from './engine/level_up_ui.js';
 import { SpellRegistry } from './engine/spell_registry.js';
+import { PartyBuilderUI } from './ui/party_builder_modal.js';
 
 /**
  * Bootstraps application data, initializes setup screen options,
@@ -31,62 +32,8 @@ async function init() {
 
   SpellRegistry.init(spellsData, classesData);
 
-  const mageChoicesContainer = document.getElementById('mage-spells-choices');
-  const clericChoicesContainer = document.getElementById('cleric-spells-choices');
-
-  const mageSpellTier1 = SpellRegistry.getSpellsForClass('mage', 1);
-  const clericSpellTier1 = SpellRegistry.getSpellsForClass('cleric', 1);
-
-  mageChoicesContainer.innerHTML = '';
-  clericChoicesContainer.innerHTML = '';
-
-  mageSpellTier1.forEach((spell, idx) => {
-    mageChoicesContainer.innerHTML += `
-      <label class="spell-option-label">
-        <input type="checkbox" name="mage-spell" value="${spell.id}" ${idx < 2 ? 'checked' : ''}>
-        <span><b>${spell.name}</b> (Load: ${spell.cognitive_load}) — ${spell.description}</span>
-      </label>`;
-  });
-
-  clericSpellTier1.forEach((spell, idx) => {
-    clericChoicesContainer.innerHTML += `
-      <label class="spell-option-label">
-        <input type="checkbox" name="cleric-spell" value="${spell.id}" ${idx < 2 ? 'checked' : ''}>
-        <span><b>${spell.name}</b> — ${spell.description}</span>
-      </label>`;
-  });
-
-  const enforceLimits = (container, inputName, maxAllowed) => {
-    const update = () => {
-      const checked = container.querySelectorAll(`input[name="${inputName}"]:checked`);
-      const all = container.querySelectorAll(`input[name="${inputName}"]`);
-      all.forEach(cb => {
-        if (!cb.checked && checked.length >= maxAllowed) {
-          cb.disabled = true;
-          cb.parentElement.style.opacity = '0.45';
-        } else {
-          cb.disabled = false;
-          cb.parentElement.style.opacity = '1';
-        }
-      });
-    };
-    container.addEventListener('change', update);
-    update();
-  };
-
-  enforceLimits(mageChoicesContainer, 'mage-spell', 2);
-  enforceLimits(clericChoicesContainer, 'cleric-spell', 2);
-
-  document.getElementById('start-adventure-btn').addEventListener('click', async () => {
-    const selectedMageIds = Array.from(document.querySelectorAll('input[name="mage-spell"]:checked')).map(cb => cb.value);
-    const selectedClericIds = Array.from(document.querySelectorAll('input[name="cleric-spell"]:checked')).map(cb => cb.value);
-
-    if (selectedMageIds.length !== 2 || selectedClericIds.length !== 2) {
-      alert("Please select exactly 2 starting spells for the Mage and 2 prayers for the Cleric!");
-      return;
-    }
-
-    const selectedModulePath = document.querySelector('input[name="adventure-module"]:checked')?.value || '/data/adventure_shadows_blackstone.json';
+  // Initialize PartyBuilderUI with 3d6 rolling, custom character builder & module picker
+  const partyBuilder = new PartyBuilderUI(classesData, spellsData, async (selectedModulePath, chosenParty) => {
     let adventureData;
     try {
       adventureData = await loadJSON(selectedModulePath);
@@ -102,14 +49,11 @@ async function init() {
       }
     }
 
-    const chosenMageSpells = mageSpellTier1.filter(s => selectedMageIds.includes(s.id));
-    const chosenClericSpells = clericSpellTier1.filter(s => selectedClericIds.includes(s.id));
-
-    document.getElementById('setup-screen').style.display = 'none';
-
-    const game = new GameOrchestrator(adventureData, classesData, chosenMageSpells, chosenClericSpells);
+    const game = new GameOrchestrator(adventureData, classesData, chosenParty);
     game.start();
   });
+
+  partyBuilder.init();
 }
 
 /**
@@ -117,7 +61,7 @@ async function init() {
  * It coordinates state changes, manages render cycles, and delegates UI controllers.
  */
 class GameOrchestrator {
-  constructor(adventureData, classesData, chosenMageSpells, chosenClericSpells) {
+  constructor(adventureData, classesData, customParty = null) {
     this.spec = adventureData;
     this.classesSpec = classesData;
     this.isActionActive = false;
@@ -127,7 +71,7 @@ class GameOrchestrator {
     this.frameInterval = 1000 / 60; // Target 60 FPS
 
     this.bindUIElements();
-    this.initializeState(chosenMageSpells, chosenClericSpells);
+    this.initializeState(customParty);
     this.initializeEngine();
     this.currentAmbientTrack = null;
 
@@ -153,17 +97,14 @@ class GameOrchestrator {
     };
   }
 
-  initializeState(chosenMageSpells, chosenClericSpells) {
+  initializeState(customParty = null) {
     this.state = new GameState(this.spec, this.classesSpec);
     this.state.onLog = (msg, type) => this.log(msg, type);
 
-    // Override party with selected setup spells
-    this.state.party = [
-      this.state.createPartyMember("fighter", "Valeros"),
-      this.state.createPartyMember("thief", "Merisiel"),
-      this.state.createPartyMember("cleric", "Kyra", chosenClericSpells),
-      this.state.createPartyMember("mage", "Elminster", chosenMageSpells)
-    ];
+    // Override party with selected/created heroes if provided
+    if (customParty && customParty.length > 0) {
+      this.state.party = customParty;
+    }
 
     this.camera = {
       x: this.state.player.x,
