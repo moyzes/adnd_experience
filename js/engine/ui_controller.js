@@ -110,16 +110,6 @@ export class UIController {
             buffBadges.push(`<span class="hero-buff-pill" title="Forced a construct into a full mind. Intelligence −${hero.tempIntDrain} until rest.">🧠 INT −${hero.tempIntDrain}</span>`);
         }
 
-        // Martial Weapon Specialization / Mastery Badges
-        if (hero.classKey === 'fighter' && hero.specializedWeapon) {
-            const isWielding = hero.equippedWeapon === hero.specializedWeapon;
-            if (isWielding) {
-                const isRanged = this.state.isRangedWeapon(hero.specializedWeapon);
-                const specIcon = isRanged ? '🏹' : '⚔️';
-                buffBadges.push(`<span class="hero-buff-pill spec-buff" title="AD&D 2e Fighter Weapon Specialization: +1 to-hit, +2 damage with ${hero.specializedWeapon}">${specIcon} ${hero.specializedWeapon} Spec (+1/+2)</span>`);
-            }
-        }
-
         if (hero.equippedWeapon && this.state.isRangedWeapon(hero.equippedWeapon)) {
             const ammoType = this.state.getWeaponAmmoType(hero.equippedWeapon);
             const ammoCount = ammoType ? this.state.getAmmoCount(ammoType, hero) : 0;
@@ -401,7 +391,6 @@ export class UIController {
                 } else if (isInc) {
                     cardActions = `<div class="incapacitated-badge">⚠️ INCAPACITATED (${hero.hp})</div>`;
                 } else if (hero.classKey === 'fighter') {
-                    secondaryMetricBar = `<div class="metric-label"><span>Tactical Guard</span><span>100%</span></div><div class="status-bar-bg"><div class="guard-fill" style="width: 100%;"></div></div>`;
                     const bashBtnHTML = (lockTarget && lockTarget.methods?.includes('brute'))
                         ? `<button id="bash-btn" class="tsr-sq-btn">${this.SVG_ICONS.BASH}<span class="btn-word">Bash</span></button>`
                         : '';
