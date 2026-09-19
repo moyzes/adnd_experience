@@ -423,8 +423,9 @@ export class InventoryManager {
 
     if (def.useEffect === 'light') {
       this.removePartyItem(state, itemName, 1);
-      state.torchLitUntil = Date.now() + 3 * 60 * 1000;
-      return { success: true, useEffect: 'light', log: `🔥 A torch is lit! Warm, flickering flames push back the dungeon darkness for 3 minutes.` };
+      state.torchLitUntil = Math.max(Date.now(), state.torchLitUntil || 0) + 60 * 60 * 1000;
+      state.isDirty = true;
+      return { success: true, useEffect: 'light', log: `🔥 A torch is lit! Warm, flickering flames push back the dungeon darkness for 60 minutes (60 steps / 6 exploration turns).` };
     }
 
     if (def.useEffect === 'repair_tools') {

@@ -28,7 +28,7 @@ export class ItemCatalog {
   static ITEMS = {
     'Gold Pieces': { id: 'gold', kind: 'currency', scope: 'party', description: 'Coin of the realm.', stackable: true, usable: false, price: 1 },
     'Rations': { id: 'rations', kind: 'consumable', scope: 'party', description: 'Dried meat, hardtack and watered wine. Required to camp.', stackable: true, usable: false, price: 2 },
-    'Torch': { id: 'torch', kind: 'consumable', scope: 'party', description: 'Burns for a short while. Keeps the dark at bay.', stackable: true, usable: true, useEffect: 'light', price: 1 },
+    'Torch': { id: 'torch', kind: 'consumable', scope: 'party', description: 'Burns for 60 minutes (60 steps / 6 exploration turns). Keeps the dark at bay.', stackable: true, usable: true, useEffect: 'light', price: 1 },
     'Healing Potion': { id: 'healing_potion', kind: 'consumable', scope: 'party', description: 'A bitter red draught. Restores 1d4+1 hit points.', stackable: true, usable: true, useEffect: 'heal', healDice: '1d4+1', price: 25 },
     'Holy Water': { id: 'holy_water', kind: 'consumable', scope: 'party', description: 'Blessed vial. 2d4 damage vs undead or small blessing.', stackable: true, usable: true, useEffect: 'holy_water', price: 20 },
     'Arrows': { id: 'arrows', kind: 'ammo', scope: 'party', description: 'Bundle of arrows for bows.', stackable: true, usable: false, price: 1, unitLabel: 'arrow' },

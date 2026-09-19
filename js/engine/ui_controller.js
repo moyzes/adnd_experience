@@ -145,6 +145,20 @@ export class UIController {
             rationsVal.textContent = rationsItem ? (rationsItem.amount !== undefined ? rationsItem.amount : rationsItem.count || 0) : 0;
         }
 
+        const light = this.state.getActiveLightSource ? this.state.getActiveLightSource() : null;
+        const lightRow = this.elements.lightValRow || document.getElementById('light-val-row');
+        const lightVal = this.elements.lightVal || document.getElementById('light-val');
+        if (lightRow && lightVal) {
+            if (light && light.active) {
+                lightRow.style.display = 'block';
+                const icon = light.type === 'arcane_light' ? '✨' : '🔥';
+                const mins = Math.max(1, Math.ceil((light.remainingMs || 0) / 60000));
+                lightVal.textContent = `${icon} ${mins}m`;
+            } else {
+                lightRow.style.display = 'none';
+            }
+        }
+
         const lockTarget = this.state.getLockInFront();
         const trapInFront = this.state.getTrapInFront();
 
@@ -391,8 +405,10 @@ export class UIController {
                 } else if (isInc) {
                     cardActions = `<div class="incapacitated-badge">⚠️ INCAPACITATED (${hero.hp})</div>`;
                 } else if (hero.classKey === 'fighter') {
+                    const heroStr = hero.attributes?.strength || 10;
+                    const bashMins = Math.min(10, Math.max(1, 1 + (18 - heroStr)));
                     const bashBtnHTML = (lockTarget && lockTarget.methods?.includes('brute'))
-                        ? `<button id="bash-btn" class="tsr-sq-btn">${this.SVG_ICONS.BASH}<span class="btn-word">Bash</span></button>`
+                        ? `<button id="bash-btn" class="tsr-sq-btn" title="Bash Door (STR ${heroStr}: takes ${bashMins} min${bashMins > 1 ? 's' : ''}, violent noise)">${this.SVG_ICONS.BASH}<span class="btn-word">Bash</span></button>`
                         : '';
                     const canIntimidate = (hero.skills?.intimidate || hero.classKey === 'fighter') &&
                         Boolean(this.state.surrenderedEnemy && !this.state.surrenderedEnemy.intimidateAttempted);

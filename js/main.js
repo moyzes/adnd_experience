@@ -87,6 +87,8 @@ class GameOrchestrator {
       coordVal: document.getElementById('coord-val'),
       dirVal: document.getElementById('dir-val'),
       goldVal: document.getElementById('gold-val'),
+      lightValRow: document.getElementById('light-val-row'),
+      lightVal: document.getElementById('light-val'),
       narrativeLog: document.getElementById('narrative-log'),
       partyContainer: document.getElementById('party-container'),
       globalActions: document.getElementById('global-actions'),
@@ -363,6 +365,15 @@ class GameOrchestrator {
         if (wiped) return;
       }
     }
+
+    // 0.5. Wandering Monster Patrol triggered by movement game-time advance
+    if (this.state.lastMovementTurnResult && this.state.lastMovementTurnResult.wanderingSpawned) {
+      const patrolResult = this.state.lastMovementTurnResult;
+      this.state.lastMovementTurnResult = null;
+      this.handlePostActionPatrol(patrolResult);
+      return;
+    }
+    this.state.lastMovementTurnResult = null;
 
     // 1. Passive Thief checks
     const hint = this.state.checkPassiveHearNoise();
@@ -641,7 +652,8 @@ class GameOrchestrator {
       if (this.checkTrapBeforeAction(target)) return;
       const result = this.state.attemptBash(fighter);
       this.playSFX('sheet');
-      this.log(`⏳ An exploration turn passes (10 min) with forceful thuds and splintering wood...`, "muted");
+      const timeStr = result.minutes === 1 ? '1 minute passes' : `${result.minutes} minutes pass`;
+      this.log(`⏳ ${timeStr} with forceful thuds and splintering wood as ${fighter.name} (STR ${result.str}) heaves against the obstacle...`, "muted");
       if (result.success) {
         this.state.unlockTarget(target.x, target.y, target.type);
         this.playSFX('bash'); this.log(`💥 CRASH! Success! ${fighter.name} violently forced the lock open [d20=${result.roll} vs Target ${result.target}].`, "success");

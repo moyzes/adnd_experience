@@ -60,6 +60,11 @@ export class RestManager {
       recoveries.push({ name: member.name, hpGained: member.hp - before, hp: member.hp, maxHp: member.maxHp });
     });
 
+    state.torchLitUntil = 0;
+    state.lightSpellUntil = 0;
+    state.totalExplorationMinutes = (state.totalExplorationMinutes || 0) + 480;
+    state.isDirty = true;
+
     return { success: true, remainingRations: rationItem[qtyKey] || 0, recoveries };
   }
 
