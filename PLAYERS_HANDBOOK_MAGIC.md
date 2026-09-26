@@ -30,7 +30,8 @@ In this realm, magical energy is not a generic mana bar. Magic operates under tw
 - **In the Field**: Studying in the dungeon requires seating formulas **one at a time**, taking **10 minutes per spell tier** (e.g., Tier 1 = 10 min, Tier 3 = 30 min).
 - **Brain Burn**: If a wizard forces a construct into an overburdened mind beyond their maximum capacity:
   - The wizard immediately suffers unpreventable damage equal to the cognitive overflow.
-  - If HP falls below 25%, the mental trauma causes an **INT Bruise** (-1 Intelligence until the next full rest).
+  - The first overfill this rest also inflicts an **INT Bruise** (−1 Intelligence until the next full rest). Further overfills the same day burn HP only.
+  - If the burn drops the wizard to 0 HP, they collapse mid-formula and **the construct is not seated**.
 
 ### D. The "Scorched Seat" Rule
 - When an arcane spell is cast in combat or exploration, the construct is released (`spent = true`).

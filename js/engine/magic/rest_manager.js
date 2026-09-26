@@ -8,11 +8,7 @@ import { AlignmentManager } from '../characters/alignment_manager.js';
  * and exploration spellcasting.
  */
 export class RestManager {
-  /**
-   * Resolves a full rest cycle for the entire party using living members' personal inventories.
-   */
   static restParty(state) {
-    // Find rations across living party members' personal inventories
     const carrier = InventoryManager.findHeroCarryingItem(state, i => {
       const name = ((typeof i === 'string' ? i : i?.name) || "").toLowerCase();
       return name.includes("ration") || name.includes("food");
@@ -71,12 +67,10 @@ export class RestManager {
     state.totalExplorationMinutes = (state.totalExplorationMinutes || 0) + 480;
     state.isDirty = true;
 
-    return { success: true, remainingRations: rationItem[qtyKey] || 0, recoveries };
+    const remainingRations = (currentQty <= 1) ? 0 : (item[qtyKey] || 0);
+    return { success: true, remainingRations, recoveries };
   }
 
-  /**
-   * Spatial check for night ambushes during rest based on living enemy encounter proximity.
-   */
   static checkRestAmbush(state) {
     const incomplete = (state.spec.encounters || []).filter(e => !e.completed);
     if (incomplete.length === 0) return null;
@@ -92,13 +86,9 @@ export class RestManager {
     return pool[0];
   }
 
-  /**
-   * Calculates moral tax / divine favor adjustments for party dialogue choices and actions.
-   */
   static applyMoralTax(state, baseTax, activeSpeaker, customMultiplier = null) {
     if (!baseTax || baseTax === 0) return;
 
-    // Convert moral tax into 2D alignment vector and evaluate against party and deity ethos
     const orderDelta = baseTax > 0 ? Math.max(1, Math.round(baseTax * 0.4)) : Math.min(-1, Math.round(baseTax * 0.4));
     const moralityDelta = baseTax > 0 ? Math.max(1, Math.round(baseTax * 0.6)) : Math.min(-1, Math.round(baseTax * 0.6));
     const tags = baseTax > 0
@@ -114,9 +104,6 @@ export class RestManager {
     });
   }
 
-  /**
-   * Directly modifies a Cleric's Divine Favor pool and synchronizes their communion threshold ethos.
-   */
   static modifyDivineFavor(state, delta) {
     const cleric = state.party.find(p => p.classKey === 'cleric');
     if (!cleric) return;
@@ -124,9 +111,6 @@ export class RestManager {
     this.syncClericEthos(state, cleric);
   }
 
-  /**
-   * Synchronizes the Cleric's ethos description with divine favor thresholds.
-   */
   static syncClericEthos(state, cleric) {
     if (!cleric) return;
     const concordance = AlignmentManager.calculateEthosConcordance(cleric);
@@ -145,9 +129,6 @@ export class RestManager {
     }
   }
 
-  /**
-   * Cleric commits prayers during divine petitioning/communion.
-   */
   static studyClericPrayers(state) {
     const cleric = state.party.find(p => p.classKey === 'cleric');
     if (!cleric) return { success: false, reason: "No cleric in party." };
@@ -168,9 +149,6 @@ export class RestManager {
     return { success: true, restored, status: cleric.ethosStatus, divineFavor: cleric.divineFavor };
   }
 
-  /**
-   * Invokes an out-of-combat exploration prayer for the Cleric.
-   */
   static castClericPrayer(state, spellIndex, targetHeroIndex = null) {
     const cleric = state.party.find(p => p.classKey === 'cleric');
     if (!cleric) return { success: false, reason: "No cleric in party." };
@@ -186,9 +164,6 @@ export class RestManager {
     });
   }
 
-  /**
-   * Casts an out-of-combat exploration spell for the Mage.
-   */
   static castMageSpell(state, spellIndex) {
     const mage = state.party.find(p => p.classKey === 'mage');
     if (!mage) return { success: false, reason: "No mage in party." };
@@ -203,7 +178,6 @@ export class RestManager {
     });
 
     if (res.success) {
-      // No burden refund. Spent construct still occupies capacity until rest.
       return {
         ...res,
         currentCognition: mage.cognition,
@@ -216,15 +190,11 @@ export class RestManager {
     return res;
   }
 
-  /**
-   * Mage studies grimoire to seat spell constructs into cognition.
-   */
   static studyGrimoire(state, targetSpellIndex = null) {
     const mage = state.party.find(p => p.classKey === 'mage');
     if (!mage) return { success: false, reason: "No mage in party." };
     if (state.combat && state.combat.active) return { success: false, reason: "Cannot study the grimoire during combat!" };
 
-    // Synchronize spells array with grimoire if needed
     if (mage.grimoire && Array.isArray(mage.grimoire)) {
       if (!mage.spells) mage.spells = [];
       mage.grimoire.forEach(gSpell => {
@@ -264,8 +234,6 @@ export class RestManager {
         };
       }
 
-      // Safe Vancian memory seating:
-      // Fill active cognition up to the 100 capacity threshold without lethal brain burn
       let availableCognition = mage.cognition !== undefined ? mage.cognition : (mage.maxCognition || 100);
       for (const sp of unmemorized) {
         const load = sp.cognitive_load || 20;
@@ -338,9 +306,6 @@ export class RestManager {
     };
   }
 
-  /**
-   * Sums the total cognitive capacity consumed by active (unspent) memorized spells.
-   */
   static getCognitiveLoad(hero) {
     if (!hero || hero.classKey !== 'mage' || !hero.spells) return 0;
     return hero.spells.reduce((acc, s) => acc + (s.spent ? 0 : (s.cognitive_load || 20)), 0);
