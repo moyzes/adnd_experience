@@ -11,19 +11,27 @@
     "ethos": [
       {
         "title": "Eradicate the Shadow",
-        "description": "Purge undead and malignant darkness wherever they take root."
+        "description": "Purge undead and malignant darkness wherever they take root.",
+        "favoredTags": ["purge_undead", "radiant_light", "destroy_necromancy"],
+        "forbiddenTags": ["aid_undead", "desecrate_shrine", "dark_magic"]
       },
       {
         "title": "Relieve Suffering",
-        "description": "Prioritize healing, charity, and defending the vulnerable over personal wealth or glory."
+        "description": "Prioritize healing, charity, and defending the vulnerable over personal wealth or glory.",
+        "favoredTags": ["heal_wounded", "charity", "defend_vulnerable"],
+        "forbiddenTags": ["extortion", "neglect_wounded", "cruelty"]
       },
       {
         "title": "Nurture Life",
-        "description": "Protect crops, communities, and simple folk, serving as a beacon of warmth and renewal."
+        "description": "Protect crops, communities, and simple folk, serving as a beacon of warmth and renewal.",
+        "favoredTags": ["protect_innocents", "feed_hungry", "restore_community"],
+        "forbiddenTags": ["slaughter_civilians", "poison_wells", "burn_fields"]
       },
       {
         "title": "Tempered Mercy",
-        "description": "Offer redemption to those capable of change, but strike down unyielding evil without hesitation."
+        "description": "Offer redemption to those capable of change, but strike down unyielding evil without hesitation.",
+        "favoredTags": ["spare_surrendered", "offer_redemption", "vanquish_evil"],
+        "forbiddenTags": ["wanton_slaughter", "torture", "corrupt_bargain"]
       }
     ]
   },
@@ -39,19 +47,27 @@
     "ethos": [
       {
         "title": "Dominance Through Strength",
-        "description": "Power belongs strictly to those ruthless enough to seize and hold it. Weakness warrants death or enslavement."
+        "description": "Power belongs strictly to those ruthless enough to seize and hold it. Weakness warrants death or enslavement.",
+        "favoredTags": ["ruthless_dominance", "execute_rival", "subjugate"],
+        "forbiddenTags": ["show_weakness", "beg_mercy", "unconditional_submission"]
       },
       {
         "title": "Embrace Treachery",
-        "description": "Intrigue, betrayal, and the elimination of rivals are tests of favor and natural selection."
+        "description": "Intrigue, betrayal, and the elimination of rivals are tests of favor and natural selection.",
+        "favoredTags": ["betrayal", "ambush", "poison_dagger", "eliminate_rival"],
+        "forbiddenTags": ["blind_loyalty", "forgive_betrayal", "pawn_sacrifice_denied"]
       },
       {
         "title": "Instill Fear",
-        "description": "Rule through terror, cruelty, and absolute authority over inferiors."
+        "description": "Rule through terror, cruelty, and absolute authority over inferiors.",
+        "favoredTags": ["terror", "cruelty", "intimidate", "torture"],
+        "forbiddenTags": ["compassion", "comfort_weak", "unsolicited_charity"]
       },
       {
         "title": "Enforce Supremacy",
-        "description": "Assert drow superiority over all surface dwellers and maintain Lolth's complete spiritual dominion."
+        "description": "Assert drow superiority over all surface dwellers and maintain Lolth's complete spiritual dominion.",
+        "favoredTags": ["drow_supremacy", "crush_surface_pride", "spider_veneration"],
+        "forbiddenTags": ["praise_surface_gods", "humility_before_inferiors"]
       }
     ]
   },
@@ -67,19 +83,27 @@
     "ethos": [
       {
         "title": "Uphold Blind Fairness",
-        "description": "Administer laws and moral codes with absolute impartiality. True justice ignores wealth, lineage, or personal bias—applying equally to high lords and commoners alike."
+        "description": "Administer laws and moral codes with absolute impartiality. True justice ignores wealth, lineage, or personal bias—applying equally to high lords and commoners alike.",
+        "favoredTags": ["impartial_justice", "uphold_law", "refuse_bribe", "fair_trial"],
+        "forbiddenTags": ["bribery", "nepotism", "corrupt_verdict", "mob_rule"]
       },
       {
         "title": "Protect the Wronged",
-        "description": "Serve as an unyielding shield for those suffering under tyranny, corruption, or lawlessness. Righting systemic wrongs and restoring balance to a community is a sacred duty."
+        "description": "Serve as an unyielding shield for those suffering under tyranny, corruption, or lawlessness. Righting systemic wrongs and restoring balance to a community is a sacred duty.",
+        "favoredTags": ["defend_oppressed", "right_wrongs", "shatter_tyranny", "shield_victim"],
+        "forbiddenTags": ["abet_tyrant", "ignore_plight", "complicity_in_injustice"]
       },
       {
         "title": "Bear the Burden of Sacrifice",
-        "description": "Accept hardship, personal loss, and physical toll willingly if it advances the cause of good—emulating Tyr, who sacrificed his right hand to bind a cosmic threat and lost his sight in the pursuit of truth."
+        "description": "Accept hardship, personal loss, and physical toll willingly if it advances the cause of good—emulating Tyr, who sacrificed his right hand to bind a cosmic threat and lost his sight in the pursuit of truth.",
+        "favoredTags": ["self_sacrifice", "bear_wound_for_ally", "endure_hardship", "honor_duty"],
+        "forbiddenTags": ["cowardice", "abandon_post", "scapegoat_innocent"]
       },
       {
         "title": "Enforce Justice, Reject Vengeance",
-        "description": "Execute punishment swiftly and proportionally to restore order, never out of personal malice, anger, or bloodlust. Retribution without law is merely murder."
+        "description": "Execute punishment swiftly and proportionally to restore order, never out of personal malice, anger, or bloodlust. Retribution without law is merely murder.",
+        "favoredTags": ["proportional_punishment", "lawful_execution", "restrain_bloodlust"],
+        "forbiddenTags": ["bloodlust_murder", "sadistic_revenge", "lynch_mob", "extrajudicial_slaughter"]
       }
     ]
   }
