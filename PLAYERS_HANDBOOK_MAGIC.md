@@ -28,10 +28,8 @@ In this realm, magical energy is not a generic mana bar. Magic operates under tw
 ### C. Studying the Grimoire (Memorization)
 - **Town & Sanctuary**: Studying prepares all formulas that safely fit within the caster's 100+ cognitive capacity.
 - **In the Field**: Studying in the dungeon requires seating formulas **one at a time**, taking **10 minutes per spell tier** (e.g., Tier 1 = 10 min, Tier 3 = 30 min).
-- **Brain Burn**: If a wizard forces a construct into an overburdened mind beyond their maximum capacity:
-  - The wizard immediately suffers unpreventable damage equal to the cognitive overflow.
-  - The first overfill this rest also inflicts an **INT Bruise** (−1 Intelligence until the next full rest). Further overfills the same day burn HP only.
-  - If the burn drops the wizard to 0 HP, they collapse mid-formula and **the construct is not seated**.
+- **Capacity gate**: A formula that does not fit remaining cognition is **not seated**. There is no force-study, no brain-burn HP tax, and no INT bruise. Rest to clear spent residue, then study again.
+- **Study All (sanctuary)**: Seats every formula that still fits; the rest stay in the grimoire.
 
 ### D. The "Scorched Seat" Rule
 - When an arcane spell is cast in combat or exploration, the construct is released (`spent = true`).
@@ -184,7 +182,7 @@ Casters advance in power by accumulating Experience Points (XP) and training wit
   - *Effect*: An invisible barrier turns aside blows, improving Armor Class by **+2 AC** for **4 rounds**.
 - **Light**
   - *Load*: 15 Cognition | *Casting*: Instant | *Target*: Party | *Timing*: Exploration
-  - *Effect*: Conjures a floating orb of arcane radiance illuminating the dungeon for **240 seconds (60 exploration minutes)**.
+  - *Effect*: Conjures a floating orb of arcane radiance illuminating the dungeon for **60 exploration minutes**.
 - **Burning Hands**
   - *Load*: 25 Cognition | *Casting*: Instant | *Target*: All Enemies | *Timing*: Combat
   - *Effect*: A searing fan of flame erupts from fingertips, dealing **1d3+2 fire damage** to each foe.
