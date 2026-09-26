@@ -113,7 +113,6 @@ export class SpellRegistry {
         const isDead = simMobHp[mob.instanceId] <= 0;
         if (isDead) {
           mob.hp = 0;
-          mob.surrendered = false;
           mob.slain = true;
           mob.moraleStatus = 'DEAD';
         }
@@ -303,14 +302,14 @@ export class SpellRegistry {
         log: `${caster.name} invokes ${spell.name} upon ${target.name}! (-${amt} AC for ${rounds} rounds).` };
     }
     if (effect.type === 'illumination' || spell.id === 'light') {
-      const durationSeconds = effect.duration_seconds || 3600; // 60 minutes (60 steps)
+      const durationMinutes = effect.duration_minutes || Math.round((effect.duration_seconds || 3600) / 60);
       if (state) {
-        state.lightSpellUntil = Math.max(Date.now(), state.lightSpellUntil || 0) + durationSeconds * 1000;
+        state.lightSpellMinutesLeft = (state.lightSpellMinutesLeft || 0) + durationMinutes;
         state.isDirty = true;
       }
       spell.spent = true;
       return { success: true, spellName: spell.name, spellId: spell.id, sfx: spell.sfx || 'bless', isLightSpell: true,
-        log: `${caster.name} casts Arcane Light! A sphere of radiance hovers for 60 minutes (60 steps / 6 turns).` };
+        log: `${caster.name} casts Arcane Light! A sphere of radiance hovers for ${durationMinutes} minutes.` };
     }
     return { success: false, reason: `${spell.name} can only be unleashed against hostile targets during combat!` };
   }
