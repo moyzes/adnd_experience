@@ -21,8 +21,7 @@ export class RestManager {
     const currentQty = item[qtyKey] !== undefined ? item[qtyKey] : 1;
 
     if (currentQty <= 1) {
-      hero.personalInventory = inventory.filter(i => i !== item);
-      hero.inventory = hero.personalInventory;
+      hero.inventory = inventory.filter(i => i !== item);
     } else {
       item[qtyKey] = currentQty - 1;
       if (item.count !== undefined && item.amount !== undefined) item.count = item.amount;
@@ -62,8 +61,8 @@ export class RestManager {
       recoveries.push({ name: member.name, hpGained: member.hp - before, hp: member.hp, maxHp: member.maxHp });
     });
 
-    state.torchLitUntil = 0;
-    state.lightSpellUntil = 0;
+    state.torchMinutesLeft = 0;
+    state.lightSpellMinutesLeft = 0;
     state.totalExplorationMinutes = (state.totalExplorationMinutes || 0) + 480;
     state.isDirty = true;
 
@@ -183,7 +182,7 @@ export class RestManager {
         currentCognition: mage.cognition,
         log: res.log
           ? `${res.log} The construct is gone; its burden remains until rest.`
-          : `✨ ${mage.name} releases ${spell.name}! The construct is gone; its burden remains until rest.`
+          : `\u2728 ${mage.name} releases ${spell.name}! The construct is gone; its burden remains until rest.`
       };
     }
 
@@ -211,7 +210,7 @@ export class RestManager {
       const sp = mage.spells[targetSpellIndex];
       if (!sp) return { success: false, reason: "Spell construct not found in grimoire." };
       if (!sp.spent) return { success: false, reason: `${sp.name} is already memorized in active mind.` };
-      
+
       const load = sp.cognitive_load || 20;
       const currentCognition = mage.cognition !== undefined ? mage.cognition : (mage.maxCognition || 100);
       if (load > currentCognition) {
@@ -258,36 +257,8 @@ export class RestManager {
     const turnResult = state.advanceExplorationTurn(minutes, "Study Grimoire", false);
 
     const cognitiveCost = toMemorize.reduce((sum, s) => sum + (s.cognitive_load || 20), 0);
-    let brainBurnDamage = 0;
-    let intBruise = false;
     const currentCog = mage.cognition !== undefined ? mage.cognition : (mage.maxCognition || 100);
-    const overflow = Math.max(0, cognitiveCost - currentCog);
-
-    if (overflow > 0) {
-      brainBurnDamage = overflow;
-      mage.cognition = 0;
-      mage.hp = Math.max(0, mage.hp - brainBurnDamage);
-      if (!mage.tempIntDrain) {
-        mage.tempIntDrain = 1;
-        mage.attributes.intelligence = Math.max(3, (mage.attributes.intelligence || 10) - 1);
-        intBruise = true;
-      }
-      if (mage.hp <= 0) {
-        return {
-          success: false,
-          reason: `${mage.name} collapses mid-formula. The construct was not seated.`,
-          brainBurnDamage,
-          intBruise,
-          minutes,
-          turnResult,
-          collapsed: true,
-          currentCognition: mage.cognition,
-          mageHp: mage.hp
-        };
-      }
-    } else {
-      mage.cognition = Math.max(0, currentCog - cognitiveCost);
-    }
+    mage.cognition = Math.max(0, currentCog - cognitiveCost);
 
     toMemorize.forEach(s => { s.spent = false; });
     mage.hasStudiedSinceRest = true;
@@ -295,8 +266,6 @@ export class RestManager {
     return {
       success: true,
       cognitiveCost,
-      brainBurnDamage,
-      intBruise,
       minutes,
       turnResult,
       rememorized: toMemorize.map(s => s.name),
@@ -304,10 +273,5 @@ export class RestManager {
       currentCognition: mage.cognition,
       mageHp: mage.hp
     };
-  }
-
-  static getCognitiveLoad(hero) {
-    if (!hero || hero.classKey !== 'mage' || !hero.spells) return 0;
-    return hero.spells.reduce((acc, s) => acc + (s.spent ? 0 : (s.cognitive_load || 20)), 0);
   }
 }
