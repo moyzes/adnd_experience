@@ -1,5 +1,6 @@
 import { CharacterFactory } from '../engine/characters/character_factory.js';
 import { SpellRegistry } from '../engine/spell_registry.js';
+import { AlignmentManager } from '../engine/characters/alignment_manager.js';
 
 /**
  * PartyBuilderUI manages the Pre-Game Character Creation & Party Assembly workflow.
@@ -24,7 +25,8 @@ export class PartyBuilderUI {
       const spells = p.chosenSpells.map(sid => SpellRegistry.getSpell(sid)).filter(Boolean);
       return CharacterFactory.createPartyMember(p.classKey, p.name, spells, this.classesData, {
         race: p.race,
-        attributes: p.attributes
+        attributes: p.attributes,
+        patronDeityId: p.patronDeityId || 'pelor'
       });
     });
   }
@@ -51,9 +53,18 @@ export class PartyBuilderUI {
           <div style="font-family: 'Cinzel', serif; font-size: 12px; font-weight: bold; color: var(--gold-tsr); margin-bottom: 6px;">
             🗺️ 1. Choose Adventure Module:
           </div>
-          <div id="module-choices" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+          <div id="module-choices" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
             <label class="spell-option-label" style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; margin: 0; height: 100%;">
-              <input type="radio" name="adventure-module" value="/data/adventure_shadows_blackstone.json" checked style="margin-top: 3px;">
+              <input type="radio" name="adventure-module" value="/data/b2/b2_keep.json" checked style="margin-top: 3px;">
+              <div>
+                <b style="color: var(--gold-tsr); font-size: 11px;">B2: Keep on the Borderlands</b>
+                <div style="font-size: 9.5px; color: var(--text-muted); margin-top: 2px;">
+                  Multi-zone realm: Fortress, wilderness & Caves of Chaos.
+                </div>
+              </div>
+            </label>
+            <label class="spell-option-label" style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; margin: 0; height: 100%;">
+              <input type="radio" name="adventure-module" value="/data/adventure_shadows_blackstone.json" style="margin-top: 3px;">
               <div>
                 <b style="color: var(--gold-tsr); font-size: 11px;">Blackstone Keep</b>
                 <div style="font-size: 9.5px; color: var(--text-muted); margin-top: 2px;">
@@ -130,6 +141,7 @@ export class PartyBuilderUI {
       if (hero) {
         const classColor = hero.classKey === 'fighter' ? '#d29922' : hero.classKey === 'thief' ? '#a371f7' : hero.classKey === 'cleric' ? '#58a6ff' : '#bc8cff';
         const raceName = hero.race || (hero.raceKey ? hero.raceKey.toUpperCase() : 'HUMAN');
+        const portraitUrl = hero.portrait || CharacterFactory.resolvePortrait(hero.classKey, hero.name);
         
         let spellSnippet = '';
         if (hero.classKey === 'mage' && hero.grimoire && hero.grimoire.length > 0) {
@@ -140,12 +152,17 @@ export class PartyBuilderUI {
 
         html += `
           <div style="background: var(--panel-slate); border: 1px solid var(--border-chiseled); border-top: 3px solid ${classColor}; padding: 8px 10px; border-radius: 2px; position: relative; display: flex; flex-direction: column;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
-              <b style="color: var(--parchment-light); font-size: 12px; font-family: 'Cinzel', serif;">${hero.name}</b>
-              <button class="remove-hero-btn" data-index="${i}" style="background: transparent; border: none; color: #ff7b72; font-size: 12px; cursor: pointer; padding: 0 2px;" title="Remove Hero">✖</button>
-            </div>
-            <div style="font-size: 10px; color: ${classColor}; font-weight: bold;">
-              ${raceName} ${hero.className || hero.classKey.toUpperCase()}
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
+              <img src="${portraitUrl}" alt="${hero.name}" style="width: 32px; height: 38px; object-fit: cover; border-radius: 2px; border: 1px solid var(--border-gold-frame); flex-shrink: 0;" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'32\\' height=\\'38\\' viewBox=\\'0 0 32 38\\'><rect width=\\'32\\' height=\\'38\\' fill=\\'%2311141a\\'/><text x=\\'50%\\' y=\\'55%\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' font-size=\\'14\\'>👤</text></svg>';">
+              <div style="flex: 1; min-width: 0;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                  <b style="color: var(--parchment-light); font-size: 11.5px; font-family: 'Cinzel', serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${hero.name}</b>
+                  <button class="remove-hero-btn" data-index="${i}" style="background: transparent; border: none; color: #ff7b72; font-size: 12px; cursor: pointer; padding: 0 2px;" title="Remove Hero">✖</button>
+                </div>
+                <div style="font-size: 9.5px; color: ${classColor}; font-weight: bold;">
+                  ${raceName} ${hero.className || hero.classKey.toUpperCase()}
+                </div>
+              </div>
             </div>
             <div style="font-size: 9.5px; color: var(--text-muted); margin-top: 4px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px;">
               <span>HP: <b style="color: #3fb950;">${hero.hp}/${hero.maxHp}</b></span>
@@ -233,25 +250,53 @@ export class PartyBuilderUI {
         <button id="close-creator-btn" class="action-tab" style="padding: 2px 8px; font-size: 10px;">CANCEL</button>
       </div>
 
-      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px;">
-        ${prebuilts.map((p, idx) => `
+      <div style="grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; display: grid;">
+        ${prebuilts.map((p, idx) => {
+          const isCaster = p.classKey === 'mage' || p.classKey === 'cleric';
+          const spellLabel = p.classKey === 'mage' 
+            ? `📖 ${CharacterFactory.getStartingMageSpellCount(p.attributes.intelligence)} Grimoire Formulas (INT ${p.attributes.intelligence})`
+            : p.classKey === 'cleric'
+            ? `✨ ${CharacterFactory.getClericPrayerCapacity(p.attributes.wisdom)} Prepared Prayers (WIS ${p.attributes.wisdom})`
+            : null;
+
+          return `
           <div style="background: var(--panel-slate); border: 1px solid var(--border-chiseled); padding: 10px; border-radius: 2px; display: flex; flex-direction: column; justify-content: space-between;">
             <div>
-              <b style="color: var(--gold-tsr); font-size: 12px;">${p.name}</b>
-              <div style="font-size: 10px; color: var(--parchment-light); font-weight: bold;">
-                ${p.race.toUpperCase()} ${p.classKey.toUpperCase()}
+              <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px;">
+                <img src="${p.portrait || CharacterFactory.resolvePortrait(p.classKey, p.name)}" alt="${p.name}" style="width: 38px; height: 46px; object-fit: cover; border-radius: 2px; border: 1px solid var(--border-gold-frame); flex-shrink: 0;" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'38\\' height=\\'46\\' viewBox=\\'0 0 38 46\\'><rect width=\\'38\\' height=\\'46\\' fill=\\'%2311141a\\'/><text x=\\'50%\\' y=\\'55%\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' font-size=\\'16\\'>👤</text></svg>';">
+                <div style="min-width: 0;">
+                  <b style="color: var(--gold-tsr); font-size: 12px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.name}</b>
+                  <div style="font-size: 9.5px; color: var(--parchment-light); font-weight: bold;">
+                    ${p.race.toUpperCase()} ${p.classKey.toUpperCase()}
+                  </div>
+                  ${spellLabel ? `<div style="font-size: 8.5px; color: ${p.classKey === 'mage' ? '#d2a8ff' : '#79c0ff'}; font-weight: 600; margin-top: 1px;">${spellLabel}</div>` : ''}
+                </div>
               </div>
-              <div style="font-size: 9.5px; color: var(--text-muted); margin-top: 4px;">
+              <div style="font-size: 9px; color: var(--text-muted); line-height: 1.3;">
                 STR: ${p.attributes.strength} | DEX: ${p.attributes.dexterity}<br>
                 CON: ${p.attributes.constitution} | INT: ${p.attributes.intelligence}<br>
                 WIS: ${p.attributes.wisdom} | CHA: ${p.attributes.charisma}
               </div>
             </div>
-            <button class="select-prebuilt-card-btn action-tab primary" data-index="${idx}" style="margin-top: 8px; padding: 4px 6px; font-size: 10px;">
-              Add to Party
-            </button>
+            <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px;">
+              ${isCaster ? `
+                <button class="customize-prebuilt-card-btn action-tab primary" data-index="${idx}" style="padding: 4px 6px; font-size: 10px;">
+                  ✨ Select Spells & Add
+                </button>
+                <button class="select-prebuilt-card-btn action-tab" data-index="${idx}" style="padding: 3px 6px; font-size: 9.5px; color: var(--text-muted);">
+                  Quick Add (Default Spells)
+                </button>
+              ` : `
+                <button class="select-prebuilt-card-btn action-tab primary" data-index="${idx}" style="padding: 4px 6px; font-size: 10px;">
+                  Add to Party
+                </button>
+                <button class="customize-prebuilt-card-btn action-tab" data-index="${idx}" style="padding: 2px 6px; font-size: 9.5px; color: var(--text-muted);">
+                  Customize
+                </button>
+              `}
+            </div>
           </div>
-        `).join('')}
+        `}).join('')}
       </div>
     `;
 
@@ -266,12 +311,51 @@ export class PartyBuilderUI {
         const spells = p.chosenSpells.map(sid => SpellRegistry.getSpell(sid)).filter(Boolean);
         const newHero = CharacterFactory.createPartyMember(p.classKey, p.name, spells, this.classesData, {
           race: p.race,
+          portrait: p.portrait,
           attributes: p.attributes
         });
         this.party.push(newHero);
+        creatorPanel.style.display = 'none';
         this.render();
       });
     });
+
+    creatorPanel.querySelectorAll('.customize-prebuilt-card-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = parseInt(e.currentTarget.getAttribute('data-index'), 10);
+        const p = prebuilts[idx];
+        this.openPrebuiltCustomizer(p);
+      });
+    });
+  }
+
+  openPrebuiltCustomizer(p) {
+    const creatorPanel = document.getElementById('character-creator-panel');
+    if (!creatorPanel) return;
+
+    const wepOpts = CharacterFactory.getWeaponOptions(p.classKey);
+    const armOpts = CharacterFactory.getArmorOptions(p.classKey);
+    const shldOpts = CharacterFactory.getShieldOptions(p.classKey);
+
+    this.activeCreatorCharacter = {
+      name: p.name,
+      baseAttributes: { ...p.attributes },
+      race: p.race,
+      classKey: p.classKey,
+      portrait: p.portrait,
+      chosenMageSpellIds: p.classKey === 'mage' ? [...p.chosenSpells] : [],
+      chosenClericPrayerIds: p.classKey === 'cleric' ? [...p.chosenSpells] : [],
+      patronDeityId: p.classKey === 'cleric' ? (p.patronDeityId || 'pelor') : 'pelor',
+      equippedWeapon: p.classKey === 'mage' ? 'Quarterstaff' : p.classKey === 'cleric' ? 'Warhammer' : wepOpts[0]?.name || 'Longsword',
+      specializedWeapon: p.classKey === 'fighter' ? 'Longsword' : null,
+      equippedArmorId: p.classKey === 'mage' ? 'scholars_robes' : p.classKey === 'cleric' ? 'chain_mail' : armOpts[0]?.id || 'banded_mail',
+      equippedShieldId: p.classKey === 'cleric' ? 'consecrated_shield' : 'none',
+      thiefSkillPoints: p.classKey === 'thief' ? { pick_locks: 15, find_traps: 15, pick_pockets: 15, hide_in_shadows: 5, hear_noise: 10 } : null,
+      validationError: null
+    };
+
+    creatorPanel.style.display = 'block';
+    this.renderCreatorForm(creatorPanel);
   }
 
   openCharacterCreator() {
@@ -292,7 +376,10 @@ export class PartyBuilderUI {
       baseAttributes: rolled,
       race: 'human',
       classKey: 'fighter',
-      chosenSpellId: null,
+      portrait: null,
+      chosenMageSpellIds: [],
+      chosenClericPrayerIds: [],
+      patronDeityId: 'pelor',
       equippedWeapon: 'Longsword',
       specializedWeapon: 'Longsword',
       equippedArmorId: 'banded_mail',
@@ -319,13 +406,33 @@ export class PartyBuilderUI {
       }
     }
 
+    const availablePortraits = CharacterFactory.getAvailablePortraits();
+    const currentPortrait = char.portrait || CharacterFactory.resolvePortrait(char.classKey, char.name);
+
     const mageSpells = SpellRegistry.getSpellsForClass('mage', 1);
     const clericPrayers = SpellRegistry.getSpellsForClass('cleric', 1);
 
-    if (!char.chosenSpellId) {
-      if (char.classKey === 'mage' && mageSpells.length > 0) char.chosenSpellId = mageSpells[0].id;
-      if (char.classKey === 'cleric' && clericPrayers.length > 0) char.chosenSpellId = clericPrayers[0].id;
+    const allowedMageCount = CharacterFactory.getStartingMageSpellCount(finalAttrs.intelligence);
+    const allowedClericCount = CharacterFactory.getClericPrayerCapacity(finalAttrs.wisdom);
+
+    if (!Array.isArray(char.chosenMageSpellIds)) char.chosenMageSpellIds = [];
+    if (!Array.isArray(char.chosenClericPrayerIds)) char.chosenClericPrayerIds = [];
+
+    if (char.chosenMageSpellIds.length === 0 && mageSpells.length > 0) {
+      char.chosenMageSpellIds = mageSpells.slice(0, allowedMageCount).map(s => s.id);
+    } else if (char.chosenMageSpellIds.length > allowedMageCount) {
+      char.chosenMageSpellIds = char.chosenMageSpellIds.slice(0, allowedMageCount);
     }
+
+    if (char.chosenClericPrayerIds.length === 0 && clericPrayers.length > 0) {
+      char.chosenClericPrayerIds = clericPrayers.slice(0, allowedClericCount).map(s => s.id);
+    } else if (char.chosenClericPrayerIds.length > allowedClericCount) {
+      char.chosenClericPrayerIds = char.chosenClericPrayerIds.slice(0, allowedClericCount);
+    }
+
+    const allDeities = AlignmentManager.getAllDeities();
+    if (!char.patronDeityId) char.patronDeityId = 'pelor';
+    const activeDeity = AlignmentManager.getDeity(char.patronDeityId);
 
     const availableWeapons = CharacterFactory.getWeaponOptions(char.classKey);
     const availableArmors = CharacterFactory.getArmorOptions(char.classKey);
@@ -381,11 +488,24 @@ export class PartyBuilderUI {
       ` : ''}
 
       <div style="display: grid; grid-template-columns: 1fr 1.25fr; gap: 14px;">
-        <!-- Left Column: Name, Attributes, Race, Class -->
+        <!-- Left Column: Name, Portrait, Attributes, Race, Class -->
         <div style="display: flex; flex-direction: column; gap: 10px;">
-          <div>
-            <label style="font-size: 10.5px; color: var(--gold-tsr); font-weight: bold; display: block; margin-bottom: 3px;">CHARACTER NAME:</label>
-            <input type="text" id="custom-char-name" value="${char.name}" placeholder="e.g. Douglas the Brave" style="width: 100%; background: #000; border: 1px solid var(--border-iron); color: var(--parchment-light); padding: 5px 8px; font-size: 11px; border-radius: 2px;">
+          <div style="display: flex; gap: 10px; align-items: flex-start;">
+            <div style="position: relative; flex-shrink: 0; width: 56px; height: 68px; border: 2px solid var(--border-gold-frame); border-radius: 2px; overflow: hidden; background: #000; box-shadow: 0 0 6px rgba(0,0,0,0.8);">
+              <img src="${currentPortrait}" alt="Portrait" style="width: 100%; height: 100%; object-fit: cover; display: block;" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'56\\' height=\\'68\\' viewBox=\\'0 0 56 68\\'><rect width=\\'56\\' height=\\'68\\' fill=\\'%2311141a\\'/><text x=\\'50%\\' y=\\'55%\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' font-size=\\'20\\'>👤</text></svg>';">
+            </div>
+            <div style="flex: 1; min-width: 0;">
+              <label style="font-size: 10.5px; color: var(--gold-tsr); font-weight: bold; display: block; margin-bottom: 3px;">CHARACTER NAME:</label>
+              <input type="text" id="custom-char-name" value="${char.name}" placeholder="e.g. Douglas the Brave" style="width: 100%; background: #000; border: 1px solid var(--border-iron); color: var(--parchment-light); padding: 5px 8px; font-size: 11px; border-radius: 2px; margin-bottom: 6px;">
+              <div style="font-size: 9px; color: var(--text-muted); margin-bottom: 3px;">Choose Portrait:</div>
+              <div style="display: flex; gap: 5px;">
+                ${availablePortraits.map(p => `
+                  <div class="creator-portrait-opt" data-file="${p.file}" style="cursor: pointer; width: 28px; height: 34px; border: 2px solid ${currentPortrait === p.file ? 'var(--gold-tsr)' : 'var(--border-iron)'}; border-radius: 2px; overflow: hidden; background: #000;" title="${p.name}">
+                    <img src="${p.file}" alt="${p.name}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                  </div>
+                `).join('')}
+              </div>
+            </div>
           </div>
 
           <div style="background: rgba(0,0,0,0.4); border: 1px solid var(--border-iron); padding: 8px 10px; border-radius: 2px;">
@@ -617,17 +737,105 @@ export class PartyBuilderUI {
           <!-- Spell / Prayer Picker (Mage or Cleric) -->
           ${char.classKey === 'mage' ? `
             <div style="background: rgba(188,140,255,0.08); border: 1px solid rgba(188,140,255,0.3); padding: 8px 10px; border-radius: 2px;">
-              <label style="font-size: 10.5px; color: var(--cognition-purple); font-weight: bold; display: block; margin-bottom: 3px;">📖 CHOOSE 1 STARTING 1ST-LEVEL SPELL:</label>
-              <select id="custom-char-spell-select" style="width: 100%; background: #000; border: 1px solid var(--border-iron); color: var(--parchment-light); padding: 5px; font-size: 10.5px; border-radius: 2px;">
-                ${mageSpells.map(s => `<option value="${s.id}" ${char.chosenSpellId === s.id ? 'selected' : ''}>${s.name} (Load: ${s.cognitive_load}) — ${s.description}</option>`).join('')}
-              </select>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label style="font-size: 10.5px; color: var(--cognition-purple); font-weight: bold; margin: 0;">📖 GRIMOIRE TRANSCRIPTIONS (INT ${finalAttrs.intelligence}):</label>
+                <span style="font-size: 10px; font-weight: bold; color: ${char.chosenMageSpellIds.length === allowedMageCount ? '#3fb950' : '#d29922'};">
+                  ${char.chosenMageSpellIds.length} / ${allowedMageCount} Formulas Known
+                </span>
+              </div>
+              <div style="font-size: 8.5px; color: var(--text-muted); margin-bottom: 6px;">
+                AD&D 2e Grimoire Rule: Intelligence scales known formulas (INT 9-12: 2, 13-15: 3, 16-17: 4, 18: 5).
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 4px; max-height: 140px; overflow-y: auto; padding-right: 2px;">
+                ${mageSpells.map(s => {
+                  const isChecked = char.chosenMageSpellIds.includes(s.id);
+                  return `
+                    <label class="spell-choice-toggle" style="display: flex; align-items: flex-start; gap: 6px; padding: 4px 6px; background: ${isChecked ? 'rgba(188,140,255,0.18)' : 'rgba(0,0,0,0.3)'}; border: 1px solid ${isChecked ? 'var(--cognition-purple)' : 'var(--border-steel)'}; border-radius: 2px; cursor: pointer; font-size: 9.5px;">
+                      <input type="checkbox" class="mage-spell-cb" data-id="${s.id}" ${isChecked ? 'checked' : ''} style="margin-top: 2px;">
+                      <div style="flex: 1; min-width: 0;">
+                        <b style="color: ${isChecked ? '#fff' : 'var(--parchment-light)'};">${s.name}</b>
+                        <span style="font-size: 8px; color: var(--text-muted); margin-left: 4px;">(Load: ${s.cognitive_load})</span>
+                        <div style="font-size: 8px; color: var(--text-muted);">${s.description}</div>
+                      </div>
+                    </label>
+                  `;
+                }).join('')}
+              </div>
             </div>
           ` : char.classKey === 'cleric' ? `
+            <!-- Cleric Patron Deity & Ethos Selection -->
+            <div style="background: rgba(210,153,34,0.08); border: 1px solid rgba(210,153,34,0.35); padding: 8px 10px; border-radius: 3px; margin-bottom: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label style="font-size: 10.5px; color: var(--gold-tsr); font-weight: bold; margin: 0;">☀️ PATRON DEITY & SACRED ETHOS:</label>
+                <span style="font-size: 9px; color: #e6edf3; background: #21262d; padding: 1px 6px; border-radius: 2px;">Ethos Concordance Required</span>
+              </div>
+              <div style="font-size: 8.5px; color: var(--text-muted); margin-bottom: 6px;">
+                Clerics pledge their devotion to a specific god. Actions drifting from this ethos drain Divine Favor toward Absolute Silence.
+              </div>
+
+              <!-- 3 Deity Cards -->
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 6px;">
+                ${allDeities.map(d => {
+                  const isSel = char.patronDeityId === d.id;
+                  return `
+                    <div class="deity-option-card ${isSel ? 'selected' : ''}" data-deity="${d.id}" style="cursor: pointer; padding: 6px 4px; border: 1px solid ${isSel ? 'var(--gold-tsr)' : 'var(--border-iron)'}; background: ${isSel ? 'rgba(210,153,34,0.22)' : 'rgba(0,0,0,0.3)'}; border-radius: 3px; text-align: center; transition: all 0.15s ease;">
+                      <div style="font-size: 16px; margin-bottom: 2px;">${d.symbol}</div>
+                      <div style="font-weight: bold; font-size: 10px; color: ${isSel ? 'var(--gold-tsr)' : 'var(--parchment-light)'};">${d.name}</div>
+                      <div style="font-size: 8px; color: ${isSel ? '#e6edf3' : 'var(--text-muted)'}; margin-top: 1px;">${d.alignment}</div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+
+              <!-- Active Deity Detail & Tenets -->
+              ${activeDeity ? `
+                <div style="background: rgba(0,0,0,0.4); border: 1px solid var(--border-iron); border-radius: 3px; padding: 6px 8px; font-size: 9px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #30363d; padding-bottom: 4px; margin-bottom: 4px;">
+                    <div>
+                      <b style="color: var(--gold-tsr); font-size: 9.5px;">${activeDeity.symbol} ${activeDeity.name} (${activeDeity.title})</b>
+                      <span style="color: var(--text-muted); font-size: 8.5px; margin-left: 4px;">[${activeDeity.alignment}]</span>
+                    </div>
+                  </div>
+                  <div style="color: #8b949e; font-size: 8px; margin-bottom: 4px;">
+                    <b>Portfolio:</b> ${activeDeity.portfolio}
+                  </div>
+                  <div style="font-weight: bold; color: var(--parchment-light); font-size: 8.5px; margin-bottom: 2px;">Sacred Ethos Tenets:</div>
+                  <div style="display: flex; flex-direction: column; gap: 3px; max-height: 85px; overflow-y: auto;">
+                    ${activeDeity.ethos.map(t => `
+                      <div style="background: rgba(255,255,255,0.03); border-left: 2px solid ${char.patronDeityId === 'lolth' ? '#da3633' : 'var(--gold-tsr)'}; padding: 2px 5px; border-radius: 0 2px 2px 0;">
+                        <b style="color: #e6edf3; font-size: 8.5px;">${t.title}:</b>
+                        <span style="color: #8b949e; font-size: 8px;"> ${t.description}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+
             <div style="background: rgba(88,166,255,0.08); border: 1px solid rgba(88,166,255,0.3); padding: 8px 10px; border-radius: 2px;">
-              <label style="font-size: 10.5px; color: var(--favor-blue); font-weight: bold; display: block; margin-bottom: 3px;">✨ CHOOSE 1 STARTING 1ST-LEVEL PRAYER:</label>
-              <select id="custom-char-spell-select" style="width: 100%; background: #000; border: 1px solid var(--border-iron); color: var(--parchment-light); padding: 5px; font-size: 10.5px; border-radius: 2px;">
-                ${clericPrayers.map(s => `<option value="${s.id}" ${char.chosenSpellId === s.id ? 'selected' : ''}>${s.name} — ${s.description}</option>`).join('')}
-              </select>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label style="font-size: 10.5px; color: var(--favor-blue); font-weight: bold; margin: 0;">✨ DIVINE COMMUNION (WIS ${finalAttrs.wisdom}):</label>
+                <span style="font-size: 10px; font-weight: bold; color: ${char.chosenClericPrayerIds.length === allowedClericCount ? '#3fb950' : '#d29922'};">
+                  ${char.chosenClericPrayerIds.length} / ${allowedClericCount} Prepared at Once
+                </span>
+              </div>
+              <div style="font-size: 8.5px; color: var(--text-muted); margin-bottom: 6px;">
+                AD&D 2e Priest Rule: Open access to all 1st-level divine prayers. Wisdom sets simultaneous preparation capacity (WIS ≤12: 1, 13-15: 2, 16-17: 3, 18: 4).
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 4px; max-height: 140px; overflow-y: auto; padding-right: 2px;">
+                ${clericPrayers.map(s => {
+                  const isChecked = char.chosenClericPrayerIds.includes(s.id);
+                  return `
+                    <label class="spell-choice-toggle" style="display: flex; align-items: flex-start; gap: 6px; padding: 4px 6px; background: ${isChecked ? 'rgba(88,166,255,0.18)' : 'rgba(0,0,0,0.3)'}; border: 1px solid ${isChecked ? 'var(--favor-blue)' : 'var(--border-steel)'}; border-radius: 2px; cursor: pointer; font-size: 9.5px;">
+                      <input type="checkbox" class="cleric-prayer-cb" data-id="${s.id}" ${isChecked ? 'checked' : ''} style="margin-top: 2px;">
+                      <div style="flex: 1; min-width: 0;">
+                        <b style="color: ${isChecked ? '#fff' : 'var(--parchment-light)'};">${s.name}</b>
+                        <div style="font-size: 8px; color: var(--text-muted);">${s.description}</div>
+                      </div>
+                    </label>
+                  `;
+                }).join('')}
+              </div>
             </div>
           ` : ''}
 
@@ -657,20 +865,22 @@ export class PartyBuilderUI {
       char.specializedWeapon = null;
     }
 
+    const finalAttrs = CharacterFactory.applyRaceAdjustments(char.baseAttributes, char.race);
     if (char.classKey === 'mage') {
+      const allowedCount = CharacterFactory.getStartingMageSpellCount(finalAttrs.intelligence);
       const mageSpells = SpellRegistry.getSpellsForClass('mage', 1);
-      char.chosenSpellId = mageSpells[0]?.id || null;
+      char.chosenMageSpellIds = mageSpells.slice(0, allowedCount).map(s => s.id);
     } else if (char.classKey === 'cleric') {
+      const allowedCap = CharacterFactory.getClericPrayerCapacity(finalAttrs.wisdom);
       const clericPrayers = SpellRegistry.getSpellsForClass('cleric', 1);
-      char.chosenSpellId = clericPrayers[0]?.id || null;
-    } else {
-      char.chosenSpellId = null;
+      char.chosenClericPrayerIds = clericPrayers.slice(0, allowedCap).map(s => s.id);
     }
     char.validationError = null;
   }
 
   bindCreatorEvents(container) {
     const char = this.activeCreatorCharacter;
+    const finalAttrs = CharacterFactory.applyRaceAdjustments(char.baseAttributes, char.race);
 
     // Name input tracking
     const nameInput = document.getElementById('custom-char-name');
@@ -680,12 +890,21 @@ export class PartyBuilderUI {
       });
     }
 
+    // Portrait selector options
+    container.querySelectorAll('.creator-portrait-opt').forEach(opt => {
+      opt.addEventListener('click', () => {
+        char.portrait = opt.getAttribute('data-file');
+        this.renderCreatorForm(container);
+      });
+    });
+
     // Reroll 3d6 button
     const rerollBtn = document.getElementById('reroll-3d6-btn');
     if (rerollBtn) {
       rerollBtn.addEventListener('click', () => {
         char.baseAttributes = CharacterFactory.roll3d6Attributes();
         char.validationError = null;
+        this.syncClassDefaults(char);
         this.renderCreatorForm(container);
       });
     }
@@ -695,6 +914,7 @@ export class PartyBuilderUI {
       radio.addEventListener('change', (e) => {
         char.race = e.target.value;
         char.validationError = null;
+        this.syncClassDefaults(char);
         this.renderCreatorForm(container);
       });
     });
@@ -713,7 +933,6 @@ export class PartyBuilderUI {
     if (fighterSpecSelect) {
       fighterSpecSelect.addEventListener('change', (e) => {
         char.specializedWeapon = e.target.value;
-        // Also auto-switch primary weapon if appropriate
         char.equippedWeapon = e.target.value;
         this.renderCreatorForm(container);
       });
@@ -784,13 +1003,54 @@ export class PartyBuilderUI {
       });
     }
 
-    // Spell select
-    const spellSelect = document.getElementById('custom-char-spell-select');
-    if (spellSelect) {
-      spellSelect.addEventListener('change', (e) => {
-        char.chosenSpellId = e.target.value;
+    // Mage spell selection checkboxes
+    container.querySelectorAll('.mage-spell-cb').forEach(cb => {
+      cb.addEventListener('change', (e) => {
+        const sid = e.target.getAttribute('data-id');
+        const allowedCount = CharacterFactory.getStartingMageSpellCount(finalAttrs.intelligence);
+        if (e.target.checked) {
+          if (!char.chosenMageSpellIds.includes(sid)) {
+            if (char.chosenMageSpellIds.length >= allowedCount) {
+              char.chosenMageSpellIds.shift();
+            }
+            char.chosenMageSpellIds.push(sid);
+          }
+        } else {
+          char.chosenMageSpellIds = char.chosenMageSpellIds.filter(id => id !== sid);
+        }
+        this.renderCreatorForm(container);
       });
-    }
+    });
+
+    // Cleric prayer selection checkboxes
+    container.querySelectorAll('.cleric-prayer-cb').forEach(cb => {
+      cb.addEventListener('change', (e) => {
+        const sid = e.target.getAttribute('data-id');
+        const allowedCap = CharacterFactory.getClericPrayerCapacity(finalAttrs.wisdom);
+        if (e.target.checked) {
+          if (!char.chosenClericPrayerIds.includes(sid)) {
+            if (char.chosenClericPrayerIds.length >= allowedCap) {
+              char.chosenClericPrayerIds.shift();
+            }
+            char.chosenClericPrayerIds.push(sid);
+          }
+        } else {
+          char.chosenClericPrayerIds = char.chosenClericPrayerIds.filter(id => id !== sid);
+        }
+        this.renderCreatorForm(container);
+      });
+    });
+
+    // Cleric deity option selection
+    container.querySelectorAll('.deity-option-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const deityId = card.getAttribute('data-deity');
+        if (deityId && char.patronDeityId !== deityId) {
+          char.patronDeityId = deityId;
+          this.renderCreatorForm(container);
+        }
+      });
+    });
 
     // Cancel
     const cancelBtn = document.getElementById('cancel-custom-btn');
@@ -821,23 +1081,26 @@ export class PartyBuilderUI {
           }
         }
 
-        const finalAttrs = CharacterFactory.applyRaceAdjustments(char.baseAttributes, char.race);
+        const heroAttrs = CharacterFactory.applyRaceAdjustments(char.baseAttributes, char.race);
         const heroName = (char.name || '').trim() || `${char.race.charAt(0).toUpperCase() + char.race.slice(1)} ${char.classKey.charAt(0).toUpperCase() + char.classKey.slice(1)}`;
 
         let chosenSpells = [];
-        if (char.chosenSpellId) {
-          const spellDef = SpellRegistry.getSpell(char.chosenSpellId);
-          if (spellDef) chosenSpells = [spellDef];
+        if (char.classKey === 'mage') {
+          chosenSpells = (char.chosenMageSpellIds || []).map(id => SpellRegistry.getSpell(id)).filter(Boolean);
+        } else if (char.classKey === 'cleric') {
+          chosenSpells = (char.chosenClericPrayerIds || []).map(id => SpellRegistry.getSpell(id)).filter(Boolean);
         }
 
         const newHero = CharacterFactory.createPartyMember(char.classKey, heroName, chosenSpells, this.classesData, {
           race: char.race,
-          attributes: finalAttrs,
+          portrait: char.portrait,
+          attributes: heroAttrs,
           equippedWeapon: char.equippedWeapon,
           specializedWeapon: char.specializedWeapon,
           equippedArmor: char.equippedArmorId,
           equippedShield: char.equippedShieldId,
-          thiefSkillPoints: char.classKey === 'thief' ? { ...char.thiefSkillPoints } : null
+          thiefSkillPoints: char.classKey === 'thief' ? { ...char.thiefSkillPoints } : null,
+          patronDeityId: char.classKey === 'cleric' ? (char.patronDeityId || 'pelor') : null
         });
 
         this.party.push(newHero);

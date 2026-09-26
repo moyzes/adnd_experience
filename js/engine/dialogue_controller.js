@@ -1,3 +1,5 @@
+import { InventoryManager } from './items/inventory_manager.js';
+
 export class DialogueController {
     constructor(adventureData, state, uiController, callbacks) {
         this.adventureData = adventureData;
@@ -18,7 +20,7 @@ export class DialogueController {
         // Dynamic quest node check (e.g. returning relic to patron)
         if (npcSpec.questConditions) {
             for (const cond of npcSpec.questConditions) {
-                if (cond.requiresItem && this.state.inventory.some(i => i.name === cond.requiresItem && (i.amount || 1) > 0)) {
+                if (cond.requiresItem && this.state.getPartyItemQty(cond.requiresItem) > 0) {
                     npcState.currentNode = cond.targetNode;
                     npcState.completed = false;
                     break;
@@ -72,9 +74,26 @@ export class DialogueController {
         });
     }
 
+    getDialogueNode(npcId, nodeId) {
+        if (!nodeId) return null;
+        if (this.adventureData.dialogues && this.adventureData.dialogues[npcId] && this.adventureData.dialogues[npcId][nodeId]) {
+            return this.adventureData.dialogues[npcId][nodeId];
+        }
+        if (this.adventureData.dialogues && this.adventureData.dialogues[nodeId]) {
+            return this.adventureData.dialogues[nodeId];
+        }
+        if (this.adventureData.dialogue && this.adventureData.dialogue[npcId] && this.adventureData.dialogue[npcId][nodeId]) {
+            return this.adventureData.dialogue[npcId][nodeId];
+        }
+        if (this.adventureData.dialogue && this.adventureData.dialogue[nodeId]) {
+            return this.adventureData.dialogue[nodeId];
+        }
+        return null;
+    }
+
     renderDialogueUI(npcId, nodeId) {
         const npcSpec = (this.adventureData.npcs && this.adventureData.npcs[npcId]) || { name: 'NPC' };
-        const node = this.adventureData.dialogues && this.adventureData.dialogues[npcId] ? this.adventureData.dialogues[npcId][nodeId] : null;
+        const node = this.getDialogueNode(npcId, nodeId);
         const npcState = this.state.getNPCState(npcId);
         const speaker = this.state.activeSpeaker || this.state.party.find(p => p && p.hp > 0) || this.state.party[0] || { name: 'Adventurer', className: 'Fighter', classKey: 'fighter', attributes: {} };
         this.state.activeSpeaker = speaker;
@@ -88,36 +107,54 @@ export class DialogueController {
         }
 
         const speakerHeader = `[Speaker: ${speaker.name || 'Adventurer'} (${speaker.className || 'Fighter'}) | NPC Attitude: ${npcState ? npcState.attitude : 0}]`;
-        const fullPrompt = `${speakerHeader}\n\n"${node.text}"`;
+        const fullPrompt = `${speakerHeader}\n\n"${node.text || node.prompt || ''}"`;
 
-        const choiceButtons = (node.choices || []).map(choice => {
+        const rawChoices = node.choices || node.options || [];
+        const choiceButtons = rawChoices.map(rawChoice => {
+            const choice = {
+                ...rawChoice,
+                text: rawChoice.text || rawChoice.label || rawChoice.prompt || 'Continue',
+                onSuccess: rawChoice.onSuccess !== undefined ? rawChoice.onSuccess : rawChoice.targetNode
+            };
             const hasSpecialty = choice.specialtyClass && speaker.classKey && (speaker.classKey.toLowerCase() === choice.specialtyClass.toLowerCase());
-            const bonusText = hasSpecialty ? ` ⭐ [${choice.specialtyClass} Specialty +${choice.specialtyBonus}]` : '';
+            const bonusText = hasSpecialty ? ` ⭐ [${choice.specialtyClass} Specialty +${choice.specialtyBonus || 2}]` : '';
 
             let canAfford = true;
             if (choice.cost) {
                 if (choice.cost.gold) {
-                    const goldItem = (this.state.inventory || []).find(i => i && i.name === "Gold Pieces");
-                    canAfford = goldItem && goldItem.amount >= choice.cost.gold;
+                    canAfford = this.state.getPartyGold() >= choice.cost.gold;
                 }
                 if (choice.cost.rations) {
-                    const rationItem = (this.state.inventory || []).find(i => i && (i.name || "").toLowerCase().includes("ration"));
-                    const count = rationItem ? (rationItem.amount !== undefined ? rationItem.amount : rationItem.count || 0) : 0;
+                    const carrier = InventoryManager.findHeroCarryingItem(this.state, i => ((typeof i === 'string' ? i : i?.name) || "").toLowerCase().includes("ration"));
+                    const count = carrier ? ((carrier.item.amount !== undefined ? carrier.item.amount : carrier.item.count) || 1) : 0;
                     canAfford = count >= choice.cost.rations;
                 }
             }
 
             if (choice.requiresItem) {
-                const hasReqItem = (this.state.inventory || []).some(i => i && i.name === choice.requiresItem && (i.amount || 1) > 0);
+                const hasReqItem = this.state.getPartyItemQty(choice.requiresItem) > 0;
                 if (!hasReqItem) canAfford = false;
             }
 
             return {
                 text: `${choice.text}${bonusText}`,
+                label: `${choice.text}${bonusText}`,
                 disabled: !canAfford,
-                callback: () => this.resolveDialogueChoice(npcId, choice)
+                callback: () => this.resolveDialogueChoice(npcId, choice, node)
             };
         });
+
+        if (choiceButtons.length === 0) {
+            choiceButtons.push({
+                text: "Conclude conversation.",
+                label: "Conclude conversation.",
+                callback: () => {
+                    this.state.activeNpc = null;
+                    this.state.activeSpeaker = null;
+                    this.callbacks.updateHUD();
+                }
+            });
+        }
 
         const titleName = (npcSpec.name || 'NPC').toUpperCase();
         this.uiController.showInteractionModal({
@@ -127,7 +164,7 @@ export class DialogueController {
         });
     }
 
-    resolveDialogueChoice(npcId, choice) {
+    resolveDialogueChoice(npcId, choice, node = null) {
         const speaker = this.state.activeSpeaker || this.state.party.find(p => p && p.hp > 0) || this.state.party[0] || { name: 'Adventurer', className: 'Fighter', classKey: 'fighter', attributes: {} };
         this.state.activeSpeaker = speaker;
         const npcSpec = (this.adventureData.npcs && this.adventureData.npcs[npcId]) || { name: 'NPC' };
@@ -135,8 +172,7 @@ export class DialogueController {
 
         if (choice.cost) {
             if (choice.cost.gold) {
-                const goldItem = this.state.inventory.find(i => i.name === "Gold Pieces");
-                if (goldItem) goldItem.amount -= choice.cost.gold;
+                this.state.spendGold(choice.cost.gold);
 
                 if (choice.briberyInsulted) {
                     npcState.attitude = Math.max(-100, npcState.attitude - (choice.insultSeverity || 25));
@@ -146,10 +182,17 @@ export class DialogueController {
                 }
             }
             if (choice.cost.rations) {
-                const rationItem = this.state.inventory.find(i => (i.name || "").toLowerCase().includes("ration"));
-                if (rationItem) {
-                    if (rationItem.amount !== undefined) rationItem.amount -= choice.cost.rations;
-                    else if (rationItem.count !== undefined) rationItem.count -= choice.cost.rations;
+                const carrier = InventoryManager.findHeroCarryingItem(this.state, i => ((typeof i === 'string' ? i : i?.name) || "").toLowerCase().includes("ration"));
+                if (carrier) {
+                    const qtyKey = carrier.item.amount !== undefined ? 'amount' : (carrier.item.count !== undefined ? 'count' : 'amount');
+                    const have = carrier.item[qtyKey] || 1;
+                    if (have <= choice.cost.rations) {
+                        carrier.hero.personalInventory = carrier.inventory.filter(i => i !== carrier.item);
+                        carrier.hero.inventory = carrier.hero.personalInventory;
+                    } else {
+                        carrier.item[qtyKey] = have - choice.cost.rations;
+                        if (carrier.item.count !== undefined && carrier.item.amount !== undefined) carrier.item.count = carrier.item[qtyKey];
+                    }
                 }
                 this.callbacks.log(`Gave away ${choice.cost.rations} ration(s).`, "info");
             }
@@ -162,7 +205,8 @@ export class DialogueController {
 
         if (choice.giveItem) {
             const item = typeof choice.giveItem === 'string' ? { name: choice.giveItem, amount: 1 } : choice.giveItem;
-            this.state.addPartyItem(item.name, item.amount || 1);
+            const speakerIndex = this.state.party.indexOf(speaker);
+            this.state.addPartyItem(item.name, item.amount || 1, speakerIndex >= 0 ? speakerIndex : 0);
             this.callbacks.log(`🎁 Acquired Item: ${item.name}!`, "success");
             if (!choice.playSFX && this.callbacks.playSFX) {
                 this.callbacks.playSFX('reward');
@@ -187,7 +231,17 @@ export class DialogueController {
             this.callbacks.playSFX(choice.playSFX);
         }
 
-        if (choice.moral_tax) {
+        const alignImpact = choice.alignment_impact || (node && node.alignment_impact);
+        if (alignImpact) {
+            const tags = choice.ethos_tags || choice.tags || (node && (node.ethos_tags || node.tags)) || [];
+            this.state.recordMoralAction(speaker, {
+                orderDelta: alignImpact.order || 0,
+                moralityDelta: alignImpact.morality || 0,
+                reason: choice.text || alignImpact.reason || 'Dialogue resolution',
+                tags,
+                isClericDirect: (speaker && speaker.classKey === 'cleric')
+            });
+        } else if (choice.moral_tax) {
             this.state.applyMoralTax(choice.moral_tax, speaker, choice.clericMultiplier || null);
         }
 
@@ -269,7 +323,7 @@ export class DialogueController {
             }
         }
 
-        const nextNode = success ? choice.onSuccess : choice.onFail;
+        const nextNode = success ? (choice.onSuccess !== undefined ? choice.onSuccess : choice.targetNode) : (choice.onFail !== undefined ? choice.onFail : null);
 
         if (nextNode) {
             npcState.currentNode = nextNode;

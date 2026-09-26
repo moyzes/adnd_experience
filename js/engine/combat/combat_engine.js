@@ -51,6 +51,8 @@ export class CombatEngine {
     });
 
     const isDarkAmbush = state.isDarknessActive() && !state.canPartySeeAhead();
+    const hasElvenBoots = state.partyHasBootsOfElvenkind && state.partyHasBootsOfElvenkind();
+    const surprise = (!isDarkAmbush && (!!encSpec.scouted || hasElvenBoots));
     state.combat = {
       active: true,
       round: 1,
@@ -59,12 +61,16 @@ export class CombatEngine {
       queuedCommands: {},
       previousCommands: {},
       channelingCast: null,
-      surpriseRound: !isDarkAmbush && !!encSpec.scouted,
-      alertedRound: isDarkAmbush || !!encSpec.alerted,
+      surpriseRound: surprise,
+      alertedRound: isDarkAmbush || (!!encSpec.alerted && !hasElvenBoots),
       moraleCheckedFirstBlood: false,
       moraleCheckedHalfSquad: false,
       moraleCheckedLeader: false
     };
+
+    if (hasElvenBoots && !isDarkAmbush) {
+      state.addLog(`🧝 Boots of Elvenkind: Moving with supernatural elven silence, your party catches the enemy by complete surprise! Free surprise round active!`, "success");
+    }
 
     if (isDarkAmbush) {
       state.addLog(`🌑 AMBUSHED IN THE DARK! Without a torch or light spell, the enemies strike from the gloom!`, "danger");
@@ -244,13 +250,9 @@ export class CombatEngine {
     
     if (activeThreats.length === 0) {
       victory = true;
-      const surrenderedMob = state.combat.enemies.find(e => e.surrendered);
-      if (surrenderedMob) {
-        state.surrenderedEnemy = surrenderedMob;
-      }
       const currentEnc = (state.spec.encounters || []).find(e => e.id === state.combat.encounterId);
       const mobXpSum = state.combat.enemies.reduce((sum, e) => sum + (e.xpReward || 0), 0);
-      totalXp = Math.max(currentEnc?.onVictoryXp || 0, mobXpSum);
+      totalXp = (currentEnc && currentEnc.onVictoryXp !== undefined) ? currentEnc.onVictoryXp : mobXpSum;
       combatEvents.push({ eventType: 'VICTORY', logText: `🏆 COMBAT VICTORIOUS! Acquired +${totalXp} XP!`, logType: 'success' });
     } else if (livingHeroes === 0) {
       partyWiped = true;
@@ -268,6 +270,11 @@ export class CombatEngine {
   static commitCombatRoundResults(state, finalMobHp, finalHeroHp, victory, totalXp) {
     state.combat.enemies.forEach(e => {
       if (finalMobHp[e.instanceId] !== undefined) e.hp = finalMobHp[e.instanceId];
+      if (e.hp <= 0) {
+        e.surrendered = false;
+        e.slain = true;
+        e.moraleStatus = 'DEAD';
+      }
       if ((e.asleepRounds || 0) > 0) e.asleepRounds = Math.max(0, e.asleepRounds - 1);
       if ((e.turnedRounds || 0) > 0) e.turnedRounds = Math.max(0, e.turnedRounds - 1);
       if ((e.debuffRounds || 0) > 0) {
@@ -297,10 +304,8 @@ export class CombatEngine {
     state.combat.round += 1;
     if (victory) {
       state.combat.active = false;
-      const surrenderedMob = state.combat.enemies.find(e => e.surrendered);
-      if (surrenderedMob) {
-        state.surrenderedEnemy = surrenderedMob;
-      }
+      const surrenderedMob = state.combat.enemies.find(e => e.surrendered && e.hp > 0 && !e.fled && !e.slain);
+      state.surrenderedEnemy = surrenderedMob || null;
       if (totalXp > 0) {
         state.awardQuestXP(totalXp);
       }
@@ -314,18 +319,29 @@ export class CombatEngine {
     if (!state.combat || !state.combat.active || !state.combat.enemies) return;
 
     const initialEnemies = state.combat.enemies;
-    const aliveEnemies = initialEnemies.filter(e => (simMobHp[e.instanceId] ?? e.hp) > 0 && !e.fled && !e.surrendered);
-    const deadCount = initialEnemies.filter(e => (simMobHp[e.instanceId] ?? e.hp) <= 0).length;
 
+    // Clean up any enemy that died so their surrender/status is properly cleared
+    for (const e of initialEnemies) {
+      if ((simMobHp[e.instanceId] ?? e.hp) <= 0) {
+        e.surrendered = false;
+        e.slain = true;
+        e.moraleStatus = 'DEAD';
+      }
+    }
+
+    const aliveEnemies = initialEnemies.filter(e => (simMobHp[e.instanceId] ?? e.hp) > 0 && !e.fled && !e.surrendered);
+    if (aliveEnemies.length === 0) return;
+
+    const deadCount = initialEnemies.filter(e => (simMobHp[e.instanceId] ?? e.hp) <= 0).length;
     const squadTriggers = [];
 
-    // 1. First Blood
+    // 1. First Blood (first casualty in a squad of 2+)
     if (!state.combat.moraleCheckedFirstBlood && deadCount >= 1 && initialEnemies.length > 1) {
       state.combat.moraleCheckedFirstBlood = true;
       squadTriggers.push('FIRST_BLOOD');
     }
 
-    // 2. Squad casualties (50% or less remaining)
+    // 2. Squad casualties (50% or fewer remaining in a squad of 2+)
     if (!state.combat.moraleCheckedHalfSquad && initialEnemies.length > 1 && aliveEnemies.length <= Math.floor(initialEnemies.length / 2)) {
       state.combat.moraleCheckedHalfSquad = true;
       squadTriggers.push('HALF_SQUAD');
@@ -338,21 +354,84 @@ export class CombatEngine {
       squadTriggers.push('LEADER_SLAIN');
     }
 
-    // 4. Individual Bloodied checks (HP <= 35%)
+    // 4. Individual Critical Wounds check (HP <= 25%, only if not already tested)
     for (const mob of aliveEnemies) {
       const curHp = simMobHp[mob.instanceId] ?? mob.hp;
-      if (!mob.moraleCheckedBloodied && curHp <= Math.ceil(mob.maxHp * 0.35) && curHp > 0) {
+      if (!mob.moraleCheckedBloodied && curHp <= Math.ceil(mob.maxHp * 0.25) && curHp > 0) {
         mob.moraleCheckedBloodied = true;
-        CombatEngine.resolveSingleMonsterMorale(state, mob, 'BLOODIED', simMobHp, simHeroHp, combatEvents);
+        CombatEngine.resolveSingleMonsterMorale(state, mob, 'CRITICAL_WOUNDS', simMobHp, simHeroHp, combatEvents);
       }
     }
 
-    // If a squad-wide trigger fired, test all active living non-broken monsters
+    // If a squad-wide trigger fired, test the squad discipline together
     if (squadTriggers.length > 0) {
       const triggerReason = squadTriggers[0];
-      for (const mob of aliveEnemies) {
-        if (mob.fled || mob.surrendered) continue;
-        CombatEngine.resolveSingleMonsterMorale(state, mob, triggerReason, simMobHp, simHeroHp, combatEvents);
+      CombatEngine.resolveSquadMorale(state, aliveEnemies, triggerReason, simMobHp, simHeroHp, combatEvents);
+    }
+  }
+
+  /**
+   * Resolves a squad-wide discipline morale check.
+   */
+  static resolveSquadMorale(state, aliveEnemies, triggerReason, simMobHp, simHeroHp, combatEvents) {
+    if (!aliveEnemies || aliveEnemies.length === 0) return;
+
+    // Filter out entities immune to morale (undead or fearless entities)
+    const mortalEnemies = aliveEnemies.filter(e => e.creatureType !== 'undead' && (e.moraleThreshold || 0) < 100 && !e.fled && !e.surrendered);
+    if (mortalEnemies.length === 0) return;
+
+    // Use highest discipline / leader morale among the squad
+    const leaderMob = mortalEnemies.find(e => e.isLeader) || mortalEnemies[0];
+    const rawThreshold = leaderMob.moraleThreshold != null ? leaderMob.moraleThreshold : 50;
+    // Map raw threshold to authentic AD&D hold percentage (base 55-90%)
+    const baseThreshold = Math.max(50, Math.min(95, rawThreshold + 10));
+
+    let modifier = 0;
+    const initialEnemies = state.combat.enemies || [];
+    const leaderDead = initialEnemies.some(e => e.isLeader && (simMobHp[e.instanceId] ?? e.hp) <= 0);
+    if (leaderDead) modifier -= 15;
+    if (triggerReason === 'HALF_SQUAD') modifier -= 10;
+
+    // Emboldened if any hero is incapacitated (+15)
+    const partyWeakened = state.party.some((h, idx) => (simHeroHp[idx] ?? h.hp) <= 0);
+    if (partyWeakened) modifier += 15;
+
+    const effectiveTarget = Math.max(15, Math.min(95, baseThreshold + modifier));
+    const roll = Math.floor(Math.random() * 100) + 1;
+
+    if (roll <= effectiveTarget) {
+      combatEvents.push({
+        eventType: 'MORALE_HOLD',
+        sourceName: leaderMob.name,
+        targetInstanceId: leaderMob.instanceId,
+        logText: `🛡️ SQUAD DISCIPLINE HOLDS: The enemy ranks rally and refuse to break! [d100=${roll} vs Target ${effectiveTarget}%]`,
+        logType: 'muted'
+      });
+    } else {
+      // Squad breaks!
+      // When multiple enemies are alive, breaking enemies ROUT / FLEE. They do NOT surrender in the middle of active squad fighting.
+      let routCount = 0;
+      for (const mob of mortalEnemies) {
+        mob.fled = true;
+        mob.moraleStatus = 'FLED';
+        routCount++;
+        combatEvents.push({
+          eventType: 'MORALE_FLEE',
+          cueBadge: '💨 ROUTED',
+          cueClass: 'dodge',
+          targetInstanceId: mob.instanceId,
+          sourceName: mob.name,
+          logText: `💨 SQUAD ROUT: Panic overtakes ${mob.name}! They throw down their weapons and flee down the hall! [d100=${roll} > ${effectiveTarget}%]`,
+          logType: 'warning'
+        });
+      }
+      if (routCount > 0) {
+        state.explorationTurnCounter = (state.explorationTurnCounter || 0) + 1;
+        combatEvents.push({
+          eventType: 'HAZARD_ALERT',
+          logText: `⚠️ Panic echoes down the corridors—wandering patrols hear the commotion!`,
+          logType: 'danger'
+        });
       }
     }
   }
@@ -367,7 +446,8 @@ export class CombatEngine {
     }
     if (mob.fled || mob.surrendered) return;
 
-    const baseThreshold = mob.moraleThreshold || 50;
+    const rawThreshold = mob.moraleThreshold != null ? mob.moraleThreshold : 50;
+    const baseThreshold = Math.max(50, Math.min(95, rawThreshold + 10));
     let modifier = 0;
 
     const initialEnemies = state.combat.enemies || [];
@@ -378,13 +458,13 @@ export class CombatEngine {
     if (aliveEnemies.length <= 1 && initialEnemies.length > 1) modifier -= 10;
 
     const curHp = simMobHp[mob.instanceId] ?? mob.hp;
-    if (curHp <= Math.ceil(mob.maxHp * 0.35)) modifier -= 10;
+    if (curHp <= Math.ceil(mob.maxHp * 0.25)) modifier -= 10;
 
-    // Emboldened if any hero is incapacitated (+10 morale)
+    // Emboldened if any hero is incapacitated (+15 morale)
     const partyWeakened = state.party.some((h, idx) => (simHeroHp[idx] ?? h.hp) <= 0);
-    if (partyWeakened) modifier += 10;
+    if (partyWeakened) modifier += 15;
 
-    const effectiveTarget = Math.max(10, Math.min(95, baseThreshold + modifier));
+    const effectiveTarget = Math.max(15, Math.min(95, baseThreshold + modifier));
     const roll = Math.floor(Math.random() * 100) + 1;
 
     if (roll <= effectiveTarget) {
@@ -416,26 +496,10 @@ export class CombatEngine {
           logType: 'danger'
         });
       } else {
-        // Humanoids surrender if cornered, alone, or critically wounded; otherwise rout
-        const isCornered = state.isFacingClosedObstacle();
-        const isAlone = aliveEnemies.length <= 1;
-        const isWounded = curHp <= Math.ceil(mob.maxHp * 0.35);
-
-        if (isCornered || isAlone || isWounded) {
-          mob.surrendered = true;
-          mob.moraleStatus = 'SURRENDERED';
-          mob.intimidateAttempted = false;
-          mob.stealAttempted = false;
-          combatEvents.push({
-            eventType: 'MORALE_SURRENDER',
-            cueBadge: '🏳️ SURRENDER',
-            cueClass: 'shield',
-            targetInstanceId: mob.instanceId,
-            sourceName: mob.name,
-            logText: `🏳️ YIELDS: Trembling and outmatched, ${mob.name} drops their weapon to the flagstones and begs for quarter! [d100=${roll} > ${effectiveTarget}%]`,
-            logType: 'success'
-          });
-        } else {
+        // Humanoids:
+        // RULE 1: If other allies are still actively fighting (aliveEnemies.length > 1), NEVER surrender!
+        // A broken combatant panics and routs/flees into the corridors.
+        if (aliveEnemies.length > 1) {
           mob.fled = true;
           mob.moraleStatus = 'FLED';
           state.explorationTurnCounter = (state.explorationTurnCounter || 0) + 1;
@@ -445,7 +509,7 @@ export class CombatEngine {
             cueClass: 'dodge',
             targetInstanceId: mob.instanceId,
             sourceName: mob.name,
-            logText: `💨 ROUT: Panic overtakes ${mob.name}! They throw down their shield and bolt down the hall screaming in terror! [d100=${roll} > ${effectiveTarget}%]`,
+            logText: `💨 ROUT: Panic overtakes ${mob.name}! They throw down their shield and bolt down the hall! [d100=${roll} > ${effectiveTarget}%]`,
             logType: 'warning'
           });
           combatEvents.push({
@@ -453,6 +517,54 @@ export class CombatEngine {
             logText: `⚠️ Panic echoes down the corridors—wandering patrols hear the commotion!`,
             logType: 'danger'
           });
+        } else {
+          // RULE 2: The monster is the LAST remaining combatant facing the party (aliveEnemies.length <= 1).
+          // Check if cornered against a wall, door, or portcullis:
+          const isCornered = (typeof state.isMonsterCornered === 'function')
+            ? state.isMonsterCornered()
+            : state.isFacingClosedObstacle();
+
+          // If cornered with nowhere to run, surrender is guaranteed (100%).
+          // In an open corridor, 30% chance to yield if critically wounded, 15% otherwise; remainder rout and flee!
+          const yieldChance = isCornered ? 100 : (curHp <= Math.ceil(mob.maxHp * 0.25) ? 30 : 15);
+          const yieldRoll = Math.floor(Math.random() * 100) + 1;
+
+          if (yieldRoll <= yieldChance) {
+            mob.surrendered = true;
+            mob.moraleStatus = 'SURRENDERED';
+            mob.intimidateAttempted = false;
+            mob.stealAttempted = false;
+            const contextText = isCornered
+              ? `Backed against the wall with no escape`
+              : `Seeing their company vanquished and outmatched`;
+            combatEvents.push({
+              eventType: 'MORALE_SURRENDER',
+              cueBadge: '🏳️ SURRENDER',
+              cueClass: 'shield',
+              targetInstanceId: mob.instanceId,
+              sourceName: mob.name,
+              logText: `🏳️ YIELDS: ${contextText}, ${mob.name} drops their weapon to the flagstones and begs for quarter!`,
+              logType: 'success'
+            });
+          } else {
+            mob.fled = true;
+            mob.moraleStatus = 'FLED';
+            state.explorationTurnCounter = (state.explorationTurnCounter || 0) + 1;
+            combatEvents.push({
+              eventType: 'MORALE_FLEE',
+              cueBadge: '💨 ROUTED',
+              cueClass: 'dodge',
+              targetInstanceId: mob.instanceId,
+              sourceName: mob.name,
+              logText: `💨 ROUT: Seeing their company fall, ${mob.name} turns on their heel and bolts into the shadows of the corridor!`,
+              logType: 'warning'
+            });
+            combatEvents.push({
+              eventType: 'HAZARD_ALERT',
+              logText: `⚠️ Footsteps fade into the darkness—wandering patrols hear the commotion!`,
+              logType: 'danger'
+            });
+          }
         }
       }
     }
@@ -598,6 +710,7 @@ export class CombatEngine {
     if (!state.surrenderedEnemy) return null;
     const captive = state.surrenderedEnemy;
     captive.fled = true;
+    captive.surrendered = false;
     captive.moraleStatus = 'FLED';
     state.surrenderedEnemy = null;
 
@@ -642,6 +755,138 @@ export class CombatEngine {
       lootedItem,
       goldAcquired,
       log: `🗡️ The party strikes down the surrendered ${captive.name}, finishing the captive where they kneel.`
+    };
+  }
+
+  /**
+   * Attempts a tactical disengagement / party retreat from the active combat encounter.
+   * Resolves agility checks, enemy parting strikes of opportunity, and party repositioning.
+   */
+  static attemptPartyRetreat(state) {
+    if (!state.combat || !state.combat.active) return { success: false, events: [] };
+
+    const livingHeroes = (state.party || []).filter(h => h.hp > 0);
+    if (livingHeroes.length === 0) {
+      return { success: false, partyWiped: true, events: [{ logText: "No conscious party members can move to retreat!", logType: "danger" }] };
+    }
+
+    const livingEnemies = (state.combat.enemies || []).filter(e => e.hp > 0 && !e.fled && !e.surrendered);
+    if (livingEnemies.length === 0) {
+      state.combat.active = false;
+      return { success: true, victory: true, events: [{ logText: "No active foes remain to oppose your movement.", logType: "info" }] };
+    }
+
+    // 1. Calculate retreat success rate based on AD&D agility, party class makeup, stealth, and encumbrance
+    let baseChance = 60;
+
+    // Average dexterity modifier (+3% per point > 10, -3% per point < 10)
+    const avgDex = livingHeroes.reduce((acc, h) => acc + (h.attributes?.dexterity || 10), 0) / livingHeroes.length;
+    const dexMod = Math.round((avgDex - 10) * 3);
+    baseChance += dexMod;
+
+    // Conscious Thief bonus (+10%, +25% if active stealth smoke/distraction)
+    const thief = livingHeroes.find(h => h.classKey === 'thief');
+    if (thief) {
+      baseChance += thief.isStealth ? 25 : 10;
+    }
+
+    // Conscious Mage bonus if wards / illusions / shields active
+    const mage = livingHeroes.find(h => h.classKey === 'mage');
+    if (mage && (mage.tempAcBonus > 0 || mage.isStealth)) {
+      baseChance += 10;
+    }
+
+    // Encumbrance penalty
+    const partyTier = state.getPartyTier ? state.getPartyTier() : { tier: 'unencumbered' };
+    if (partyTier.tier === 'heavy' || partyTier.tier === 'severe') {
+      baseChance -= 20;
+    } else if (partyTier.tier === 'encumbered') {
+      baseChance -= 10;
+    }
+
+    // Clamp chance between 15% and 90%
+    const escapeChance = Math.min(90, Math.max(15, baseChance));
+    const roll = Math.floor(Math.random() * 100) + 1;
+    const escapeSuccess = roll <= escapeChance;
+
+    const events = [];
+    events.push({
+      eventType: 'RETREAT_ATTEMPT',
+      roll,
+      target: escapeChance,
+      success: escapeSuccess,
+      logText: `🏃 RETREAT: The party attempts a tactical withdrawal! (Agility Check: d100 Roll ${roll} vs Target ${escapeChance}%) -> ${escapeSuccess ? 'SUCCESS' : 'BLOCKED'}`,
+      logType: escapeSuccess ? 'success' : 'warning',
+      cueBadge: escapeSuccess ? '🏃 ESCAPED' : '⚠️ PINNED',
+      cueClass: escapeSuccess ? 'hero' : 'danger'
+    });
+
+    // 2. Enemy Parting Strikes / Attacks of Opportunity
+    const finalHeroHp = state.party.map(h => h.hp);
+    const numPartingAttacks = escapeSuccess ? Math.min(livingEnemies.length, 2) : Math.min(livingEnemies.length, 4);
+
+    for (let i = 0; i < numPartingAttacks; i++) {
+      const enemy = livingEnemies[i];
+      if (!enemy || enemy.hp <= 0) continue;
+
+      const livingIndices = state.party.map((h, idx) => ({ h, idx, hp: finalHeroHp[idx] })).filter(item => item.hp > 0);
+      if (livingIndices.length === 0) break;
+
+      const targetHeroObj = livingIndices[Math.floor(Math.random() * livingIndices.length)];
+      const targetHero = targetHeroObj.h;
+      const targetIdx = targetHeroObj.idx;
+
+      const toHitMod = escapeSuccess ? -2 : 0;
+      const attackRoll = Math.floor(Math.random() * 20) + 1;
+      const effectiveThaco = enemy.thaco != null ? enemy.thaco : 19;
+      const targetAC = (targetHero.armorClass || 10) - (targetHero.tempAcBonus || 0);
+      const neededToHit = effectiveThaco - targetAC;
+
+      const isCrit = attackRoll === 20;
+      const isFumble = attackRoll === 1;
+      const isHit = !isFumble && (isCrit || (attackRoll + toHitMod >= neededToHit));
+
+      if (isHit) {
+        const rawDmg = CombatCalculator.rollDice(enemy.damage, 4);
+        const actualDmg = escapeSuccess ? Math.max(1, Math.floor(rawDmg * 0.75)) : rawDmg;
+        finalHeroHp[targetIdx] -= actualDmg;
+        const isInc = finalHeroHp[targetIdx] <= 0 && finalHeroHp[targetIdx] > -10;
+        const isDead = finalHeroHp[targetIdx] <= -10;
+
+        events.push({
+          eventType: 'HERO_HIT',
+          attackerName: enemy.name,
+          attackerSpec: enemy,
+          targetHeroIndex: targetIdx,
+          targetHeroName: targetHero.name,
+          damage: actualDmg,
+          isInc,
+          isDead,
+          cueBadge: `-${actualDmg}`,
+          cueClass: 'danger',
+          logText: `⚔️ Parting Strike: ${enemy.name} lashes at ${targetHero.name} as they retreat for ${actualDmg} damage!${isDead ? ' (DEAD)' : isInc ? ' (INCAPACITATED)' : ''}`,
+          logType: isDead || isInc ? 'danger' : 'warning'
+        });
+      } else {
+        events.push({
+          eventType: 'HERO_MISS',
+          attackerName: enemy.name,
+          targetHeroName: targetHero.name,
+          cueBadge: 'DODGE',
+          cueClass: 'hero',
+          logText: `🛡️ ${targetHero.name} dodges a parting strike from ${enemy.name}!`,
+          logType: 'muted'
+        });
+      }
+    }
+
+    const partyAllWiped = finalHeroHp.every(hp => hp <= 0);
+
+    return {
+      success: escapeSuccess && !partyAllWiped,
+      partyWiped: partyAllWiped,
+      finalHeroHp,
+      events
     };
   }
 }

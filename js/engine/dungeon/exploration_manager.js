@@ -1,4 +1,5 @@
 import { ProgressionManager } from '../characters/progression_manager.js';
+import { EncumbranceManager } from '../items/encumbrance_manager.js';
 
 /**
  * ExplorationManager handles dungeon exploration turns, light/torch timers,
@@ -52,7 +53,10 @@ export class ExplorationManager {
           hero.tempAttackRounds = Math.max(0, hero.tempAttackRounds - minutes);
           if (hero.tempAttackRounds === 0) {
             hero.tempAttackBonus = 0;
-            state.addLog(`✨ The combat blessing enhancing ${hero.name} has faded.`, "muted");
+            hero.tempDamageBonus = 0;
+            const src = hero.tempAttackSource || 'combat blessing';
+            hero.tempAttackSource = null;
+            state.addLog(`✨ The ${src} enhancing ${hero.name} has faded.`, "muted");
           }
         }
       });
@@ -128,12 +132,15 @@ export class ExplorationManager {
             }
 
             // Check if party is facing a wall, closed door, chest, or dead end
+            const hasElvenBoots = state.partyHasBootsOfElvenkind && state.partyHasBootsOfElvenkind();
             const facingBlocked = this.isFacingClosedObstacle(state);
-            if (facingBlocked) {
+            if (facingBlocked && !hasElvenBoots) {
               // Rear ambush! Enemies come from the open hall behind the party
               isAmbush = true;
               this.turnAround(state);
               state.addLog(`⚠️ REAR AMBUSH! Clattering footsteps and guttural snarls echo from the corridor behind you! A patrol of ${chosenPatrol.name} has cornered the party against the obstacle!`, "danger");
+            } else if (hasElvenBoots) {
+              state.addLog(`🧝 Boots of Elvenkind: Your party treads in utter silence! You hear the approaching ${chosenPatrol.name} before they detect you, preventing an ambush!`, "success");
             } else {
               state.addLog(`⚠️ WANDERING PATROL SPOTTED! The corridor echoes with approaching danger: ${chosenPatrol.name}!`, "danger");
             }
@@ -174,7 +181,10 @@ export class ExplorationManager {
     const roll = Math.floor(Math.random() * 100) + 1;
     if (roll <= chance) {
       const stolenItem = npc.inventory_to_steal.shift();
-      state.inventory.push(stolenItem);
+      const sName = typeof stolenItem === 'string' ? stolenItem : stolenItem.name;
+      const sAmt = typeof stolenItem === 'object' ? (stolenItem.amount || 1) : 1;
+      const thiefIndex = state.party.indexOf(thief);
+      state.addPartyItem(sName, sAmt, thiefIndex >= 0 ? thiefIndex : 0);
       return { success: true, roll, chance, stolenItem };
     } else {
       const npcState = state.getNPCState(npc.id);
@@ -192,6 +202,14 @@ export class ExplorationManager {
   static attemptHideInShadows(state) {
     const thief = state.party.find(p => p.classKey === 'thief');
     if (!thief) return { success: false, roll: 0, chance: 0 };
+
+    const partyTier = EncumbranceManager.getPartyTier(state);
+    if (partyTier.stealthLocked) {
+      thief.isStealth = false;
+      state.addLog(`⚠️ Encumbrance Lockout: Armor and gear are too heavy to slip into the shadows!`, "warning");
+      return { success: false, roll: 0, chance: 0, encumbered: true };
+    }
+
     const chance = state.getSkillTarget(thief, 'hide_in_shadows');
     const roll = Math.floor(Math.random() * 100) + 1;
     const success = roll <= chance;
@@ -232,6 +250,29 @@ export class ExplorationManager {
     const key = `${tx},${ty}`;
     if ((tileId === 2 || tileId === 8) && !state.openedDoors.has(key)) return true;
     if (tileId === 7) return true;
+    return false;
+  }
+
+  /**
+   * Checks whether the monster engaged in front of the party is cornered with no rear escape path.
+   */
+  static isMonsterCornered(state) {
+    let dx = 0, dy = 0;
+    if (state.player.facing === 'NORTH') dy = -1;
+    else if (state.player.facing === 'SOUTH') dy = 1;
+    else if (state.player.facing === 'EAST') dx = 1;
+    else if (state.player.facing === 'WEST') dx = -1;
+
+    // The monster stands 1 step in front of the party; the rear tile is 2 steps ahead
+    const bx = state.player.x + 2 * dx;
+    const by = state.player.y + 2 * dy;
+    if (!state.spec || !state.spec.map) return false;
+    if (by < 0 || by >= state.spec.map.length || bx < 0 || bx >= state.spec.map[0].length) return true;
+    const tileId = state.spec.map[by][bx];
+    if (tileId === 1) return true; // Solid wall behind monster
+    const key = `${bx},${by}`;
+    if ((tileId === 2 || tileId === 8) && !state.openedDoors?.has(key)) return true; // Closed door behind monster
+    if (tileId === 7) return true; // Portcullis behind monster
     return false;
   }
 
@@ -528,6 +569,12 @@ export class ExplorationManager {
    * Advances the party forward one tile in the direction they are facing.
    */
   static moveForward(state) {
+    const partyTier = EncumbranceManager.getPartyTier(state);
+    if (partyTier.tier === 'immobile') {
+      state.addLog(`⛔ The party is completely immobilized by crushing encumbrance! Drop or manage heavy gear to move.`, "warning");
+      return false;
+    }
+
     let dx = 0, dy = 0;
     if (state.player.facing === 'NORTH') dy = -1;
     if (state.player.facing === 'SOUTH') dy = 1;
@@ -542,8 +589,27 @@ export class ExplorationManager {
       state.player.y = targetY;
       state.revealExploration();
 
-      // In AD&D 2e: Walking 1 square consumes 1 minute (1 round) of game time
-      const turnResult = this.advanceExplorationTurn(state, 1, "Walking", false);
+      // Encumbrance stealth lockout breaks active stealth on movement
+      if (partyTier.stealthLocked && state.party) {
+        let brokeStealth = false;
+        state.party.forEach(hero => {
+          if (hero.isStealth) {
+            hero.isStealth = false;
+            brokeStealth = true;
+          }
+        });
+        if (brokeStealth) {
+          state.addLog(`🔊 Heavy gear clatters and clangs! Stealth is broken by encumbrance.`, "warning");
+        }
+      }
+
+      // In AD&D 2e: Walking 1 square consumes 1 minute (1 round) of game time + encumbrance penalty
+      const minutes = 1 + (partyTier.timeMultiplier || 0);
+      const isLoud = Boolean(partyTier.isLoud);
+      const actionLabel = partyTier.tier !== 'unencumbered'
+        ? `Walking (${partyTier.tier.charAt(0).toUpperCase() + partyTier.tier.slice(1)})`
+        : "Walking";
+      const turnResult = this.advanceExplorationTurn(state, minutes, actionLabel, isLoud);
       state.lastMovementTurnResult = turnResult;
 
       return true;
@@ -555,6 +621,12 @@ export class ExplorationManager {
    * Retreats the party backward one tile opposite to facing direction.
    */
   static moveBackward(state) {
+    const partyTier = EncumbranceManager.getPartyTier(state);
+    if (partyTier.tier === 'immobile') {
+      state.addLog(`⛔ The party is completely immobilized by crushing encumbrance! Drop or manage heavy gear to move.`, "warning");
+      return false;
+    }
+
     let dx = 0, dy = 0;
     if (state.player.facing === 'NORTH') dy = 1;
     if (state.player.facing === 'SOUTH') dy = -1;
@@ -566,8 +638,27 @@ export class ExplorationManager {
       state.player.y = targetY;
       state.revealExploration();
 
-      // In AD&D 2e: Walking 1 square consumes 1 minute (1 round) of game time
-      const turnResult = this.advanceExplorationTurn(state, 1, "Walking", false);
+      // Encumbrance stealth lockout breaks active stealth on movement
+      if (partyTier.stealthLocked && state.party) {
+        let brokeStealth = false;
+        state.party.forEach(hero => {
+          if (hero.isStealth) {
+            hero.isStealth = false;
+            brokeStealth = true;
+          }
+        });
+        if (brokeStealth) {
+          state.addLog(`🔊 Heavy gear clatters and clangs! Stealth is broken by encumbrance.`, "warning");
+        }
+      }
+
+      // In AD&D 2e: Walking 1 square consumes 1 minute (1 round) of game time + encumbrance penalty
+      const minutes = 1 + (partyTier.timeMultiplier || 0);
+      const isLoud = Boolean(partyTier.isLoud);
+      const actionLabel = partyTier.tier !== 'unencumbered'
+        ? `Walking (${partyTier.tier.charAt(0).toUpperCase() + partyTier.tier.slice(1)})`
+        : "Walking";
+      const turnResult = this.advanceExplorationTurn(state, minutes, actionLabel, isLoud);
       state.lastMovementTurnResult = turnResult;
 
       return true;
@@ -755,9 +846,9 @@ export class ExplorationManager {
     // Scale bash duration inversely with Strength:
     // STR >= 18 -> 1 minute.
     // Below 18 -> 1 + (18 - STR) minutes, capped at 10 minutes maximum for low strength.
-    const str = (hero && hero.attributes && typeof hero.attributes.strength === 'number')
-      ? hero.attributes.strength
-      : 10;
+    const str = state.getEffectiveStrength
+      ? state.getEffectiveStrength(hero)
+      : ((hero && hero.attributes && typeof hero.attributes.strength === 'number') ? hero.attributes.strength : 10);
     const minutes = Math.min(10, Math.max(1, 1 + (18 - str)));
 
     // Bashing makes violent noise — advance exploration turn and check wandering patrol / alert nearby

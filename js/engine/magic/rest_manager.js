@@ -1,4 +1,6 @@
 import { SpellRegistry } from '../spell_registry.js';
+import { InventoryManager } from '../items/inventory_manager.js';
+import { AlignmentManager } from '../characters/alignment_manager.js';
 
 /**
  * RestManager handles Vancian spell study/memorization, Cleric divine favor
@@ -7,24 +9,28 @@ import { SpellRegistry } from '../spell_registry.js';
  */
 export class RestManager {
   /**
-   * Resolves a full rest cycle for the entire party using the shared party inventory.
+   * Resolves a full rest cycle for the entire party using living members' personal inventories.
    */
   static restParty(state) {
-    if (!state.inventory) state.inventory = [];
-    let rationItem = state.inventory.find(i => {
-      const name = (i.name || "").toLowerCase();
+    // Find rations across living party members' personal inventories
+    const carrier = InventoryManager.findHeroCarryingItem(state, i => {
+      const name = ((typeof i === 'string' ? i : i?.name) || "").toLowerCase();
       return name.includes("ration") || name.includes("food");
     });
 
-    if (!rationItem) return { success: false, reason: "The party has no Rations left to camp!" };
+    if (!carrier) return { success: false, reason: "The party has no Rations left to camp!" };
 
-    const qtyKey = rationItem.amount !== undefined ? 'amount' : (rationItem.count !== undefined ? 'count' : 'amount');
-    const currentQty = rationItem[qtyKey] !== undefined ? rationItem[qtyKey] : 0;
+    const { hero, item, inventory } = carrier;
+    const qtyKey = item.amount !== undefined ? 'amount' : (item.count !== undefined ? 'count' : 'amount');
+    const currentQty = item[qtyKey] !== undefined ? item[qtyKey] : 1;
 
-    if (currentQty <= 0) return { success: false, reason: "The party has no Rations left to camp!" };
-
-    rationItem[qtyKey] = currentQty - 1;
-    if (rationItem[qtyKey] <= 0) state.inventory = state.inventory.filter(i => i !== rationItem);
+    if (currentQty <= 1) {
+      hero.personalInventory = inventory.filter(i => i !== item);
+      hero.inventory = hero.personalInventory;
+    } else {
+      item[qtyKey] = currentQty - 1;
+      if (item.count !== undefined && item.amount !== undefined) item.count = item.amount;
+    }
 
     const recoveries = [];
     state.party.forEach(member => {
@@ -91,36 +97,21 @@ export class RestManager {
    */
   static applyMoralTax(state, baseTax, activeSpeaker, customMultiplier = null) {
     if (!baseTax || baseTax === 0) return;
-    const cleric = state.party.find(p => p.classKey === 'cleric');
-    if (!cleric || cleric.hp <= 0) {
-      state.addLog("The Cleric is unconscious; spiritual consequences pass unheeded.", "warning");
-      return;
-    }
 
-    const isClericSpeaker = (activeSpeaker && activeSpeaker.classKey === 'cleric');
-    const effectiveMultiplier = customMultiplier !== null ? customMultiplier : (isClericSpeaker ? 2.0 : 1.0);
-    const finalDelta = Math.round(baseTax * effectiveMultiplier);
-    const previousFavor = cleric.divineFavor;
+    // Convert moral tax into 2D alignment vector and evaluate against party and deity ethos
+    const orderDelta = baseTax > 0 ? Math.max(1, Math.round(baseTax * 0.4)) : Math.min(-1, Math.round(baseTax * 0.4));
+    const moralityDelta = baseTax > 0 ? Math.max(1, Math.round(baseTax * 0.6)) : Math.min(-1, Math.round(baseTax * 0.6));
+    const tags = baseTax > 0
+      ? ['mercy', 'heal_wounded', 'uphold_law', 'relieve_suffering', 'nurture_life']
+      : ['cruelty', 'ruthless_dominance', 'instill_fear', 'extortion', 'eliminate_rival'];
 
-    cleric.divineFavor = Math.min(100, Math.max(0, cleric.divineFavor + finalDelta));
-    const actualDelta = cleric.divineFavor - previousFavor;
-
-    if (actualDelta < 0) {
-      if (isClericSpeaker) state.addLog(`DIRECT TRANSGRESSION! The Cleric's personal action lost ${Math.abs(actualDelta)}% Divine Favor!`, "danger");
-      else state.addLog(`Complicity Tax: The Cleric loses ${Math.abs(actualDelta)}% Divine Favor for allowing this act.`, "danger");
-    } else if (actualDelta > 0) {
-      if (isClericSpeaker) state.addLog(`DIVINE EXALTATION! The Cleric's holy leadership restored +${actualDelta}% Divine Favor!`, "success");
-      else state.addLog(`Virtuous Conduct: The party's decision pleases the gods (+${actualDelta}% Divine Favor).`, "success");
-    }
-
-    if (cleric.divineFavor === 0) {
-      cleric.absoluteSilence = true;
-      state.addLog("CRITICAL WARNING: Absolute Silence triggered! Divine communion is severed!", "danger");
-    } else if (cleric.divineFavor > 0 && cleric.absoluteSilence) {
-      cleric.absoluteSilence = false;
-      state.addLog("The Cleric's Divine Link has been restored.", "success");
-    }
-    this.syncClericEthos(state, cleric);
+    AlignmentManager.recordMoralAction(state, activeSpeaker, {
+      orderDelta,
+      moralityDelta,
+      reason: baseTax > 0 ? 'Virtuous conduct' : 'Ruthless transgression',
+      tags,
+      isClericDirect: (activeSpeaker && activeSpeaker.classKey === 'cleric')
+    });
   }
 
   /**
@@ -138,14 +129,20 @@ export class RestManager {
    */
   static syncClericEthos(state, cleric) {
     if (!cleric) return;
-    const thresholds = state.classesSpec?.archetypes?.cleric?.divine_favor?.thresholds || [
-      { min: 75, max: 100, status: "Full Communion" },
-      { min: 25, max: 74, status: "Strained Communion" },
-      { min: 1, max: 24, status: "Faltering Link" },
-      { min: 0, max: 0, status: "Absolute Silence" }
-    ];
-    const current = thresholds.find(t => cleric.divineFavor >= t.min && cleric.divineFavor <= t.max);
-    if (current) cleric.ethosStatus = current.status;
+    const concordance = AlignmentManager.calculateEthosConcordance(cleric);
+    if (concordance) {
+      cleric.ethosStatus = `${concordance.statusLabel} (${concordance.deity.name})`;
+      cleric.ethosConcordance = concordance.concordancePct;
+    } else {
+      const thresholds = state.classesSpec?.archetypes?.cleric?.divine_favor?.thresholds || [
+        { min: 75, max: 100, status: "Full Communion" },
+        { min: 25, max: 74, status: "Strained Communion" },
+        { min: 1, max: 24, status: "Faltering Link" },
+        { min: 0, max: 0, status: "Absolute Silence" }
+      ];
+      const current = thresholds.find(t => cleric.divineFavor >= t.min && cleric.divineFavor <= t.max);
+      if (current) cleric.ethosStatus = current.status;
+    }
   }
 
   /**
@@ -238,23 +235,55 @@ export class RestManager {
     }
 
     let toMemorize = [];
+    let skipped = [];
+
     if (targetSpellIndex !== null && targetSpellIndex !== undefined) {
       const sp = mage.spells[targetSpellIndex];
       if (!sp) return { success: false, reason: "Spell construct not found in grimoire." };
       if (!sp.spent) return { success: false, reason: `${sp.name} is already memorized in active mind.` };
+      
+      const load = sp.cognitive_load || 20;
+      const currentCognition = mage.cognition !== undefined ? mage.cognition : (mage.maxCognition || 100);
+      if (load > currentCognition) {
+        return {
+          success: false,
+          reason: `Insufficient cognitive capacity (${currentCognition} remaining, ${load} required). Seating ${sp.name} would exceed your mind's limits. Rest to clear mental strain before seating more formulas.`
+        };
+      }
       toMemorize = [sp];
     } else {
-      toMemorize = mage.spells.filter(s => s.spent);
-      if (toMemorize.length === 0) return { success: false, reason: "All prepared constructs from the grimoire are already held in mind." };
-    }
+      const unmemorized = mage.spells.filter(s => s.spent);
+      if (unmemorized.length === 0) return { success: false, reason: "All prepared constructs from the grimoire are already held in mind." };
 
-    const zone = state.getCurrentZone ? state.getCurrentZone() : 'dungeon';
-    const inField = zone !== 'town';
-    if (inField && toMemorize.length > 1) {
-      return {
-        success: false,
-        reason: "In the field, seat one formula at a time. Study All is for sanctuary."
-      };
+      const zone = state.getCurrentZone ? state.getCurrentZone() : 'dungeon';
+      const inField = zone !== 'town';
+      if (inField && unmemorized.length > 1) {
+        return {
+          success: false,
+          reason: "In the field, seat one formula at a time. Study All is for sanctuary."
+        };
+      }
+
+      // Safe Vancian memory seating:
+      // Fill active cognition up to the 100 capacity threshold without lethal brain burn
+      let availableCognition = mage.cognition !== undefined ? mage.cognition : (mage.maxCognition || 100);
+      for (const sp of unmemorized) {
+        const load = sp.cognitive_load || 20;
+        if (load <= availableCognition) {
+          toMemorize.push(sp);
+          availableCognition -= load;
+        } else {
+          skipped.push(sp);
+        }
+      }
+
+      if (toMemorize.length === 0) {
+        const minReq = Math.min(...unmemorized.map(s => s.cognitive_load || 20));
+        return {
+          success: false,
+          reason: `No additional formulas fit in active memory (${mage.cognition || 0} Cognition available, next requires ${minReq}). Rest to clear mental strain before seating further spells.`
+        };
+      }
     }
 
     const minutes = toMemorize.reduce((sum, s) => sum + 10 * Math.max(1, s.level || s.tier || 1), 0);
@@ -263,7 +292,8 @@ export class RestManager {
     const cognitiveCost = toMemorize.reduce((sum, s) => sum + (s.cognitive_load || 20), 0);
     let brainBurnDamage = 0;
     let intBruise = false;
-    const overflow = Math.max(0, cognitiveCost - (mage.cognition || 0));
+    const currentCog = mage.cognition !== undefined ? mage.cognition : (mage.maxCognition || 100);
+    const overflow = Math.max(0, cognitiveCost - currentCog);
 
     if (overflow > 0) {
       brainBurnDamage = overflow;
@@ -288,7 +318,7 @@ export class RestManager {
         };
       }
     } else {
-      mage.cognition -= cognitiveCost;
+      mage.cognition = Math.max(0, currentCog - cognitiveCost);
     }
 
     toMemorize.forEach(s => { s.spent = false; });
@@ -302,6 +332,7 @@ export class RestManager {
       minutes,
       turnResult,
       rememorized: toMemorize.map(s => s.name),
+      skipped: skipped.map(s => s.name),
       currentCognition: mage.cognition,
       mageHp: mage.hp
     };

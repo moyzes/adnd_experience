@@ -31,22 +31,31 @@ export class CombatActions {
     }
 
     const roll = Math.floor(Math.random() * 20) + 1;
-    const strVal = hero.attributes.strength || 10;
-    const bless = hero.tempAttackBonus || 0;
+    const strVal = state.getEffectiveStrength ? state.getEffectiveStrength(hero) : (hero.attributes?.strength || 10);
+    const glovesAtk = (hero.equippedGloves && hero.equippedGloves.attackBonus) || 0;
+    const glovesDmg = (hero.equippedGloves && hero.equippedGloves.damageBonus) || 0;
+    const bless = (hero.tempAttackBonus || 0) + glovesAtk;
 
     const mastery = state.getWeaponMastery(hero, hero.equippedWeapon);
     const targetNum = strVal + (hero.attackBonus || 1) + state.getLevelAttackBonus(hero) + mastery.atkBonus + bless;
     const dmgType = state.getWeaponDamageType(hero.equippedWeapon, 'slashing');
     const baseMaxDmg = state.getWeaponMaxDamage(hero.equippedWeapon, 8) || 8;
     const isFighterSpec = state.isHeroSpecialistWithEquipped(hero);
-    const maxWepDmg = baseMaxDmg + mastery.dmgBonus;
+    const dmgBonus = mastery.dmgBonus + (hero.tempDamageBonus || 0) + glovesDmg;
+    const maxWepDmg = baseMaxDmg + dmgBonus;
 
     if (roll <= targetNum && roll !== 20) {
       const weaponRoll = Math.floor(Math.random() * baseMaxDmg) + 1;
-      const rawDmg = weaponRoll + mastery.dmgBonus;
+      const rawDmg = weaponRoll + dmgBonus;
       const netDmg = state.applyArmorMitigation(rawDmg, dmgType, target.armorType);
       simMobHp[target.instanceId] = Math.max(0, simMobHp[target.instanceId] - netDmg);
       const isDead = simMobHp[target.instanceId] <= 0;
+      if (isDead) {
+        target.hp = 0;
+        target.surrendered = false;
+        target.slain = true;
+        target.moraleStatus = 'DEAD';
+      }
 
       state.trackWeaponUsage(hero, hero.equippedWeapon);
 
@@ -163,6 +172,12 @@ export class CombatActions {
       const netDmg = state.applyArmorMitigation(rawDmg, dmgType, target.armorType);
       simMobHp[target.instanceId] = Math.max(0, simMobHp[target.instanceId] - netDmg);
       const isDead = simMobHp[target.instanceId] <= 0;
+      if (isDead) {
+        target.hp = 0;
+        target.surrendered = false;
+        target.slain = true;
+        target.moraleStatus = 'DEAD';
+      }
 
       state.trackWeaponUsage(hero, hero.equippedWeapon);
 
@@ -233,6 +248,13 @@ export class CombatActions {
    * Resolves a thief's backstab attempt.
    */
   static resolveHeroBackstab(state, hero, target, simMobHp, combatEvents) {
+    const partyTier = state && state.getPartyEncumbranceTier ? state.getPartyEncumbranceTier() : null;
+    if (partyTier && partyTier.stealthLocked) {
+      state.addLog(`⚠️ Encumbrance lockout: Armor clatters loudly! Backstab degraded to a standard melee strike.`, "warning");
+      this.resolveHeroMelee(state, hero, target, simMobHp, combatEvents);
+      return;
+    }
+
     const bTiers = GameState.BACKSTAB_TIERS || { familiarity: { minLevel: 1, count: 10, bonusMult: 0.10 }, mastery: { minLevel: 2, count: 25, bonusMult: 0.25 } };
     let bonusChance = 0;
     if (hero.level >= bTiers.mastery.minLevel && (hero.backstabSuccesses || 0) >= bTiers.mastery.count) {
@@ -253,6 +275,12 @@ export class CombatActions {
       const netDmg = state.applyArmorMitigation(rawDmg, 'slashing', target.armorType);
       simMobHp[target.instanceId] = Math.max(0, simMobHp[target.instanceId] - netDmg);
       const isDead = simMobHp[target.instanceId] <= 0;
+      if (isDead) {
+        target.hp = 0;
+        target.surrendered = false;
+        target.slain = true;
+        target.moraleStatus = 'DEAD';
+      }
 
       const outcome = state.evaluateAttackOutcome({
         attackerName: hero.name,
@@ -447,10 +475,12 @@ export class CombatActions {
     const guardBonus = selfGuardAc[finalHeroIndex] || 0;
     const spellAc = (state.party[finalHeroIndex] && state.party[finalHeroIndex].tempAcBonus) || 0;
     const debuffAcPenalty = (mob.debuffType === 'ac' && (mob.debuffRounds || 0) > 0) ? mob.debuffAmount : 0;
+    const partyTier = state.getPartyEncumbranceTier ? state.getPartyEncumbranceTier() : null;
+    const encAcPenalty = (partyTier && partyTier.acPenalty) || 0;
 
     // AD&D 2nd Edition Descending AC:
     const baseHeroAc = finalHero.armorClass != null ? finalHero.armorClass : 5;
-    const effectiveHeroAc = baseHeroAc - guardBonus - spellAc + debuffAcPenalty;
+    const effectiveHeroAc = baseHeroAc - guardBonus - spellAc + debuffAcPenalty + encAcPenalty;
 
     // Attacker THAC0
     const mobThaco = state.getMonsterThaco(mob);

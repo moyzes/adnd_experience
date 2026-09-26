@@ -10,7 +10,9 @@ import { DialogueController } from './engine/dialogue_controller.js';
 import { CharacterSheetUI } from './engine/character_sheet.js';
 import { ShopUI } from './engine/shop_ui.js';
 import { LevelUpUI } from './engine/level_up_ui.js';
+import { QuestLogUI } from './engine/quest_log_ui.js';
 import { SpellRegistry } from './engine/spell_registry.js';
+import { InventoryManager } from './engine/items/inventory_manager.js';
 import { PartyBuilderUI } from './ui/party_builder_modal.js';
 
 /**
@@ -161,7 +163,14 @@ class GameOrchestrator {
       updateHUD: () => this.uiController.updateHUD()
     });
 
-    // 4. Combat Controller with Level-Up Notification Callbacks
+    // 4. Quest Log & Storyline Chronicle UI Module
+    this.questLogUI = new QuestLogUI(this.state, {
+      playSFX: (id) => this.playSFX(id),
+      log: (msg, type) => this.log(msg, type),
+      updateHUD: () => this.uiController.updateHUD()
+    });
+
+    // 5. Combat Controller with Level-Up Notification Callbacks
     this.combatController = new CombatController(this.state, this.renderer3D, {
       log: (msg, type) => this.log(msg, type),
       updateHUD: () => this.uiController.updateHUD(),
@@ -173,6 +182,16 @@ class GameOrchestrator {
       showCombatFloatingCue: (badge, badgeClass, isHeroTarget) => this.uiController.showCombatFloatingCue(badge, badgeClass, isHeroTarget),
       showMasterstrokeCue: (feat) => this.uiController.showMasterstrokeCue(feat),
       applyVisualCombatHp: (enemies, heroHp) => this.uiController.applyVisualCombatHp(enemies, heroHp),
+      syncCamera: (x, y, facing) => {
+        if (this.camera) {
+          this.camera.x = x;
+          this.camera.targetX = x;
+          this.camera.y = y;
+          this.camera.targetY = y;
+          this.camera.angle = this.facingToAngle(facing);
+          this.camera.targetAngle = this.camera.angle;
+        }
+      },
       onPartyWiped: () => this.showGameOver(),
       onCombatEnd: () => this.updateEnvironmentAudio(),
       onLevelUp: (levelUps) => {
@@ -221,10 +240,18 @@ class GameOrchestrator {
     document.getElementById('close-shop-btn')?.addEventListener('click', () => this.shopUI.close());
 
     this.boundEscapeHandler = (e) => {
+      // Ignore key events if typing in an input field or textarea
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+
       if (e.key === 'Escape' || e.code === 'Escape') {
         this.characterSheet.close();
         this.shopUI.close();
         this.levelUpUI.close();
+        this.questLogUI.close();
+      } else if (e.key === 'q' || e.key === 'Q') {
+        if (!this.characterSheet.isOpen?.() && !this.shopUI.isOpen?.() && !this.levelUpUI.isOpen?.()) {
+          this.questLogUI.toggle();
+        }
       }
     };
     window.addEventListener('keydown', this.boundEscapeHandler);
@@ -419,6 +446,12 @@ class GameOrchestrator {
       const shopName = (this.spec.shop && this.spec.shop.name) || 'Outfitter stall';
       this.log(`${shopName}. Press 🏪 Outfitter to trade.`, "info");
     }
+
+    // 6. Zone Transitions
+    const transition = (this.spec.transitions || []).find(t => t.x === currentX && t.y === currentY);
+    if (transition) {
+      this.promptZoneTransition(transition);
+    }
   }
 
   // ===========================================================================
@@ -429,28 +462,51 @@ class GameOrchestrator {
     if (this.audioManager) this.audioManager.unlockAudio();
     if (this.isGameOver || this.state.isPartyWiped()) return;
     if (actionType === 'RESOLVE_ROUND') this.combatController.resolveCombatRoundSequence();
+    else if (actionType === 'FLEE_COMBAT') this.combatController.handlePartyRetreat();
+    else if (actionType === 'TALK_NPC') {
+      const npc = this.state.getCurrentNPC() || this.state.getFacingNPC();
+      if (npc) this.dialogueController.startNPCInteraction(npc.id);
+    }
+    else if (actionType === 'TRAVEL_TRANSITION') {
+      const trans = this.state.getCurrentTransition() || this.state.getFacingTransition();
+      if (trans) this.promptZoneTransition(trans);
+    }
     else if (actionType === 'OPEN_OBJECT') this.handleOpenObject();
     else if (actionType === 'OPEN_SHOP') this.shopUI.open();
     else if (actionType === 'REST_CAMP') this.handleRestCamp();
     else if (actionType === 'RELEASE_CAPTIVE') {
       if (!this.state.surrenderedEnemy) return;
-      const captiveName = this.state.surrenderedEnemy.name;
+      const captive = this.state.surrenderedEnemy;
+      const captiveName = captive.name;
+      captive.fled = true;
+      captive.surrendered = false;
+      captive.moraleStatus = 'FLED';
       this.state.surrenderedEnemy = null;
       if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
         this.renderer3D.clearEncounterMonsters();
       }
       this.playSFX('button');
       this.log(`🏳️ You release ${captiveName}. Trembling, they scramble into the darkness and vanish.`, "info");
+
+      // Moral alignment consequence: Sparing a surrendered foe
+      const leader = this.state.party.find(p => p.hp > 0) || this.state.party[0];
+      this.state.recordMoralAction(leader, {
+        orderDelta: 5,
+        moralityDelta: 15,
+        reason: `Granted quarter and released surrendered captive ${captiveName}`,
+        tags: ['spare_surrendered', 'offer_redemption', 'compassion', 'defend_vulnerable']
+      });
+
       this.uiController.updateHUD(true);
     }
     else if (actionType === 'STRIKE_CAPTIVE') {
       if (!this.state.surrenderedEnemy) return;
+      const captive = this.state.surrenderedEnemy;
+      const captiveName = captive.name;
       const res = this.state.strikeSurrenderedEnemy();
       if (!res) return;
 
-      if (this.renderer3D && typeof this.renderer3D.renderEncounterMonsters === 'function') {
-        this.renderer3D.renderEncounterMonsters([], this.state.player);
-      } else if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
+      if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
         this.renderer3D.clearEncounterMonsters();
       }
       this.playSFX('sword_hit');
@@ -462,8 +518,19 @@ class GameOrchestrator {
           : res.goldAcquired > 0
           ? `${res.goldAcquired} gold florins`
           : res.lootedItem.name;
-        this.log(`Searching the remains yields: ${itemText}.`, "info");
+        this.log(`💰 Searching the remains yields: ${itemText}.`, "info");
       }
+
+      // Moral alignment consequence: Executing a defenseless, surrendered captive
+      const executioner = this.state.party.find(p => p.classKey === 'fighter' && p.hp > 0) ||
+                          this.state.party.find(p => p.hp > 0) || this.state.party[0];
+      this.state.recordMoralAction(executioner, {
+        orderDelta: -10,
+        moralityDelta: -25,
+        reason: `Executed surrendered captive ${captiveName} in cold blood`,
+        tags: ['wanton_slaughter', 'extrajudicial_slaughter', 'bloodlust_murder', 'cruelty', 'ruthless_dominance']
+      });
+
       this.uiController.updateHUD(true);
     }
   }
@@ -606,6 +673,8 @@ class GameOrchestrator {
       this.playSFX('read_magic');
       if (result.brainBurnDamage > 0) {
         this.log(`🧠 BRAIN BURN! Forced memory into a full mind (+${result.cognitiveCost} Burden, ${result.brainBurnDamage} HP)${result.intBruise ? ', INT −1 until rest' : ''}.`, "danger");
+      } else if (result.skipped && result.skipped.length > 0) {
+        this.log(`📖 ${mage.name} seats ${result.rememorized.join(', ')} (+${result.cognitiveCost} Burden, ${result.minutes || 0} min). [${result.skipped.join(', ')} remained in grimoire — capacity reached].`, "success");
       } else {
         this.log(`📖 ${mage.name} seats ${result.rememorized.join(', ')} (+${result.cognitiveCost} Burden, ${result.minutes || 0} min).`, "success");
       }
@@ -693,7 +762,8 @@ class GameOrchestrator {
     else if (actionType === 'INTIMIDATE_CAPTIVE') {
       if (!fighter || fighter.hp <= 0) return this.log("The fighter is incapacitated.", "warning");
       if (!this.state.surrenderedEnemy) return this.log("No captive to interrogate.", "info");
-      const result = this.state.attemptIntimidate(this.state.surrenderedEnemy);
+      const captive = this.state.surrenderedEnemy;
+      const result = this.state.attemptIntimidate(captive);
       if (result.passed) {
         this.playSFX('reward');
         this.log(result.log, "success");
@@ -704,12 +774,22 @@ class GameOrchestrator {
         this.playSFX('blocked');
         this.log(result.log || result.reason, "warning");
       }
+
+      // Moral alignment consequence: Coercing and terrorizing a helpless captive under steel
+      this.state.recordMoralAction(fighter, {
+        orderDelta: 3,
+        moralityDelta: -5,
+        reason: `Interrogated and coerced captive ${captive.name} under threat of blade`,
+        tags: ['intimidate', 'terror', 'subjugate']
+      });
+
       this.uiController.updateHUD(true);
     }
     else if (actionType === 'STEAL_CAPTIVE') {
       if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
       if (!this.state.surrenderedEnemy) return this.log("No captive to strip.", "info");
-      const result = this.state.attemptStealSurrendered(this.state.surrenderedEnemy);
+      const captive = this.state.surrenderedEnemy;
+      const result = this.state.attemptStealSurrendered(captive);
       if (result.passed) {
         this.playSFX('reward');
         this.log(result.log, "success");
@@ -717,6 +797,15 @@ class GameOrchestrator {
         this.playSFX('unlock_try');
         this.log(result.log || result.reason, "warning");
       }
+
+      // Moral alignment consequence: Stripping and looting a helpless captive
+      this.state.recordMoralAction(thief, {
+        orderDelta: -10,
+        moralityDelta: -5,
+        reason: `Stripped and looted helpless captive ${captive.name}'s pockets`,
+        tags: ['extortion', 'cruelty', 'theft']
+      });
+
       this.uiController.updateHUD(true);
     }
   }
@@ -1075,6 +1164,154 @@ class GameOrchestrator {
   }
 
   // ===========================================================================
+  // MULTI-ZONE TRANSITIONS & TRAVEL
+  // ===========================================================================
+
+  promptZoneTransition(transition) {
+    if (!transition || !transition.targetZone || this.isTransitioning) return;
+    this.uiController.showInteractionModal({
+      title: '🗺️ AREA TRANSITION',
+      prompt: transition.prompt || `Travel to ${transition.label || 'next area'}?`,
+      choices: [
+        {
+          text: `🚪 Travel to ${transition.label || 'Next Area'}`,
+          label: `🚪 Travel to ${transition.label || 'Next Area'}`,
+          className: 'action-tab primary',
+          callback: () => this.handleZoneTransition(transition)
+        },
+        {
+          text: '✋ Stay in Current Area',
+          label: '✋ Stay in Current Area',
+          className: 'action-tab',
+          callback: () => {
+            this.log("You decide to remain in the current area.", "muted");
+          }
+        }
+      ]
+    });
+  }
+
+  async handleZoneTransition(transition) {
+    if (!transition || !transition.targetZone || this.isTransitioning) return;
+    this.isTransitioning = true;
+    const targetPath = transition.targetZone;
+
+    this.playSFX('button');
+    this.log(`Traveling: ${transition.label || 'Transitioning to new area...'}`, "info");
+
+    try {
+      // 1. Save current zone memory state
+      const currentPath = this.state.currentZonePath || this.spec.id || this.spec.name || 'default_zone';
+      this.state.zoneMemory[currentPath] = {
+        exploredTiles: new Set(this.state.exploredTiles),
+        openedDoors: new Set(this.state.openedDoors),
+        unlockedDoors: new Set(this.state.unlockedDoors),
+        openedChests: new Set(this.state.openedChests),
+        unlockedChests: new Set(this.state.unlockedChests),
+        triggeredEvents: new Set(this.state.triggeredEvents),
+        revealedTraps: new Set(this.state.revealedTraps),
+        disarmedTraps: new Set(this.state.disarmedTraps),
+        inspectedProps: new Set(this.state.inspectedProps),
+        npcStates: JSON.parse(JSON.stringify(this.state.npcStates || {})),
+        encounters: JSON.parse(JSON.stringify(this.spec.encounters || [])),
+        map: JSON.parse(JSON.stringify(this.spec.map || []))
+      };
+
+      // 2. Load target adventure/zone specification
+      let newSpec;
+      try {
+        newSpec = await loadJSON(targetPath);
+      } catch (err) {
+        const altPath = targetPath.startsWith('/') ? targetPath.slice(1) : '/' + targetPath;
+        newSpec = await loadJSON(altPath);
+      }
+
+      // 3. Update spec and active path
+      this.spec = newSpec;
+      this.state.spec = newSpec;
+      this.state.currentZonePath = targetPath;
+
+      // 4. Restore or initialize target zone state
+      const mem = this.state.zoneMemory[targetPath];
+      if (mem) {
+        this.state.exploredTiles = new Set(mem.exploredTiles);
+        this.state.openedDoors = new Set(mem.openedDoors);
+        this.state.unlockedDoors = new Set(mem.unlockedDoors);
+        this.state.openedChests = new Set(mem.openedChests);
+        this.state.unlockedChests = new Set(mem.unlockedChests);
+        this.state.triggeredEvents = new Set(mem.triggeredEvents);
+        this.state.revealedTraps = new Set(mem.revealedTraps);
+        this.state.disarmedTraps = new Set(mem.disarmedTraps);
+        this.state.inspectedProps = new Set(mem.inspectedProps);
+        if (mem.npcStates) this.state.npcStates = Object.assign(this.state.npcStates, mem.npcStates);
+        if (mem.encounters) this.spec.encounters = mem.encounters;
+        if (mem.map) this.spec.map = mem.map;
+      } else {
+        this.state.exploredTiles = new Set();
+        this.state.openedDoors = new Set();
+        this.state.unlockedDoors = new Set();
+        this.state.openedChests = new Set();
+        this.state.unlockedChests = new Set();
+        this.state.triggeredEvents = new Set();
+        this.state.revealedTraps = new Set();
+        this.state.disarmedTraps = new Set();
+        this.state.inspectedProps = new Set();
+      }
+
+      // 5. Update player location in target zone
+      this.state.player.x = transition.targetX;
+      this.state.player.y = transition.targetY;
+      if (transition.targetFacing) {
+        this.state.player.facing = transition.targetFacing;
+      }
+      if (typeof this.state.revealExploration === 'function') {
+        this.state.revealExploration(this.state.player.x, this.state.player.y, this.state.player.facing);
+      } else if (typeof this.state.exploreCurrentTile === 'function') {
+        this.state.exploreCurrentTile();
+      }
+
+      if (this.camera) {
+        this.camera.x = this.state.player.x;
+        this.camera.targetX = this.state.player.x;
+        this.camera.y = this.state.player.y;
+        this.camera.targetY = this.state.player.y;
+        this.camera.angle = this.facingToAngle(this.state.player.facing);
+        this.camera.targetAngle = this.camera.angle;
+      }
+
+      // 6. Register audio & update environment tracks
+      if (this.spec.audio) {
+        AudioManager.registerCustomAudio(this.spec.audio);
+      }
+      this.updateEnvironmentAudio();
+
+      // 7. Update controllers and renderers
+      this.dialogueController.adventureData = this.spec;
+      this.renderer3D.buildWorld(this.spec, this.state);
+      this.renderer2D.render(this.state);
+
+      // 8. Update UI title & briefing log
+      const titleEl = document.getElementById('main-panel-title');
+      if (titleEl && this.spec.name) {
+        titleEl.textContent = this.spec.name;
+      }
+
+      if (this.spec.briefing) {
+        this.log(this.spec.briefing, "info");
+      } else {
+        this.log(`Arrived at: ${this.spec.name}`, "success");
+      }
+
+      this.uiController.updateHUD(true);
+    } catch (err) {
+      console.error("Zone transition failed:", err);
+      this.log(`Failed to transition to ${targetPath}.`, "danger");
+    } finally {
+      this.isTransitioning = false;
+    }
+  }
+
+  // ===========================================================================
   // CAMPING & RESTING
   // ===========================================================================
 
@@ -1089,7 +1326,7 @@ class GameOrchestrator {
       return this.log("You can't camp here — no solid ground.", "warning");
     }
 
-    const hasRations = (this.state.inventory || []).some(i => (i.name || '').toLowerCase().includes('ration') && (i.amount || 0) > 0);
+    const hasRations = InventoryManager.findHeroCarryingItem(this.state, i => ((typeof i === 'string' ? i : i?.name) || '').toLowerCase().includes('ration')) !== null;
     if (!hasRations) return this.log("The party has no Rations left to camp!", "danger");
 
     this.isActionActive = true;

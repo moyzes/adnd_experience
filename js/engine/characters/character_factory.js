@@ -1,5 +1,6 @@
 import { ProgressionManager } from './progression_manager.js';
 import { SpellRegistry } from '../spell_registry.js';
+import { AlignmentManager } from './alignment_manager.js';
 
 /**
  * CharacterFactory handles the instantiation and configuration of party members,
@@ -213,6 +214,46 @@ export class CharacterFactory {
   }
 
   /**
+   * Available character portrait gallery catalog in assets/portraits/
+   */
+  static getAvailablePortraits() {
+    return [
+      { id: 'valeros', name: 'Valeros (Fighter)', file: 'assets/portraits/valeros.jpeg', defaultForClass: 'fighter' },
+      { id: 'merisiel', name: 'Merisiel (Thief)', file: 'assets/portraits/merisiel.jpg', defaultForClass: 'thief' },
+      { id: 'kyra', name: 'Kyra (Cleric)', file: 'assets/portraits/kyra.jpg', defaultForClass: 'cleric' },
+      { id: 'elminster', name: 'Elminster (Mage)', file: 'assets/portraits/elminster.jpg', defaultForClass: 'mage' },
+      { id: 'human_fighter', name: 'Human Fighter', file: 'assets/portraits/human_fighter.png' },
+      { id: 'human_warrior', name: 'Human Warrior', file: 'assets/portraits/human_warrior.png' },
+      { id: 'elf_wizard', name: 'Elf Wizard', file: 'assets/portraits/elf_wizard.png' },
+      { id: 'elf_warrior', name: 'Elf Warrior', file: 'assets/portraits/elf_warrior.png' },
+      { id: 'elf_ranger', name: 'Elf Ranger', file: 'assets/portraits/elf_ranger.jpg' },
+      { id: 'elf_mage', name: 'Elf Mage', file: 'assets/portraits/elf_mage.png' },
+      { id: 'dwarf_cleric', name: 'Dwarf Cleric', file: 'assets/portraits/dwarf_cleric.jpg' },
+      { id: 'dwarf_warrior', name: 'Dwarf Warrior', file: 'assets/portraits/dwarf_warrior.jpg' }
+    ];
+  }
+
+  /**
+   * Resolves appropriate portrait URL for a character by explicit option, character name, or class fallback.
+   */
+  static resolvePortrait(classKey, customName, explicitPortrait = null) {
+    if (explicitPortrait) return explicitPortrait;
+    const nameLower = (customName || '').toLowerCase().trim();
+    if (nameLower.includes('valeros')) return 'assets/portraits/valeros.jpeg';
+    if (nameLower.includes('merisiel')) return 'assets/portraits/merisiel.jpg';
+    if (nameLower.includes('kyra')) return 'assets/portraits/kyra.jpg';
+    if (nameLower.includes('elminster')) return 'assets/portraits/elminster.jpg';
+
+    const byClass = {
+      fighter: 'assets/portraits/valeros.jpeg',
+      thief: 'assets/portraits/merisiel.jpg',
+      cleric: 'assets/portraits/kyra.jpg',
+      mage: 'assets/portraits/elminster.jpg'
+    };
+    return byClass[classKey] || 'assets/portraits/valeros.jpeg';
+  }
+
+  /**
    * Master base rogue skill table before discretionary point distribution.
    * AD&D 2e specifies 60 discretionary points at 1st level, with max 30 points to any single skill.
    * Default starter distribution (+60 pts total) matches the built-in Thief archetype:
@@ -230,6 +271,36 @@ export class CharacterFactory {
       hide_in_shadows: { name: 'Hide in Shadows', rawBase: 10, defaultAdded: 5, maxAdded: 30, desc: 'Melting into darkness and silent stalking.' },
       hear_noise: { name: 'Hear Noise', rawBase: 10, defaultAdded: 10, maxAdded: 30, desc: 'Listening through closed dungeon doors and echoing halls.' }
     };
+  }
+
+  /**
+   * Calculates starting 1st-level spells known for a Mage based on Intelligence:
+   * INT 9-12: 2 spells
+   * INT 13-15: 3 spells
+   * INT 16-17: 4 spells
+   * INT 18: 5 spells
+   */
+  static getStartingMageSpellCount(intelligence = 10) {
+    const intVal = typeof intelligence === 'number' ? intelligence : (intelligence?.intelligence || 10);
+    if (intVal >= 18) return 5;
+    if (intVal >= 16) return 4;
+    if (intVal >= 13) return 3;
+    return 2;
+  }
+
+  /**
+   * Calculates 1st-level prayer preparation capacity for a Cleric based on Wisdom:
+   * WIS <= 12: 1 prayer
+   * WIS 13-15: 2 prayers
+   * WIS 16-17: 3 prayers
+   * WIS 18: 4 prayers
+   */
+  static getClericPrayerCapacity(wisdom = 10) {
+    const wisVal = typeof wisdom === 'number' ? wisdom : (wisdom?.wisdom || 10);
+    if (wisVal >= 18) return 4;
+    if (wisVal >= 16) return 3;
+    if (wisVal >= 13) return 2;
+    return 1;
   }
 
   /**
@@ -372,7 +443,7 @@ export class CharacterFactory {
     }
 
     // Starting Inventory Provisions
-    let inventory = options.inventory ? [...options.inventory] : [];
+    let inventory = options.personalInventory ? [...options.personalInventory] : (options.inventory ? [...options.inventory] : []);
     if (inventory.length === 0) {
       if (classKey === 'fighter') {
         inventory.push({ name: 'Short Bow', amount: 1 });
@@ -437,6 +508,7 @@ export class CharacterFactory {
       race: raceData.name,
       raceKey: raceKey,
       group: archetype.group,
+      portrait: this.resolvePortrait(classKey, customName, options.portrait),
       level: 1,
       xp: 0,
       nextLevelXp: nextLevelXp,
@@ -457,9 +529,13 @@ export class CharacterFactory {
       tempAcSource: null,
       tempAttackBonus: 0,
       tempAttackRounds: 0,
-      inventory,
+      personalInventory: inventory,
+      inventory: inventory,
       weaponUsage: {},
-      spells: []
+      spells: [],
+      orderScore: (options && options.orderScore != null) ? options.orderScore : 0,
+      moralityScore: (options && options.moralityScore != null) ? options.moralityScore : 0,
+      alignmentHistory: []
     };
 
     if (classKey === 'mage' && archetype.vancian_magic) {
@@ -471,13 +547,18 @@ export class CharacterFactory {
       member.tempAcBonus = 0;
       member.tempAcRounds = 0;
 
-      // Starting Mage spells
-      let initialSpells;
+      // Starting Mage spells scaled to Intelligence (INT 9-12: 2, 13-15: 3, 16-17: 4, 18: 5)
+      const maxSpellsAllowed = this.getStartingMageSpellCount(finalAttributes.intelligence);
+      let initialSpells = [];
       if (chosenSpells && chosenSpells.length > 0) {
-        initialSpells = chosenSpells;
-      } else {
-        const tier1Mage = SpellRegistry.getSpellsForClass('mage', 1);
-        initialSpells = tier1Mage.length > 0 ? [tier1Mage[0]] : [];
+        initialSpells = [...chosenSpells].slice(0, maxSpellsAllowed);
+      }
+      const tier1Mage = SpellRegistry.getSpellsForClass('mage', 1);
+      for (const sp of tier1Mage) {
+        if (initialSpells.length >= maxSpellsAllowed) break;
+        if (!initialSpells.some(s => s.id === sp.id)) {
+          initialSpells.push(sp);
+        }
       }
 
       member.grimoire = initialSpells.map(s => ({
@@ -493,15 +574,31 @@ export class CharacterFactory {
         sfx: s.sfx || 'magic_missile'
       }));
 
-      // Active prepared spells start unmemorized so cognitive load is 0
-      member.spells = member.grimoire.map(s => ({ ...s, spent: true }));
+      // Active prepared spells: seed active memory with formulas up to max cognition (100)
+      let initialLoad = 0;
+      member.spells = member.grimoire.map(s => {
+        const load = s.cognitive_load || 20;
+        if (initialLoad + load <= maxCog) {
+          initialLoad += load;
+          return { ...s, spent: false };
+        } else {
+          return { ...s, spent: true };
+        }
+      });
+      member.cognition = Math.max(0, maxCog - initialLoad);
     }
 
     if (classKey === 'cleric' && archetype.divine_favor) {
       const maxFav = archetype.divine_favor.max_favor || 100;
       member.divineFavor = maxFav;
       member.maxDivineFavor = maxFav;
-      member.ethosStatus = "Full Communion";
+      member.patronDeityId = (options && options.patronDeityId) ? options.patronDeityId : 'pelor';
+      const deity = AlignmentManager.getDeity(member.patronDeityId);
+      member.patronDeityName = deity.name;
+      member.patronDeitySymbol = deity.symbol;
+      const initialConcordance = AlignmentManager.calculateEthosConcordance(member);
+      member.ethosStatus = initialConcordance ? `${initialConcordance.statusLabel} (${deity.name})` : "Full Communion";
+      member.ethosConcordance = initialConcordance ? initialConcordance.concordancePct : 100;
       member.absoluteSilence = false;
       member.hasPrayedSinceRest = true;
       member.tempAcBonus = 0;
@@ -509,12 +606,44 @@ export class CharacterFactory {
       member.tempAttackBonus = 0;
       member.tempAttackRounds = 0;
 
+      // Clerics have open access to all 1st-level divine prayers; Wisdom determines simultaneous prepared capacity
+      const prayerCapacity = this.getClericPrayerCapacity(finalAttributes.wisdom);
+      member.prayerCapacity = prayerCapacity;
+      
+      const allTier1Prayers = SpellRegistry.getSpellsForClass('cleric', 1);
+      member.allPrayers = allTier1Prayers.map(p => ({
+        id: p.id,
+        name: p.name,
+        level: p.level || p.tier || 1,
+        tier: p.tier || p.level || 1,
+        target: p.target || 'single_ally',
+        effect: p.effect ? { ...p.effect } : null,
+        description: p.description || '',
+        sfx: p.sfx || 'cure_wounds'
+      }));
+
+      let preparedPrayers = [];
       if (chosenSpells && chosenSpells.length > 0) {
-        member.spells = chosenSpells.map(s => ({ ...s, spent: false }));
-      } else {
-        const tier1 = SpellRegistry.getSpellsForClass('cleric', 1);
-        member.spells = tier1.slice(0, 1).map(s => ({ ...s, spent: false }));
+        preparedPrayers = [...chosenSpells].slice(0, prayerCapacity);
       }
+      for (const p of allTier1Prayers) {
+        if (preparedPrayers.length >= prayerCapacity) break;
+        if (!preparedPrayers.some(s => s.id === p.id)) {
+          preparedPrayers.push(p);
+        }
+      }
+
+      member.spells = preparedPrayers.map(s => ({
+        id: s.id,
+        name: s.name,
+        level: s.level || s.tier || 1,
+        tier: s.tier || s.level || 1,
+        target: s.target || 'single_ally',
+        effect: s.effect ? { ...s.effect } : null,
+        description: s.description || '',
+        sfx: s.sfx || 'cure_wounds',
+        spent: false
+      }));
     }
 
     if (classKey === 'thief') {
@@ -537,6 +666,7 @@ export class CharacterFactory {
         name: 'Valeros',
         classKey: 'fighter',
         race: 'human',
+        portrait: 'assets/portraits/valeros.jpeg',
         attributes: { strength: 16, dexterity: 12, constitution: 15, intelligence: 9, wisdom: 10, charisma: 11 },
         chosenSpells: []
       },
@@ -545,6 +675,7 @@ export class CharacterFactory {
         name: 'Merisiel',
         classKey: 'thief',
         race: 'elf',
+        portrait: 'assets/portraits/merisiel.jpg',
         attributes: { strength: 11, dexterity: 18, constitution: 11, intelligence: 12, wisdom: 10, charisma: 10 },
         chosenSpells: []
       },
@@ -553,16 +684,19 @@ export class CharacterFactory {
         name: 'Kyra',
         classKey: 'cleric',
         race: 'human',
+        portrait: 'assets/portraits/kyra.jpg',
         attributes: { strength: 14, dexterity: 9, constitution: 13, intelligence: 11, wisdom: 16, charisma: 14 },
-        chosenSpells: ['cure_wounds']
+        chosenSpells: ['cure_wounds', 'bless', 'sanctuary'],
+        patronDeityId: 'pelor'
       },
       {
         id: 'prebuilt_mage',
         name: 'Elminster',
         classKey: 'mage',
         race: 'human',
+        portrait: 'assets/portraits/elminster.jpg',
         attributes: { strength: 8, dexterity: 14, constitution: 11, intelligence: 18, wisdom: 13, charisma: 12 },
-        chosenSpells: ['magic_missile']
+        chosenSpells: ['magic_missile', 'sleep', 'shield', 'light', 'burning_hands']
       }
     ];
   }
@@ -576,7 +710,9 @@ export class CharacterFactory {
       const spells = p.chosenSpells.map(sid => SpellRegistry.getSpell(sid)).filter(Boolean);
       return this.createPartyMember(p.classKey, p.name, spells, classesSpec, {
         race: p.race,
-        attributes: p.attributes
+        portrait: p.portrait,
+        attributes: p.attributes,
+        patronDeityId: p.patronDeityId
       });
     });
   }

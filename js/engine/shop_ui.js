@@ -104,7 +104,7 @@ export class ShopUI {
 
   renderBuyCatalog() {
     const allEntries = Object.entries(GameState.ITEM_CATALOG)
-      .filter(([, def]) => def.kind !== 'currency' && def.kind !== 'quest' && def.price != null && def.price > 0)
+      .filter(([, def]) => def.kind !== 'currency' && def.kind !== 'quest' && !def.findOnly && !def.shopExcluded && def.price != null && def.price > 0)
       .sort((a, b) => (a[1].price || 0) - (b[1].price || 0));
 
     const filtered = allEntries.filter(([, def]) => {
@@ -128,13 +128,12 @@ export class ShopUI {
           const isPersonal = def.scope === 'personal';
           const canAfford = partyGold >= (def.price || 0);
 
-          // Calculate how many are currently owned
-          const owned = !isPersonal
-            ? this.state.getPartyItemQty(name)
-            : party.reduce((sum, h) => {
-                const slot = (h.inventory || []).find(i => (typeof i === 'string' ? i === name : i.name === name));
-                return sum + (slot ? (typeof slot === 'string' ? 1 : (slot.amount || 1)) : 0);
-              }, 0);
+          // Calculate how many are currently owned across personal inventories
+          const owned = party.reduce((sum, h) => {
+            const inv = h.personalInventory || h.inventory || [];
+            const slot = inv.find(i => (typeof i === 'string' ? i === name : i && i.name === name));
+            return sum + (slot ? (typeof slot === 'string' ? 1 : (slot.amount ?? slot.count ?? 1)) : 0);
+          }, 0);
 
           // Type Tag & Metric details
           let metricTag = '';
@@ -157,58 +156,43 @@ export class ShopUI {
           }
 
           // Recipient controls
-          let recipientControlHtml = '';
-          if (isPersonal) {
-            // Display buttons for eligible heroes
-            const heroButtons = party.map((hero, hIdx) => {
+          const heroButtons = party.map((hero, hIdx) => {
+            let allowed = true;
+            let title = `Give ${name} to ${hero.name} (${hero.className})`;
+            if (def.kind === 'weapon' || def.kind === 'armor' || def.kind === 'shield') {
               const check = GameState.isClassAllowedItem(hero.classKey, name, def);
-              const allowed = check.allowed;
-              const title = allowed 
-                ? `Give ${name} to ${hero.name} (${hero.className})` 
-                : `${hero.name} (${hero.className}) cannot equip: ${check.reason}`;
+              allowed = check.allowed;
+              if (!allowed) title = `${hero.name} (${hero.className}) cannot equip: ${check.reason}`;
+            }
 
-              if (allowed) {
-                return `
-                  <button class="shop-buy-hero-btn action-tab" 
-                    data-item="${name}" 
-                    data-hero-idx="${hIdx}" 
-                    ${!canAfford ? 'disabled' : ''}
-                    title="${title}"
-                    style="padding:3px 8px; font-size:9px; font-weight:700; white-space:nowrap; ${canAfford ? 'border-color:#388bfd; color:#58a6ff;' : 'opacity:0.4;'}">
-                    → ${hero.name} (${hero.className})
-                  </button>
-                `;
-              } else {
-                return `
-                  <span title="${title}" style="padding:3px 6px; font-size:9px; color:#6e7681; background:#161b22; border:1px solid #30363d; border-radius:2px; cursor:help; white-space:nowrap;">
-                    🚫 ${hero.name} <span style="font-size:8px; opacity:0.8;">(${hero.className})</span>
-                  </span>
-                `;
-              }
-            }).join('');
-
-            recipientControlHtml = `
-              <div style="margin-top:6px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.06);">
-                <div style="font-size:9px; color:var(--text-muted); margin-bottom:4px;">Select Recipient:</div>
-                <div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center;">
-                  ${heroButtons}
-                </div>
-              </div>
-            `;
-          } else {
-            // Party item purchase button
-            recipientControlHtml = `
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.06);">
-                <span style="font-size:9px; color:#7ee787;">📦 Stored directly in Party Pack</span>
-                <button class="shop-buy-party-btn action-tab" 
+            if (allowed) {
+              return `
+                <button class="shop-buy-hero-btn action-tab" 
                   data-item="${name}" 
+                  data-hero-idx="${hIdx}" 
                   ${!canAfford ? 'disabled' : ''}
-                  style="padding:4px 12px; font-size:10px; font-weight:700; white-space:nowrap; ${canAfford ? 'border-color:var(--gold-tsr); color:var(--gold-tsr);' : 'opacity:0.4;'}">
-                  Buy for Party Pack (${def.price} gp)
+                  title="${title}"
+                  style="padding:3px 8px; font-size:9px; font-weight:700; white-space:nowrap; ${canAfford ? 'border-color:#388bfd; color:#58a6ff;' : 'opacity:0.4;'}">
+                  → ${hero.name} (${hero.className})
                 </button>
+              `;
+            } else {
+              return `
+                <span title="${title}" style="padding:3px 6px; font-size:9px; color:#6e7681; background:#161b22; border:1px solid #30363d; border-radius:2px; cursor:help; white-space:nowrap;">
+                  🚫 ${hero.name} <span style="font-size:8px; opacity:0.8;">(${hero.className})</span>
+                </span>
+              `;
+            }
+          }).join('');
+
+          const recipientControlHtml = `
+            <div style="margin-top:6px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.06);">
+              <div style="font-size:9px; color:var(--text-muted); margin-bottom:4px;">Select Recipient:</div>
+              <div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center;">
+                ${heroButtons}
               </div>
-            `;
-          }
+            </div>
+          `;
 
           return `
             <div style="background:#0d1117; border:1px solid var(--border-iron); border-radius:3px; padding:10px;">
@@ -240,43 +224,14 @@ export class ShopUI {
     const party = this.state.party;
     const sellableRows = [];
 
-    // 1. Party Inventory (gems, jewelry, treasures, potions, ammo, supplies)
-    const partyInv = this.state.inventory || [];
-    partyInv.forEach(item => {
-      const name = item.name;
-      const qty = item.amount ?? item.count ?? 1;
-      if (qty <= 0) return;
-      if (name === 'Gold Pieces') return;
-
-      const def = this.state.getItemDef(name);
-      if (!def) return;
-
-      const isQuest = def.kind === 'quest';
-      let sellPrice = 0;
-      if (def.kind === 'treasure' || def.kind === 'gem') {
-        sellPrice = def.price || 30; // Appraised treasure value
-      } else {
-        sellPrice = Math.max(1, Math.floor((def.price || 2) * 0.5));
-      }
-
-      sellableRows.push({
-        name,
-        qty,
-        def,
-        sellPrice,
-        isQuest,
-        holderName: 'Party Pack',
-        heroIndex: null,
-        isEquipped: false
-      });
-    });
-
-    // 2. Personal Inventories of each Hero (weapons, armor, shields, tools)
+    // Personal Inventories of each Hero (weapons, armor, shields, tools, consumables, gems, loot)
     party.forEach((hero, hIdx) => {
-      const inv = hero.inventory || [];
+      const inv = hero.personalInventory || hero.inventory || [];
       inv.forEach(slot => {
+        if (!slot) return;
         const name = typeof slot === 'string' ? slot : slot.name;
-        const qty = typeof slot === 'string' ? 1 : (slot.amount || 1);
+        if (name === 'Gold Pieces') return;
+        const qty = typeof slot === 'string' ? 1 : (slot.amount ?? slot.count ?? 1);
         if (qty <= 0) return;
 
         const def = this.state.getItemDef(name);
@@ -437,7 +392,7 @@ export class ShopUI {
     const result = this.state.buyItem(itemName, qty, heroIdx);
     if (result.success) {
       this.context.playSFX('coins');
-      const where = result.destination === 'personal' ? `${result.heroName}'s personal pack` : 'the expedition party pack';
+      const where = `${result.heroName}'s personal pack`;
       this.context.log(`Purchased ${itemName} for ${result.total} gp → ${where}.`, "success");
       
       this.render();
@@ -451,7 +406,7 @@ export class ShopUI {
     const result = this.state.sellItem(itemName, qty, heroIdx);
     if (result.success) {
       this.context.playSFX('coins');
-      const fromStr = result.fromSource === 'Party Pack' ? 'the party pack' : `${result.fromSource}'s pack`;
+      const fromStr = `${result.fromSource}'s pack`;
       this.context.log(`Sold ${result.qty}× ${result.itemName} from ${fromStr} for +${result.totalEarned} gp!`, "success");
       
       this.render();

@@ -1,0 +1,748 @@
+{
+  "id": "b2_shrine_of_chaos",
+  "name": "Cave K: The Shrine of Evil Chaos",
+  "campaign": "b2_keep_on_the_borderlands",
+  "zoneType": "dungeon",
+  "combat_tracks": [
+    "combat_1",
+    "combat_2",
+    "combat_3"
+  ],
+  "town_tracks": [
+    "town_1",
+    "town_2"
+  ],
+  "wilderness_tracks": [
+    "wilderness_1"
+  ],
+  "dungeon_tracks": [
+    "dungeon_1",
+    "dungeon_2",
+    "dungeon_3"
+  ],
+  "rest_duration_seconds": 15,
+  "briefing": "You have entered Cave K, the Shrine of Evil Chaos — the dark epicenter of malevolence in the Borderlands. Torches flicker with eerie violet flame along black stone pillars. Incense heavy with brimstone stings your throat. In the crypt alcoves, the dead stir, and before the blood-stained altar, the Evil Priest of Chaos chants blasphemous hymns. Destroy the cult, rescue the captives, and recover the Eye of Chaos to save the realm!",
+  "assets": {
+    "wizard": "assets/glb/strange_wizard.glb",
+    "cultist": "assets/glb/cultist.glb",
+    "skeleton": "assets/glb/skeleton_animated.glb",
+    "goblin": "assets/glb/basic_goblin.glb",
+    "ghoul": "assets/glb/goblin_ghoul.glb",
+    "giant_spider": "assets/glb/giant_spider.glb",
+    "kobold": "assets/glb/kobold.glb",
+    "orc": "assets/glb/orc_captain.glb",
+    "assassin": "assets/glb/assassin.glb",
+    "chest": "assets/glb/chest.glb",
+    "campfire": "assets/glb/campfire.glb"
+  },
+  "start": {
+    "x": 7,
+    "y": 1,
+    "facing": "SOUTH"
+  },
+  "surface_y_min": 99,
+  "dungeon_y_max": 99,
+  "legend": {
+    "0": {
+      "name": "Black Basalt Temple Tile",
+      "walkable": true
+    },
+    "1": {
+      "name": "Obsidian Shrine Wall",
+      "walkable": false
+    },
+    "2": {
+      "name": "Blood-Inscribed Iron Portal",
+      "walkable": false,
+      "interactive": true,
+      "locked": {
+        "methods": [
+          "mechanical",
+          "brute",
+          "read_magic"
+        ],
+        "dc": 14
+      },
+      "trap": {
+        "name": "Unholy Glyph of Torment",
+        "dc": 14,
+        "damage": 12,
+        "saveCategory": "spell"
+      }
+    },
+    "3": {
+      "name": "Demonic Reliquary Coffer",
+      "walkable": false,
+      "interactive": true,
+      "locked": {
+        "methods": [
+          "mechanical",
+          "brute",
+          "read_magic"
+        ],
+        "dc": 15
+      },
+      "trap": {
+        "name": "Vengeful Chaos Blast",
+        "dc": 15,
+        "damage": 15,
+        "saveCategory": "spell"
+      }
+    },
+    "4": {
+      "name": "Charnel Catacomb Floor",
+      "walkable": true
+    },
+    "6": {
+      "name": "Desecrated Altar of Chaos",
+      "walkable": true,
+      "interactive": true,
+      "action": "atonement",
+      "description": "A blasphemous altar of blood-veined black stone. A holy cleric or paladin can shatter its dark unholy glyphs and consecrate it to Law."
+    },
+    "7": {
+      "name": "Floor Pit with Black Spikes",
+      "walkable": true,
+      "trap": {
+        "name": "Sacrificial Spiked Pit",
+        "dc": 14,
+        "damage": 11,
+        "saveCategory": "breath"
+      }
+    },
+    "8": {
+      "name": "Cavern Portal",
+      "walkable": true,
+      "interactive": true,
+      "description": "A jagged archway opening out into the daylight of the ravine."
+    }
+  },
+  "transitions": [
+    {
+      "x": 7,
+      "y": 0,
+      "targetZone": "/data/b2/b2_wilderness.json",
+      "targetX": 7,
+      "targetY": 14,
+      "targetFacing": "NORTH",
+      "label": "Climb up to the Borderland Ravine",
+      "prompt": "Ascend the steep chasm back up to the Ravine?"
+    },
+    {
+      "x": 8,
+      "y": 0,
+      "targetZone": "/data/b2/b2_caves_lower.json",
+      "targetX": 8,
+      "targetY": 16,
+      "targetFacing": "NORTH",
+      "label": "Enter Secret Passage to the Greater Caves",
+      "prompt": "Ascend the hidden passage back into the lower caves complex?"
+    }
+  ],
+  "chests": {
+    "7,13": [
+      {
+        "name": "Eye of Chaos",
+        "amount": 1,
+        "type": "quest"
+      },
+      {
+        "name": "Gloves of Ogre Strength",
+        "amount": 1,
+        "type": "gloves"
+      },
+      {
+        "name": "Platinum Pieces",
+        "amount": 80,
+        "type": "currency"
+      },
+      {
+        "name": "Gold Pieces",
+        "amount": 600,
+        "type": "currency"
+      },
+      {
+        "name": "Unholy Rod of the Temple",
+        "amount": 1,
+        "type": "treasure"
+      },
+      {
+        "name": "Potion of Extra-Healing",
+        "amount": 2,
+        "type": "consumable"
+      },
+      {
+        "name": "Black Pearl",
+        "amount": 2,
+        "type": "treasure"
+      }
+    ],
+    "2,5": [
+      {
+        "name": "Boots of Elvenkind",
+        "amount": 1,
+        "type": "boots"
+      },
+      {
+        "name": "Silver Goblet of Libation",
+        "amount": 2,
+        "type": "treasure"
+      },
+      {
+        "name": "Gold Pieces",
+        "amount": 150,
+        "type": "currency"
+      },
+      {
+        "name": "Scroll of Protection from Evil",
+        "amount": 1,
+        "type": "consumable"
+      }
+    ]
+  },
+  "entities": [
+    {
+      "type": "prop",
+      "id": "chaos_altar_prop",
+      "name": "Altar of Chaos",
+      "model": "chest",
+      "x": 7,
+      "y": 12,
+      "facing": "SOUTH"
+    },
+    {
+      "type": "prop",
+      "id": "reliquary_chest_prop",
+      "name": "High Priest's Demon Coffer",
+      "model": "chest",
+      "x": 7,
+      "y": 13,
+      "facing": "NORTH"
+    },
+    {
+      "type": "prop",
+      "id": "shrine_brazier_west",
+      "name": "Temple Brazier (West)",
+      "model": "campfire",
+      "x": 5,
+      "y": 10,
+      "facing": "NORTH"
+    },
+    {
+      "type": "prop",
+      "id": "shrine_brazier_east",
+      "name": "Temple Brazier (East)",
+      "model": "campfire",
+      "x": 9,
+      "y": 10,
+      "facing": "NORTH"
+    }
+  ],
+  "npcs": {
+    "captive_cleric_maiden": {
+      "id": "captive_cleric_maiden",
+      "name": "Lady Althea (Rescued Pilgrim)",
+      "tile": [
+        3,
+        12
+      ],
+      "initialNode": "node_althea_rescue",
+      "inventory_to_steal": []
+    }
+  },
+  "dialogue": {
+    "node_althea_rescue": {
+      "speaker": "Lady Althea (Rescued Pilgrim)",
+      "text": "The gods of Law have answered our prayers! They were going to sacrifice me on that black altar when the moon reached its zenith! The Evil Priest commands both living cultists and the walking dead from the crypts. Slay him and take the Eye of Chaos to the Castellan at the Keep — it will break the curse of these caves once and for all!",
+      "alignment_impact": {
+        "order": 2,
+        "morality": 3,
+        "reason": "Rescued innocent sacrificial victim from the altar of Chaos"
+      },
+      "options": [
+        {
+          "label": "We will cleanse this temple and take down the Priest!",
+          "targetNode": "node_althea_vow"
+        },
+        {
+          "label": "Stay behind us, Lady Althea. You are safe now.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_althea_vow": {
+      "speaker": "Lady Althea (Rescued Pilgrim)",
+      "text": "May the light of the Sun Lord shield your hearts against his blasphemies!",
+      "options": [
+        {
+          "label": "For Law and the Light!",
+          "targetNode": null
+        }
+      ]
+    }
+  },
+  "monsters": {
+    "shrine_skeleton": {
+      "id": "shrine_skeleton",
+      "name": "Crypt Skeletal Guardian",
+      "glbModel": "assets/glb/skeleton_animated.glb",
+      "scale": 1,
+      "hp": 12,
+      "maxHp": 12,
+      "armorClass": 7,
+      "armorType": "leather",
+      "attackTarget": 12,
+      "damage": "1d6",
+      "damageType": "slashing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 100,
+      "xpReward": 350,
+      "creatureType": "undead",
+      "undeadTier": "weak"
+    },
+    "temple_ghoul": {
+      "id": "temple_ghoul",
+      "name": "Altar Tomb Ghoul",
+      "glbModel": "assets/glb/goblin_ghoul.glb",
+      "scale": 0.95,
+      "hp": 16,
+      "maxHp": 16,
+      "armorClass": 6,
+      "armorType": "leather",
+      "attackTarget": 13,
+      "damage": "1d6+2",
+      "damageType": "slashing",
+      "actionPhase": "FAST",
+      "moraleThreshold": 80,
+      "xpReward": 650,
+      "creatureType": "undead",
+      "undeadTier": "medium",
+      "special_attack": "paralysis",
+      "save_category": "paralysis",
+      "save_target": 14
+    },
+    "chaos_acolyte": {
+      "id": "chaos_acolyte",
+      "name": "Acolyte of Chaos",
+      "glbModel": "assets/glb/cultist.glb",
+      "scale": 1,
+      "hp": 14,
+      "maxHp": 14,
+      "armorClass": 6,
+      "armorType": "leather",
+      "attackTarget": 13,
+      "damage": "1d6+1",
+      "damageType": "slashing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 65,
+      "xpReward": 450
+    },
+    "evil_high_priest": {
+      "id": "evil_high_priest",
+      "name": "The High Priest of Chaos",
+      "glbModel": "assets/glb/cultist.glb",
+      "scale": 1.3,
+      "hp": 36,
+      "maxHp": 36,
+      "armorClass": 4,
+      "armorType": "chain",
+      "attackTarget": 15,
+      "damage": "1d10+2",
+      "damageType": "slashing",
+      "actionPhase": "FAST",
+      "moraleThreshold": 90,
+      "xpReward": 2000,
+      "special_attack": "death_magic",
+      "save_category": "spell",
+      "save_target": 15,
+      "poison_damage": 8
+    }
+  },
+  "encounters": [
+    {
+      "id": "enc_shrine_catacomb_skeletons",
+      "x": 7,
+      "y": 4,
+      "name": "The Catacombs — Skeletal Legionnaires",
+      "enemies": [
+        {
+          "monsterId": "shrine_skeleton",
+          "count": 3
+        }
+      ],
+      "onVictoryXp": 1050
+    },
+    {
+      "id": "enc_shrine_crypt_ghouls",
+      "x": 4,
+      "y": 6,
+      "name": "Burial Alcove — Temple Tomb Ghouls",
+      "enemies": [
+        {
+          "monsterId": "temple_ghoul",
+          "count": 2
+        }
+      ],
+      "onVictoryXp": 1300
+    },
+    {
+      "id": "enc_shrine_acolytes",
+      "x": 7,
+      "y": 9,
+      "name": "Nave of the Temple — Acolytes of Chaos",
+      "enemies": [
+        {
+          "monsterId": "chaos_acolyte",
+          "count": 3
+        }
+      ],
+      "onVictoryXp": 1350
+    },
+    {
+      "id": "enc_evil_high_priest",
+      "x": 7,
+      "y": 11,
+      "name": "The Black Altar — The High Priest of Chaos",
+      "enemies": [
+        {
+          "monsterId": "evil_high_priest",
+          "count": 1
+        },
+        {
+          "monsterId": "chaos_acolyte",
+          "count": 2
+        }
+      ],
+      "onVictoryXp": 2900
+    }
+  ],
+  "map": [
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      2,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      6,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ]
+  ],
+  "dialogues": {
+    "captive_cleric_maiden": {
+      "node_althea_rescue": {
+        "text": "The sacrificial altar is broken... the dark ceremony has been thwarted! I am Sister Althea of the Church of Law. The priest was preparing to summon an abyssal fiend under the dark moon! You have preserved the entire realm from devastation!",
+        "choices": [
+          {
+            "id": "choice_althea_bless",
+            "text": "\"Kneel, Sister Althea. The evil priest is slain and Law reigns triumphant.\"",
+            "onSuccess": "node_althea_triumph",
+            "alignment_impact": {
+              "order": 3,
+              "morality": 3,
+              "reason": "Cleansed the unholy shrine and delivered Sister Althea"
+            }
+          },
+          {
+            "id": "choice_althea_aid",
+            "text": "[Cleric] \"The Light of Law shines through our fellowship. Let us escort you home.\"",
+            "specialtyClass": "Cleric",
+            "specialtyBonus": 3,
+            "attribute": "wisdom",
+            "onSuccess": "node_althea_triumph"
+          }
+        ]
+      },
+      "node_althea_triumph": {
+        "text": "May the eternal heavens shower grace upon your fellowship. Take the sacred Vestment of Law and this pouch of blessed pearls. The Castellan will herald you as the saviors of the Borderlands!",
+        "giveItem": "Holy Water",
+        "giveGold": 300,
+        "questXP": 2500,
+        "choices": [
+          {
+            "text": "For Law and the Light!",
+            "onSuccess": null
+          }
+        ]
+      }
+    }
+  }
+}

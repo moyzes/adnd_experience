@@ -1,5 +1,6 @@
 import { ItemCatalog } from '../items/item_catalog.js';
 import { SpellRegistry } from '../spell_registry.js';
+import { EncumbranceManager } from '../items/encumbrance_manager.js';
 
 /**
  * ProgressionManager encapsulates AD&D 2e character math, attack bonus progressions,
@@ -69,15 +70,22 @@ export class ProgressionManager {
 
   /**
    * Calculates a hero's effective AC in AD&D 2e (lower is better),
-   * accounting for base armor, shield, DEX, temporary magical wards, and tactical Guard stance.
+   * accounting for base armor, shield, DEX, temporary magical wards, tactical Guard stance,
+   * and encumbrance penalty.
    */
-  static getHeroEffectiveAC(hero, isGuarding = false) {
+  static getHeroEffectiveAC(hero, isGuarding = false, state = null) {
     let ac = hero.armorClass != null ? hero.armorClass : 5;
     if (isGuarding) {
       ac -= 1; // Guarding improves AC by 1
     }
     if (hero.tempAcBonus) {
       ac -= hero.tempAcBonus; // Shield spell / Sanctuary improves AC
+    }
+    if (state) {
+      const partyTier = EncumbranceManager.getPartyTier(state);
+      if (partyTier && partyTier.acPenalty) {
+        ac += partyTier.acPenalty;
+      }
     }
     return ac;
   }
@@ -145,6 +153,7 @@ export class ProgressionManager {
   static canPartyTrain(state) {
     if (!state) return false;
     if (state.combat?.active) return false;
+    if (typeof state.isTownTile === 'function' && state.isTownTile()) return true;
     if (typeof state.isWildernessTile === 'function' && state.isWildernessTile()) return true;
     if (typeof state.isNearShop === 'function' && state.isNearShop()) return true;
     const surfaceMin = state.spec?.surface_y_min != null ? state.spec.surface_y_min : 8;
@@ -208,9 +217,16 @@ export class ProgressionManager {
           else if (dex <= 9) dexMod = -10;
         }
       }
-      return Math.min(99, Math.max(1, skill.base + levelBonus + dexMod));
+      let gearBonus = 0;
+      if (key === 'hide_in_shadows' && hero.equippedBoots && (hero.equippedBoots.stealthBonus || hero.equippedBoots.name?.toLowerCase().includes('elvenkind') || hero.equippedBoots.name?.toLowerCase().includes('evenkind'))) {
+        gearBonus += (hero.equippedBoots.stealthBonus || 25);
+      }
+      return Math.min(99, Math.max(1, skill.base + levelBonus + dexMod + gearBonus));
     } else {
-      const rawAttr = (hero.attributes && hero.attributes[skill.attribute]) || 10;
+      let rawAttr = (hero.attributes && hero.attributes[skill.attribute]) || 10;
+      if (skill.attribute === 'strength' && hero.equippedGloves && (hero.equippedGloves.strengthSet || hero.equippedGloves.name?.toLowerCase().includes('ogre'))) {
+        rawAttr = Math.max(rawAttr, hero.equippedGloves.strengthSet || 18);
+      }
       return rawAttr + skill.base + levelBonus;
     }
   }

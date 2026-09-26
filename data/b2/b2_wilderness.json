@@ -1,0 +1,710 @@
+{
+  "id": "b2_wilderness",
+  "name": "The Borderland Wilderness & The Ravine",
+  "campaign": "b2_keep_on_the_borderlands",
+  "zoneType": "wilderness",
+  "combat_tracks": [
+    "combat_1",
+    "combat_2",
+    "combat_3"
+  ],
+  "town_tracks": [
+    "town_1",
+    "town_2"
+  ],
+  "wilderness_tracks": [
+    "wilderness_1"
+  ],
+  "dungeon_tracks": [
+    "dungeon_1",
+    "dungeon_2",
+    "dungeon_3"
+  ],
+  "rest_duration_seconds": 12,
+  "briefing": "You have stepped beyond the safety of the Keep's bastions into the untamed Borderland Wilderness. Rugged trails wind through dense thickets of blackthorn and pine toward a dark, winding canyon to the south — the infamous Caves of Chaos. Watch the trees for giant spiders and brigand ambushes!",
+  "assets": {
+    "wizard": "assets/glb/strange_wizard.glb",
+    "cultist": "assets/glb/cultist.glb",
+    "skeleton": "assets/glb/skeleton_animated.glb",
+    "goblin": "assets/glb/basic_goblin.glb",
+    "ghoul": "assets/glb/goblin_ghoul.glb",
+    "giant_spider": "assets/glb/giant_spider.glb",
+    "kobold": "assets/glb/kobold.glb",
+    "orc": "assets/glb/orc_captain.glb",
+    "assassin": "assets/glb/assassin.glb",
+    "chest": "assets/glb/chest.glb",
+    "tree": "assets/glb/tree_animate.glb",
+    "campfire": "assets/glb/campfire.glb"
+  },
+  "start": {
+    "x": 7,
+    "y": 1,
+    "facing": "SOUTH"
+  },
+  "surface_y_min": 0,
+  "dungeon_y_max": 0,
+  "legend": {
+    "0": {
+      "name": "Winding Wilderness Dirt Trail",
+      "walkable": true
+    },
+    "1": {
+      "name": "Craggy Ravine Rock Wall",
+      "walkable": false
+    },
+    "2": {
+      "name": "Overgrown Thorn Barricade",
+      "walkable": false,
+      "interactive": true,
+      "locked": {
+        "methods": [
+          "brute"
+        ],
+        "dc": 10
+      }
+    },
+    "3": {
+      "name": "Sunken Wilderness Cache",
+      "walkable": false,
+      "interactive": true
+    },
+    "4": {
+      "name": "Borderland Moors & Heath",
+      "walkable": true
+    },
+    "5": {
+      "name": "Ancient Gnarled Pine",
+      "walkable": false
+    },
+    "7": {
+      "name": "Concealed Punji Pit Trap",
+      "walkable": true,
+      "trap": {
+        "name": "Concealed Spiked Pit",
+        "dc": 12,
+        "damage": 8,
+        "saveCategory": "breath"
+      }
+    },
+    "8": {
+      "name": "Cave Mouth Opening",
+      "walkable": true,
+      "interactive": true,
+      "description": "A yawning, jagged cavern mouth carved into the limestone cliff."
+    }
+  },
+  "transitions": [
+    {
+      "x": 7,
+      "y": 0,
+      "targetZone": "/data/b2/b2_keep.json",
+      "targetX": 7,
+      "targetY": 13,
+      "targetFacing": "NORTH",
+      "label": "Return to the Keep on the Borderlands",
+      "prompt": "Ascend the stone causeway back to the safety of the Keep?"
+    },
+    {
+      "x": 2,
+      "y": 15,
+      "targetZone": "/data/b2/b2_caves_upper.json",
+      "targetX": 2,
+      "targetY": 1,
+      "targetFacing": "SOUTH",
+      "label": "Descend into the Western Caves (Caves A-E: Kobolds, Orcs, Goblins, Ogre)",
+      "prompt": "Climb down the jagged scree into the western cavern complex (Caves of Chaos: Lesser Lairs)?"
+    },
+    {
+      "x": 12,
+      "y": 15,
+      "targetZone": "/data/b2/b2_caves_lower.json",
+      "targetX": 13,
+      "targetY": 1,
+      "targetFacing": "SOUTH",
+      "label": "Enter the Eastern Caves (Caves F-J: Hobgoblins, Bugbears, Minotaur, Gnolls)",
+      "prompt": "Enter the dark eastern cave mouth into the strongholds of the Hobgoblins, Bugbears, and the Minotaur's Maze?"
+    },
+    {
+      "x": 7,
+      "y": 15,
+      "targetZone": "/data/b2/b2_shrine_of_chaos.json",
+      "targetX": 7,
+      "targetY": 1,
+      "targetFacing": "SOUTH",
+      "label": "Descend the Forbidden Chasm (Cave K: The Shrine of Evil Chaos)",
+      "prompt": "A sickening aura of malevolence flows from this dark cleft in the canyon head. Enter the Shrine of Evil Chaos?"
+    }
+  ],
+  "chests": {
+    "2,4": [
+      {
+        "name": "Gem-Encrusted Dagger",
+        "amount": 1,
+        "type": "treasure"
+      },
+      {
+        "name": "Gold Pieces",
+        "amount": 80,
+        "type": "currency"
+      },
+      {
+        "name": "Healing Potion",
+        "amount": 1,
+        "type": "consumable"
+      }
+    ],
+    "13,4": [
+      {
+        "name": "Lizardfolk Ceremonial Mask",
+        "amount": 1,
+        "type": "treasure"
+      },
+      {
+        "name": "Gold Pieces",
+        "amount": 110,
+        "type": "currency"
+      },
+      {
+        "name": "Silver Bracelet",
+        "amount": 2,
+        "type": "treasure"
+      }
+    ]
+  },
+  "entities": [
+    {
+      "type": "prop",
+      "id": "spider_cache",
+      "name": "Web-Wrapped Adventurer Remains",
+      "model": "chest",
+      "x": 2,
+      "y": 4,
+      "facing": "SOUTH"
+    },
+    {
+      "type": "prop",
+      "id": "lizard_mound_cache",
+      "name": "Lizard Mound Relic Chest",
+      "model": "chest",
+      "x": 13,
+      "y": 4,
+      "facing": "SOUTH"
+    },
+    {
+      "type": "prop",
+      "id": "hermit_camp",
+      "name": "Hermit's Campfire",
+      "model": "campfire",
+      "x": 3,
+      "y": 10,
+      "facing": "NORTH"
+    }
+  ],
+  "npcs": {
+    "mad_hermit": {
+      "id": "mad_hermit",
+      "name": "The Mad Hermit",
+      "tile": [
+        3,
+        9
+      ],
+      "initialNode": "node_hermit_greet",
+      "inventory_to_steal": [
+        {
+          "name": "Carved Bone Talisman",
+          "type": "treasure"
+        },
+        {
+          "name": "Gold Pieces",
+          "type": "currency",
+          "amount": 30
+        }
+      ]
+    }
+  },
+  "dialogue": {
+    "node_hermit_greet": {
+      "speaker": "The Mad Hermit",
+      "text": "Hee hee! Skitter, scatter, steel-clad fools! Tread softly on the roots of my woods! The spiders spin thick silk in the copse to the east, and the green-skins squabble in the ravine below. Did you bring dried meats for my cat, or do you come to disturb an old man's communion with the crows?",
+      "options": [
+        {
+          "label": "Tell us of the Caves of Chaos down the ravine.",
+          "targetNode": "node_hermit_caves"
+        },
+        {
+          "label": "Have you seen any priests or strange cultists?",
+          "targetNode": "node_hermit_cult"
+        },
+        {
+          "label": "We leave you to your woods, old hermit.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_hermit_caves": {
+      "speaker": "The Mad Hermit",
+      "text": "The ravine is shaped like a gaping jaw! The lower teeth are full of little yapping kobolds and squabbling orc tribes who hate each other's guts — a clever tongue could make them slit each other's throats! But higher up... oh yes, the big brutes dwell. A lumbering ogre who loves shiny gold, and iron-clad hobgoblins who march like toy soldiers!",
+      "options": [
+        {
+          "label": "What lies in the deep cleft at the ravine's head?",
+          "targetNode": "node_hermit_cult"
+        },
+        {
+          "label": "Thank you for the counsel.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_hermit_cult": {
+      "speaker": "The Mad Hermit",
+      "text": "Hush! Speak not of the Black Altar! Under the dark of the moon, hooded figures in blood-red vestments sneak into the deepest cavern. The dead walk in the crypts beside them! If you go there, bring steel and righteous prayers, or your bones will hang on their iron racks!",
+      "options": [
+        {
+          "label": "We shall cleanse that darkness.",
+          "targetNode": null
+        }
+      ]
+    }
+  },
+  "monsters": {
+    "wild_spider": {
+      "id": "wild_spider",
+      "name": "Wilderness Giant Spider",
+      "glbModel": "assets/glb/giant_spider.glb",
+      "scale": 0.9,
+      "hp": 15,
+      "maxHp": 15,
+      "armorClass": 6,
+      "armorType": "leather",
+      "attackTarget": 12,
+      "damage": "1d6+1",
+      "damageType": "piercing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 45,
+      "xpReward": 450,
+      "special_attack": "poison",
+      "save_category": "poison",
+      "save_target": 13,
+      "poison_damage": 6
+    },
+    "lizard_raider": {
+      "id": "lizard_raider",
+      "name": "Mound Lizard Raider",
+      "glbModel": "assets/glb/basic_goblin.glb",
+      "scale": 1.1,
+      "hp": 13,
+      "maxHp": 13,
+      "armorClass": 5,
+      "armorType": "leather",
+      "attackTarget": 13,
+      "damage": "1d6+1",
+      "damageType": "slashing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 55,
+      "xpReward": 350
+    },
+    "borderland_brigand": {
+      "id": "borderland_brigand",
+      "name": "Borderland Brigand Outlaw",
+      "glbModel": "assets/glb/assassin.glb",
+      "scale": 1,
+      "hp": 12,
+      "maxHp": 12,
+      "armorClass": 7,
+      "armorType": "leather",
+      "attackTarget": 12,
+      "damage": "1d6",
+      "damageType": "slashing",
+      "actionPhase": "FAST",
+      "moraleThreshold": 50,
+      "xpReward": 300
+    }
+  },
+  "encounters": [
+    {
+      "id": "enc_wild_spider_copse",
+      "x": 3,
+      "y": 4,
+      "name": "The Spider Copse — Giant Webspinner Ambush",
+      "enemies": [
+        {
+          "monsterId": "wild_spider",
+          "count": 2
+        }
+      ],
+      "onVictoryXp": 900
+    },
+    {
+      "id": "enc_wild_lizard_mound",
+      "x": 12,
+      "y": 4,
+      "name": "The Ancient Mound — Lizard Raiders",
+      "enemies": [
+        {
+          "monsterId": "lizard_raider",
+          "count": 2
+        }
+      ],
+      "onVictoryXp": 700
+    },
+    {
+      "id": "enc_wild_brigand_ambush",
+      "x": 11,
+      "y": 10,
+      "name": "Rocky Defile — Borderland Outlaw Ambush",
+      "enemies": [
+        {
+          "monsterId": "borderland_brigand",
+          "count": 3
+        }
+      ],
+      "onVictoryXp": 900
+    }
+  ],
+  "map": [
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      5,
+      4,
+      4,
+      5,
+      4,
+      4,
+      0,
+      4,
+      4,
+      5,
+      4,
+      4,
+      5,
+      5,
+      1
+    ],
+    [
+      1,
+      5,
+      4,
+      4,
+      5,
+      4,
+      4,
+      0,
+      4,
+      4,
+      5,
+      4,
+      4,
+      4,
+      5,
+      1
+    ],
+    [
+      1,
+      5,
+      4,
+      4,
+      4,
+      4,
+      4,
+      0,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      5,
+      1
+    ],
+    [
+      1,
+      5,
+      0,
+      0,
+      5,
+      4,
+      4,
+      0,
+      4,
+      4,
+      5,
+      4,
+      0,
+      0,
+      5,
+      1
+    ],
+    [
+      1,
+      5,
+      4,
+      4,
+      5,
+      4,
+      4,
+      0,
+      4,
+      4,
+      5,
+      4,
+      4,
+      4,
+      5,
+      1
+    ],
+    [
+      1,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      0,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      1
+    ],
+    [
+      1,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      0,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      1
+    ],
+    [
+      1,
+      5,
+      5,
+      4,
+      5,
+      5,
+      4,
+      0,
+      4,
+      5,
+      5,
+      4,
+      5,
+      5,
+      5,
+      1
+    ],
+    [
+      1,
+      5,
+      4,
+      0,
+      4,
+      5,
+      4,
+      0,
+      4,
+      5,
+      4,
+      4,
+      4,
+      5,
+      5,
+      1
+    ],
+    [
+      1,
+      5,
+      4,
+      0,
+      4,
+      5,
+      4,
+      0,
+      4,
+      5,
+      4,
+      0,
+      4,
+      5,
+      5,
+      1
+    ],
+    [
+      1,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      0,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      1
+    ],
+    [
+      1,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      0,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      1
+    ],
+    [
+      1,
+      1,
+      4,
+      4,
+      4,
+      1,
+      1,
+      0,
+      1,
+      1,
+      4,
+      4,
+      4,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      8,
+      1,
+      1,
+      1,
+      1,
+      8,
+      1,
+      1,
+      1,
+      1,
+      8,
+      1,
+      1,
+      1
+    ]
+  ],
+  "dialogues": {
+    "mad_hermit": {
+      "node_hermit_greet": {
+        "text": "Gaaah! Who stomps through my briars?! Keep-dwellers? Mercenaries? Fools with shiny steel looking to die in the ravine! The trees have eyes, I tell you, and the mountain swallows men whole!",
+        "choices": [
+          {
+            "id": "choice_hermit_bribe",
+            "text": "Calm yourself, old man. Take 5 gold and tell us about the ravines.",
+            "cost": {
+              "gold": 5
+            },
+            "onSuccess": "node_hermit_intel",
+            "attitudeShift": 20
+          },
+          {
+            "id": "choice_cleric_calm",
+            "text": "[Cleric] \"Peace, traveler. The light protects this land. Tell us what terrors haunt the valley.\"",
+            "specialtyClass": "Cleric",
+            "specialtyBonus": 3,
+            "attribute": "wisdom",
+            "onSuccess": "node_hermit_secret",
+            "attitudeShift": 30
+          },
+          {
+            "text": "Leave the raving hermit alone.",
+            "onSuccess": null
+          }
+        ]
+      },
+      "node_hermit_intel": {
+        "text": "Hehehe! Shiny coins! Listen well: the lower cave mouths belong to the red-skinned goblins and yellow-eyed orcs. They hate each other! If you stir a brawl between them, they will kill each other and leave their treasure unguarded!",
+        "choices": [
+          {
+            "text": "A cunning strategy. Thank you.",
+            "onSuccess": null
+          }
+        ]
+      },
+      "node_hermit_secret": {
+        "text": "Your holy words... the mist clears in my head for a moment. Beware the dark cloaks in the hidden shrine. They wear blood-red robes and chant forbidden names. Take this healing elixir — you will need it more than I.",
+        "giveItem": "Healing Potion",
+        "questXP": 100,
+        "alignment_impact": {
+          "order": 1,
+          "morality": 1,
+          "reason": "Calmed the mad hermit with divine compassion"
+        },
+        "choices": [
+          {
+            "text": "Thank you, friend. Go in peace.",
+            "onSuccess": null
+          }
+        ]
+      }
+    }
+  }
+}

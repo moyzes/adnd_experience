@@ -9,6 +9,8 @@ import { ProgressionManager } from './characters/progression_manager.js';
 import { CharacterFactory } from './characters/character_factory.js';
 import { RestManager } from './magic/rest_manager.js';
 import { ExplorationManager } from './dungeon/exploration_manager.js';
+import { EncumbranceManager } from './items/encumbrance_manager.js';
+import { AlignmentManager } from './characters/alignment_manager.js';
 
 /**
  * GameState acts as the central data store and rules engine for the dungeon crawler.
@@ -55,10 +57,46 @@ export class GameState {
 
   /**
    * Calculates a hero's effective AC in AD&D 2e (lower is better),
-   * accounting for base armor, shield, DEX, temporary magical wards, and tactical Guard stance.
+   * accounting for base armor, shield, DEX, temporary magical wards, tactical Guard stance,
+   * and party encumbrance penalty.
    */
   getHeroEffectiveAC(hero, isGuarding = false) {
-    return ProgressionManager.getHeroEffectiveAC(hero, isGuarding);
+    return ProgressionManager.getHeroEffectiveAC(hero, isGuarding, this);
+  }
+
+  /**
+   * Resolves the overall party encumbrance tier (slowest/heaviest living member sets the pace).
+   */
+  getPartyEncumbranceTier() {
+    return EncumbranceManager.getPartyTier(this);
+  }
+
+  /**
+   * Resolves an individual hero's encumbrance tier.
+   */
+  getHeroEncumbranceTier(hero) {
+    return EncumbranceManager.getTier(hero, this);
+  }
+
+  /**
+   * Calculates total load carried by a hero (personal gear + even split of shared party burden).
+   */
+  getHeroTotalLoad(hero) {
+    return EncumbranceManager.getHeroTotalLoad(hero, this);
+  }
+
+  /**
+   * Calculates STR-based carry capacity for a hero.
+   */
+  getHeroCapacity(hero) {
+    return EncumbranceManager.getCapacity(hero);
+  }
+
+  /**
+   * Calculates the shared weight of items stored in the party inventory.
+   */
+  getPartySharedLoad() {
+    return EncumbranceManager.getPartySharedLoad(this);
   }
 
 
@@ -83,15 +121,27 @@ export class GameState {
       this.createPartyMember("mage", "Elminster")
     ];
 
-    this.inventory = [
-      { name: "Gold Pieces", amount: 100, type: "currency" },
-      { name: "Rations", amount: 5, type: "consumable" },
-      { name: "Torch", amount: 3, type: "consumable" },
-      { name: "Healing Potion", amount: 1, type: "consumable" },
-      { name: "Arrows", amount: 20, type: "ammo" },
-      { name: "Bolts", amount: 15, type: "ammo" },
-      { name: "Sling Bullets", amount: 20, type: "ammo" }
-    ];
+    this.partyGold = 100;
+
+    // Distribute starting provisions into living party members' personal inventories
+    if (this.party[0]) {
+      InventoryManager.addItemToHero(this.party[0], "Rations", 2, this.spec);
+      InventoryManager.addItemToHero(this.party[0], "Torch", 1, this.spec);
+    }
+    if (this.party[1]) {
+      InventoryManager.addItemToHero(this.party[1], "Rations", 1, this.spec);
+      InventoryManager.addItemToHero(this.party[1], "Torch", 1, this.spec);
+      InventoryManager.addItemToHero(this.party[1], "Bolts", 15, this.spec);
+    }
+    if (this.party[2]) {
+      InventoryManager.addItemToHero(this.party[2], "Rations", 1, this.spec);
+      InventoryManager.addItemToHero(this.party[2], "Healing Potion", 1, this.spec);
+      InventoryManager.addItemToHero(this.party[2], "Sling Bullets", 20, this.spec);
+    }
+    if (this.party[3]) {
+      InventoryManager.addItemToHero(this.party[3], "Rations", 1, this.spec);
+      InventoryManager.addItemToHero(this.party[3], "Torch", 1, this.spec);
+    }
 
     this.openedDoors = new Set();
     this.openedChests = new Set();
@@ -110,6 +160,8 @@ export class GameState {
     this.selectedSpeaker = null;
     this.npcStates = {};
     this.surrenderedEnemy = null;
+    this.zoneMemory = {};
+    this.currentZonePath = null;
 
     this.combat = {
       active: false,
@@ -131,6 +183,10 @@ export class GameState {
 
     // Initialize initial exploration vision for starting tile
     this.revealExploration();
+  }
+
+  exploreCurrentTile() {
+    this.revealExploration(this.player.x, this.player.y, this.player.facing);
   }
 
   /**
@@ -230,6 +286,7 @@ export class GameState {
   }
 
   getCurrentZone(x = this.player.x, y = this.player.y) {
+    if (this.spec.zoneType) return this.spec.zoneType;
     if (y < 0 || y >= this.spec.map.length || x < 0 || x >= this.spec.map[0].length) return 'dungeon';
     const tileId = this.spec.map[y][x];
     const legendEntry = this.spec.legend && this.spec.legend[String(tileId)];
@@ -285,6 +342,8 @@ export class GameState {
   }
 
   isWildernessTile(x = this.player.x, y = this.player.y) {
+    if (this.spec.zoneType === 'wilderness') return true;
+    if (this.spec.zoneType === 'town') return false;
     if (y < 0 || y >= this.spec.map.length || x < 0 || x >= this.spec.map[0].length) return false;
     const tileId = this.spec.map[y][x];
     const legendEntry = this.spec.legend && this.spec.legend[String(tileId)];
@@ -323,6 +382,46 @@ export class GameState {
   canPartySeeAhead() {
     if (!this.isDarknessActive()) return true;
     return this.getActiveLightSource().active;
+  }
+
+  getCurrentTransition() {
+    if (!this.spec || !this.spec.transitions || !Array.isArray(this.spec.transitions)) return null;
+    return this.spec.transitions.find(t => t.x === this.player.x && t.y === this.player.y) || null;
+  }
+
+  getFacingTransition() {
+    if (!this.spec || !this.spec.transitions || !Array.isArray(this.spec.transitions)) return null;
+    let dx = 0, dy = 0;
+    if (this.player.facing === 'NORTH') dy = -1;
+    else if (this.player.facing === 'SOUTH') dy = 1;
+    else if (this.player.facing === 'EAST') dx = 1;
+    else if (this.player.facing === 'WEST') dx = -1;
+    const tx = this.player.x + dx;
+    const ty = this.player.y + dy;
+    return this.spec.transitions.find(t => t.x === tx && t.y === ty) || null;
+  }
+
+  getCurrentNPC() {
+    if (!this.spec || !this.spec.npcs) return null;
+    return Object.values(this.spec.npcs).find(n => {
+      const s = this.getNPCState(n.id);
+      return n.tile && n.tile[0] === this.player.x && n.tile[1] === this.player.y && !s.despawned;
+    }) || null;
+  }
+
+  getFacingNPC() {
+    if (!this.spec || !this.spec.npcs) return null;
+    let dx = 0, dy = 0;
+    if (this.player.facing === 'NORTH') dy = -1;
+    else if (this.player.facing === 'SOUTH') dy = 1;
+    else if (this.player.facing === 'EAST') dx = 1;
+    else if (this.player.facing === 'WEST') dx = -1;
+    const tx = this.player.x + dx;
+    const ty = this.player.y + dy;
+    return Object.values(this.spec.npcs).find(n => {
+      const s = this.getNPCState(n.id);
+      return n.tile && n.tile[0] === tx && n.tile[1] === ty && !s.despawned;
+    }) || null;
   }
 
   /**
@@ -475,6 +574,32 @@ export class GameState {
     return InventoryManager.equipHeroShield(this, heroIndex, shieldName, GameState.getDexDefensiveAdjustment);
   }
 
+  equipHeroBoots(heroIndex, bootsName) {
+    return InventoryManager.equipHeroBoots(this, heroIndex, bootsName, GameState.getDexDefensiveAdjustment);
+  }
+
+  equipHeroGloves(heroIndex, glovesName) {
+    return InventoryManager.equipHeroGloves(this, heroIndex, glovesName);
+  }
+
+  getEffectiveStrength(hero) {
+    if (!hero) return 10;
+    const baseStr = (hero.attributes && typeof hero.attributes.strength === 'number') ? hero.attributes.strength : 10;
+    if (hero.equippedGloves && (hero.equippedGloves.strengthSet || hero.equippedGloves.name?.toLowerCase().includes('ogre'))) {
+      return Math.max(baseStr, hero.equippedGloves.strengthSet || 18);
+    }
+    return baseStr;
+  }
+
+  partyHasBootsOfElvenkind() {
+    if (!this.party || !Array.isArray(this.party)) return false;
+    return this.party.some(h => h && h.hp > 0 && h.equippedBoots && (
+      h.equippedBoots.name?.toLowerCase().includes('elvenkind') ||
+      h.equippedBoots.name?.toLowerCase().includes('evenkind') ||
+      h.equippedBoots.silentSteps
+    ));
+  }
+
   recalculateHeroAC(hero) {
     return InventoryManager.recalculateHeroAC(hero, GameState.getDexDefensiveAdjustment);
   }
@@ -491,8 +616,8 @@ export class GameState {
     return InventoryManager.getPartyGold(this);
   }
 
-  addPartyItem(name, amount = 1) {
-    return InventoryManager.addPartyItem(this, name, amount);
+  addPartyItem(name, amount = 1, preferredHeroIndex = null) {
+    return InventoryManager.addPartyItem(this, name, amount, preferredHeroIndex);
   }
 
   removePartyItem(name, amount = 1) {
@@ -533,6 +658,10 @@ export class GameState {
 
   buyItem(itemName, qty = 1, heroIndex = null) {
     return InventoryManager.buyItem(this, itemName, qty, heroIndex);
+  }
+
+  transferHeroItem(fromHeroIndex, toHeroIndex, itemName, qty = 1) {
+    return InventoryManager.transferItemBetweenHeroes(this, fromHeroIndex, toHeroIndex, itemName, qty, GameState.getDexDefensiveAdjustment);
   }
 
   // ===========================================================================
@@ -591,6 +720,10 @@ export class GameState {
     return CombatEngine.strikeSurrenderedEnemy(this);
   }
 
+  attemptPartyRetreat() {
+    return CombatEngine.attemptPartyRetreat(this);
+  }
+
   /**
    * Awards quest / combat XP divided equally among living party members.
    * Marks heroes as eligible for level-up rather than auto-advancing them in the dungeon.
@@ -635,6 +768,10 @@ export class GameState {
 
   isFacingClosedObstacle() {
     return ExplorationManager.isFacingClosedObstacle(this);
+  }
+
+  isMonsterCornered() {
+    return ExplorationManager.isMonsterCornered(this);
   }
 
   turnAround() {
@@ -752,6 +889,18 @@ export class GameState {
 
   applyMoralTax(baseTax, activeSpeaker, customMultiplier = null) {
     return RestManager.applyMoralTax(this, baseTax, activeSpeaker, customMultiplier);
+  }
+
+  recordMoralAction(actor, impact) {
+    return AlignmentManager.recordMoralAction(this, actor, impact);
+  }
+
+  getHeroAlignment(hero) {
+    return AlignmentManager.getAlignment(hero?.orderScore || 0, hero?.moralityScore || 0);
+  }
+
+  getClericConcordance(cleric) {
+    return AlignmentManager.calculateEthosConcordance(cleric);
   }
 
   modifyDivineFavor(delta) {

@@ -1,0 +1,86 @@
+[
+  {
+    "id": "pelor",
+    "name": "Pelor",
+    "title": "The Sun Father",
+    "symbol": "☀️",
+    "alignment": "Neutral Good",
+    "portfolio": "Sun, Light, Healing, Agriculture, Strength against Evil",
+    "idealCoordinates": { "order": 0, "morality": 80 },
+    "color": "#e3b341",
+    "ethos": [
+      {
+        "title": "Eradicate the Shadow",
+        "description": "Purge undead and malignant darkness wherever they take root."
+      },
+      {
+        "title": "Relieve Suffering",
+        "description": "Prioritize healing, charity, and defending the vulnerable over personal wealth or glory."
+      },
+      {
+        "title": "Nurture Life",
+        "description": "Protect crops, communities, and simple folk, serving as a beacon of warmth and renewal."
+      },
+      {
+        "title": "Tempered Mercy",
+        "description": "Offer redemption to those capable of change, but strike down unyielding evil without hesitation."
+      }
+    ]
+  },
+  {
+    "id": "lolth",
+    "name": "Lolth",
+    "title": "The Spider Queen",
+    "symbol": "🕷️",
+    "alignment": "Chaotic Evil",
+    "portfolio": "Drow, Spiders, Darkness, Ambition, Treachery",
+    "idealCoordinates": { "order": -80, "morality": -80 },
+    "color": "#a371f7",
+    "ethos": [
+      {
+        "title": "Dominance Through Strength",
+        "description": "Power belongs strictly to those ruthless enough to seize and hold it. Weakness warrants death or enslavement."
+      },
+      {
+        "title": "Embrace Treachery",
+        "description": "Intrigue, betrayal, and the elimination of rivals are tests of favor and natural selection."
+      },
+      {
+        "title": "Instill Fear",
+        "description": "Rule through terror, cruelty, and absolute authority over inferiors."
+      },
+      {
+        "title": "Enforce Supremacy",
+        "description": "Assert drow superiority over all surface dwellers and maintain Lolth's complete spiritual dominion."
+      }
+    ]
+  },
+  {
+    "id": "tyr",
+    "name": "Tyr",
+    "title": "The Maimed God / The Even-Handed",
+    "symbol": "⚖️",
+    "alignment": "Lawful Good",
+    "portfolio": "Justice, Law, Duty, Righteousness, Order",
+    "idealCoordinates": { "order": 80, "morality": 80 },
+    "color": "#58a6ff",
+    "ethos": [
+      {
+        "title": "Uphold Blind Fairness",
+        "description": "Administer laws and moral codes with absolute impartiality. True justice ignores wealth, lineage, or personal bias—applying equally to high lords and commoners alike."
+      },
+      {
+        "title": "Protect the Wronged",
+        "description": "Serve as an unyielding shield for those suffering under tyranny, corruption, or lawlessness. Righting systemic wrongs and restoring balance to a community is a sacred duty."
+      },
+      {
+        "title": "Bear the Burden of Sacrifice",
+        "description": "Accept hardship, personal loss, and physical toll willingly if it advances the cause of good—emulating Tyr, who sacrificed his right hand to bind a cosmic threat and lost his sight in the pursuit of truth."
+      },
+      {
+        "title": "Enforce Justice, Reject Vengeance",
+        "description": "Execute punishment swiftly and proportionally to restore order, never out of personal malice, anger, or bloodlust. Retribution without law is merely murder."
+      }
+    ]
+  }
+]

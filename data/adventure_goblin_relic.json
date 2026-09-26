@@ -131,13 +131,16 @@
   "chests": {
     "2,1": [
       { "name": "Sun-Forged Relic of Dawn", "type": "quest" },
-      { "name": "Gold Pieces", "amount": 120, "type": "currency" },
-      { "name": "Healing Potion", "amount": 2, "type": "consumable" },
-      { "name": "Ancient Rubies", "amount": 1, "type": "treasure" }
+      { "name": "Gloves of Ogre Strength", "type": "gloves", "amount": 1 },
+      { "name": "Gold Pieces", "amount": 180, "type": "currency" },
+      { "name": "Potion of Extra-Healing", "amount": 1, "type": "consumable" },
+      { "name": "Ancient Rubies", "amount": 2, "type": "treasure" }
     ],
     "12,1": [
+      { "name": "Boots of Elvenkind", "type": "boots", "amount": 1 },
+      { "name": "Potion of Invisibility", "amount": 1, "type": "consumable" },
       { "name": "Healing Potion", "amount": 2, "type": "consumable" },
-      { "name": "Gold Pieces", "amount": 80, "type": "currency" },
+      { "name": "Gold Pieces", "amount": 120, "type": "currency" },
       { "name": "Holy Water", "amount": 1, "type": "consumable" }
     ]
   },

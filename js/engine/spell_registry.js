@@ -87,6 +87,12 @@ export class SpellRegistry {
       const dmg = mag.value;
       simMobHp[target.instanceId] = Math.max(0, simMobHp[target.instanceId] - dmg);
       const isDead = simMobHp[target.instanceId] <= 0;
+      if (isDead) {
+        target.hp = 0;
+        target.surrendered = false;
+        target.slain = true;
+        target.moraleStatus = 'DEAD';
+      }
       return [{
         eventType: 'MONSTER_HIT', sourceName: caster.name, targetInstanceId: target.instanceId,
         targetName: target.name, damage: dmg, diceDetail: mag.detail, isDead, attackMode: 'spell',
@@ -105,6 +111,12 @@ export class SpellRegistry {
         const dmg = mag.value;
         simMobHp[mob.instanceId] = Math.max(0, simMobHp[mob.instanceId] - dmg);
         const isDead = simMobHp[mob.instanceId] <= 0;
+        if (isDead) {
+          mob.hp = 0;
+          mob.surrendered = false;
+          mob.slain = true;
+          mob.moraleStatus = 'DEAD';
+        }
         totalDamageDealt += dmg;
         hitMobs.push({ name: mob.name, damage: dmg, isDead, detail: mag.detail });
       });

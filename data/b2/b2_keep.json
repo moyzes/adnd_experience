@@ -1,0 +1,1244 @@
+{
+  "id": "b2_keep",
+  "name": "The Keep on the Borderlands",
+  "campaign": "b2_keep_on_the_borderlands",
+  "zoneType": "town",
+  "combat_tracks": [
+    "combat_1",
+    "combat_2",
+    "combat_3"
+  ],
+  "town_tracks": [
+    "town_1",
+    "town_2"
+  ],
+  "wilderness_tracks": [
+    "wilderness_1"
+  ],
+  "dungeon_tracks": [
+    "dungeon_1",
+    "dungeon_2",
+    "dungeon_3"
+  ],
+  "rest_duration_seconds": 8,
+  "briefing": "You have arrived at the Keep on the Borderlands, the final fortress of Law standing vigil before the savage wilderness. Behind its thick curtain walls and bastions, merchants, soldiers, and pilgrims find haven. To the south lies the rugged ravine known as the Caves of Chaos — home to warring monster clans and whispers of an ancient shrine of evil. Speak with the Castellan and your mentors to equip your fellowship before venturing into the wilds!",
+  "assets": {
+    "wizard": "assets/glb/strange_wizard.glb",
+    "cultist": "assets/glb/cultist.glb",
+    "skeleton": "assets/glb/skeleton_animated.glb",
+    "goblin": "assets/glb/basic_goblin.glb",
+    "ghoul": "assets/glb/goblin_ghoul.glb",
+    "giant_spider": "assets/glb/giant_spider.glb",
+    "kobold": "assets/glb/kobold.glb",
+    "assassin": "assets/glb/assassin.glb",
+    "chest": "assets/glb/chest.glb",
+    "campfire": "assets/glb/campfire.glb"
+  },
+  "start": {
+    "x": 7,
+    "y": 13,
+    "facing": "NORTH"
+  },
+  "surface_y_min": 0,
+  "town_y_min": 0,
+  "legend": {
+    "0": {
+      "name": "Keep Flagstone Walkway",
+      "walkable": true
+    },
+    "1": {
+      "name": "Fortress Stone Battlement",
+      "walkable": false
+    },
+    "2": {
+      "name": "Heavy Iron Portcullis",
+      "walkable": false,
+      "interactive": true,
+      "locked": {
+        "methods": [
+          "mechanical",
+          "brute"
+        ],
+        "dc": 10
+      }
+    },
+    "3": {
+      "name": "Keep Supply Chest",
+      "walkable": false,
+      "interactive": true
+    },
+    "4": {
+      "name": "Cobblestone Bailey Courtyard",
+      "walkable": true
+    },
+    "5": {
+      "name": "Ancient Courtyard Oak",
+      "walkable": false
+    },
+    "6": {
+      "name": "Chapel Altar of Law (Atonement & Blessing)",
+      "walkable": true,
+      "interactive": true,
+      "action": "atonement",
+      "description": "A consecrated marble altar bathed in golden candlelight. Clerics and paladins may kneel here to reaffirm their vows, and the party may atone for moral transgressions."
+    },
+    "7": {
+      "name": "Borderland Wilderness Trail",
+      "walkable": true,
+      "interactive": true,
+      "description": "The southern drawbridge leading out of the Keep into the dangerous Borderlands."
+    },
+    "9": {
+      "name": "The Keep Provisioner & Armory",
+      "walkable": true,
+      "interactive": true,
+      "action": "shop",
+      "description": "The official outfitter and provisioner of the Keep. Sells iron rations, torches, steel weapons, shields, holy water, and adventuring kit."
+    }
+  },
+  "shop": {
+    "tile": [
+      12,
+      11
+    ],
+    "name": "The Keep Provisioner & Armory",
+    "radius": 1
+  },
+  "transitions": [
+    {
+      "x": 7,
+      "y": 15,
+      "targetZone": "/data/b2/b2_wilderness.json",
+      "targetX": 7,
+      "targetY": 1,
+      "targetFacing": "SOUTH",
+      "label": "Exit through the Gatehouse Drawbridge into the Borderland Wilderness",
+      "prompt": "Cross the lowered drawbridge out into the untamed Borderland Wilderness?"
+    }
+  ],
+  "chests": {
+    "2,1": [
+      {
+        "name": "Holy Water",
+        "amount": 2,
+        "type": "consumable"
+      },
+      {
+        "name": "Gold Pieces",
+        "amount": 120,
+        "type": "currency"
+      },
+      {
+        "name": "Silver Chime of Law",
+        "amount": 1,
+        "type": "treasure"
+      }
+    ],
+    "13,1": [
+      {
+        "name": "Broadhead Arrows",
+        "amount": 30,
+        "type": "ammunition"
+      },
+      {
+        "name": "Healing Potion",
+        "amount": 2,
+        "type": "consumable"
+      },
+      {
+        "name": "Gold Pieces",
+        "amount": 85,
+        "type": "currency"
+      }
+    ],
+    "2,12": [
+      {
+        "name": "Ration Pack",
+        "amount": 6,
+        "type": "consumable"
+      },
+      {
+        "name": "Torch",
+        "amount": 4,
+        "type": "consumable"
+      },
+      {
+        "name": "Gold Pieces",
+        "amount": 45,
+        "type": "currency"
+      }
+    ]
+  },
+  "entities": [
+    {
+      "type": "prop",
+      "id": "chapel_altar_prop",
+      "name": "Shrine of Law",
+      "model": "chest",
+      "x": 2,
+      "y": 1,
+      "facing": "SOUTH"
+    },
+    {
+      "type": "prop",
+      "id": "smithy_cache",
+      "name": "Smithy Tool Chest",
+      "model": "chest",
+      "x": 13,
+      "y": 1,
+      "facing": "SOUTH"
+    },
+    {
+      "type": "prop",
+      "id": "tavern_cellar_box",
+      "name": "Traveler's Inn Cask Chest",
+      "model": "chest",
+      "x": 2,
+      "y": 12,
+      "facing": "EAST"
+    },
+    {
+      "type": "prop",
+      "id": "outer_bailey_fire",
+      "name": "Courtyard Fire Pit",
+      "model": "campfire",
+      "x": 8,
+      "y": 9,
+      "facing": "NORTH"
+    }
+  ],
+  "npcs": {
+    "corporal_of_watch": {
+      "id": "corporal_of_watch",
+      "name": "Corporal of the Watch",
+      "tile": [
+        7,
+        12
+      ],
+      "initialNode": "node_corporal_greet",
+      "inventory_to_steal": [
+        {
+          "name": "Keep Gate Key",
+          "type": "quest"
+        },
+        {
+          "name": "Gold Pieces",
+          "type": "currency",
+          "amount": 25
+        }
+      ]
+    },
+    "castellan": {
+      "id": "castellan",
+      "name": "The Castellan of the Keep",
+      "tile": [
+        7,
+        2
+      ],
+      "initialNode": "node_castellan_briefing",
+      "questConditions": [
+        {
+          "requiresItem": "Eye of Chaos",
+          "targetNode": "node_castellan_triumph"
+        },
+        {
+          "requiresItem": "Ogre's War Club",
+          "targetNode": "node_castellan_bounty"
+        }
+      ],
+      "inventory_to_steal": [
+        {
+          "name": "Castellan's Seal Ring",
+          "type": "quest"
+        },
+        {
+          "name": "Gold Pieces",
+          "type": "currency",
+          "amount": 150
+        }
+      ]
+    },
+    "captain_bain": {
+      "id": "captain_bain",
+      "name": "Captain Bain (Fighter Mentor)",
+      "tile": [
+        12,
+        7
+      ],
+      "initialNode": "node_captain_greet",
+      "inventory_to_steal": [
+        {
+          "name": "Tempered Whetstone",
+          "type": "treasure"
+        },
+        {
+          "name": "Gold Pieces",
+          "type": "currency",
+          "amount": 40
+        }
+      ]
+    },
+    "father_phous": {
+      "id": "father_phous",
+      "name": "Patriarch Phous (Cleric Mentor)",
+      "tile": [
+        3,
+        2
+      ],
+      "initialNode": "node_phous_greet",
+      "inventory_to_steal": [
+        {
+          "name": "Consecrated Incense",
+          "type": "treasure"
+        },
+        {
+          "name": "Holy Water",
+          "type": "consumable",
+          "amount": 2
+        }
+      ]
+    },
+    "master_justin": {
+      "id": "master_justin",
+      "name": "Master Justin (Mage Mentor)",
+      "tile": [
+        5,
+        2
+      ],
+      "initialNode": "node_justin_greet",
+      "inventory_to_steal": [
+        {
+          "name": "Inscribed Spell Quill",
+          "type": "treasure"
+        },
+        {
+          "name": "Gold Pieces",
+          "type": "currency",
+          "amount": 60
+        }
+      ]
+    },
+    "guild_contact": {
+      "id": "guild_contact",
+      "name": "Rocco the Whisperer (Thief Mentor)",
+      "tile": [
+        2,
+        9
+      ],
+      "initialNode": "node_rocco_greet",
+      "inventory_to_steal": [
+        {
+          "name": "Jeweled Thieves' Picks",
+          "type": "treasure"
+        },
+        {
+          "name": "Gold Pieces",
+          "type": "currency",
+          "amount": 50
+        }
+      ]
+    },
+    "innkeeper_milo": {
+      "id": "innkeeper_milo",
+      "name": "Milo the Innkeeper",
+      "tile": [
+        2,
+        8
+      ],
+      "initialNode": "node_milo_greet",
+      "inventory_to_steal": [
+        {
+          "name": "Tavern Cellar Key",
+          "type": "quest"
+        },
+        {
+          "name": "Gold Pieces",
+          "type": "currency",
+          "amount": 35
+        }
+      ]
+    }
+  },
+  "dialogue": {
+    "node_corporal_greet": {
+      "speaker": "Corporal of the Watch",
+      "text": "Halt and state your business! You stand before the gatehouse of the Keep on the Borderlands. By order of the Castellan, peace is strictly maintained within these walls. Brawling and drawing steel inside the bailey will land you in the dungeon cells. If you seek renown, head south into the Borderlands — the ravine out there is infested with goblins, kobolds, and worse.",
+      "options": [
+        {
+          "label": "Where can we find the Castellan?",
+          "targetNode": "node_corporal_castellan"
+        },
+        {
+          "label": "Where can we purchase weapons and supplies?",
+          "targetNode": "node_corporal_shops"
+        },
+        {
+          "label": "We are ready to explore the Keep.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_corporal_castellan": {
+      "speaker": "Corporal of the Watch",
+      "text": "The Castellan resides across the inner gate in the stone Citadel at the north end of the Keep. He has posted bounties for any who can cull the monster chieftains plaguing the merchant roads.",
+      "options": [
+        {
+          "label": "Thank you, Corporal.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_corporal_shops": {
+      "speaker": "Corporal of the Watch",
+      "text": "The Provisioner's warehouse is located on the east side of the outer bailey. Old Master Grimm stocks rations, torches, steel blades, and armor. For a flagon of spiced ale or a warm hearth, the Traveler's Rest Inn sits on the west side.",
+      "options": [
+        {
+          "label": "Good to know.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_castellan_briefing": {
+      "speaker": "The Castellan of the Keep",
+      "text": "Hail, adventurers. The realm has need of stalwart steel. The southward trade routes are choked with raiders, and scouts report that multiple monster tribes — orcs, goblins, gnolls, and bugbears — have congregated in the rocky ravine known as the Caves of Chaos. Even more disturbing, travelers whisper of a sinister hidden shrine where dark ceremonies take place under the new moon. Clear those caves, break the monster warlords, and unmask whatever foul evil coordinates them. I promise 100 gold pieces for every chieftain's trophy, and 500 gold pieces if you destroy the unholy shrine!",
+      "options": [
+        {
+          "label": "We accept your commission, my Lord.",
+          "targetNode": "node_castellan_accept"
+        },
+        {
+          "label": "Tell us about the various tribes in the ravine.",
+          "targetNode": "node_castellan_intel"
+        },
+        {
+          "label": "We will prepare at once.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_castellan_accept": {
+      "speaker": "The Castellan of the Keep",
+      "text": "May the blessings of Law guide your blades. Return to me when you hold proof of the evil chieftains' defeat or uncover the secret of the hidden shrine.",
+      "alignment_impact": {
+        "order": 1,
+        "morality": 1,
+        "reason": "Swore sacred oath to defend the Borderlands from chaotic monsters"
+      },
+      "options": [
+        {
+          "label": "For the Realm and Law!",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_castellan_intel": {
+      "speaker": "The Castellan of the Keep",
+      "text": "Scouts report the lower ravine is divided between rival orc clans and goblin skirmishers. Higher up the canyon, more dangerous brutes lurk — bugbears, an outcast ogre, and well-drilled hobgoblins. Treat each lair as a fortress in itself.",
+      "options": [
+        {
+          "label": "We will plan accordingly.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_castellan_bounty": {
+      "speaker": "The Castellan of the Keep",
+      "text": "By the gods! You have brought low the fearsome Ogre of the Ravine! Here is your promised bounty of 150 gold pieces from the realm's treasury. The merchants along the south road will sing your praise.",
+      "alignment_impact": {
+        "order": 1,
+        "morality": 1,
+        "reason": "Delivered justice upon the ravine raiders"
+      },
+      "options": [
+        {
+          "label": "Thank you, Lord Castellan.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_castellan_triumph": {
+      "speaker": "The Castellan of the Keep",
+      "text": "By all that is holy! The Eye of Chaos! You have shattered the altar of the Evil Priest and cleansed the unholy Shrine! The threat hanging over the Borderlands is vanquished forever! In the name of the King and the realm of Law, I dub your fellowship the Champions of the Borderlands!",
+      "alignment_impact": {
+        "order": 3,
+        "morality": 3,
+        "reason": "Destroyed the unholy shrine of chaos and saved the realm"
+      },
+      "options": [
+        {
+          "label": "Victory for the Keep!",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_captain_greet": {
+      "speaker": "Captain Bain (Fighter Mentor)",
+      "text": "Stand tall, warriors! Out in the ravine, monsters fight dirty. Goblins flank in packs, orcs throw spears from high ledges, and hobgoblins advance behind shield walls. Keep your armor polished, hold the frontline, and let your spellcasters work from safety. When your experience merits promotion, come to me for training.",
+      "options": [
+        {
+          "label": "We seek weapon training and tactical advice.",
+          "targetNode": "node_captain_train"
+        },
+        {
+          "label": "Understood, Captain.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_captain_train": {
+      "speaker": "Captain Bain (Fighter Mentor)",
+      "text": "When you have earned sufficient battle experience, return to me with your training fee (100 GP per level). We shall hone your weapon mastery and battle stamina on the training grounds.",
+      "options": [
+        {
+          "label": "We will prove ourselves.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_phous_greet": {
+      "speaker": "Patriarch Phous (Cleric Mentor)",
+      "text": "Peace be with you, children of the light. This consecrated shrine is dedicated to the Lords of Law and Good. Evil stirs in the ravine to the south — unnatural desecration and blood sacrifices. Clerics and paladins who uphold their Patron's Ethos may find solace and replenishment here. If sin weighs upon your soul, kneel before the marble altar to seek atonement.",
+      "options": [
+        {
+          "label": "Father, we seek spiritual training.",
+          "targetNode": "node_phous_train"
+        },
+        {
+          "label": "Bless our fellowship for the trials ahead.",
+          "targetNode": "node_phous_bless"
+        },
+        {
+          "label": "May the light protect us.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_phous_train": {
+      "speaker": "Patriarch Phous (Cleric Mentor)",
+      "text": "When your faith and deeds bear fruit in battle, come to me for ordination. True servants of the divine must walk in righteousness and champion the weak.",
+      "options": [
+        {
+          "label": "Thank you, Father.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_phous_bless": {
+      "speaker": "Patriarch Phous (Cleric Mentor)",
+      "text": "Patriarch Phous sprinkles holy water over your party and intones the Litany of Law. A warm, reassuring radiance fills your hearts.",
+      "alignment_impact": {
+        "order": 1,
+        "morality": 1,
+        "reason": "Received sacred blessing from the High Priest"
+      },
+      "options": [
+        {
+          "label": "Amen.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_justin_greet": {
+      "speaker": "Master Justin (Mage Mentor)",
+      "text": "Ah, seekers of the Art. The arcane threads around the Caves of Chaos are violently warped. Something in the deepest cavern channels foul conjurations and planar entropy. Watch your step, mages — memorise your protective shields and keep a Sleep spell primed for swarming goblins. Speak to me when your intellect is ready to grasp higher circles of magic.",
+      "options": [
+        {
+          "label": "We seek arcane tutelage.",
+          "targetNode": "node_justin_train"
+        },
+        {
+          "label": "Thank you for the counsel, Master.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_justin_train": {
+      "speaker": "Master Justin (Mage Mentor)",
+      "text": "Arcane mastery demands rigorous discipline, precious ink, and study. Return when you have gathered enough arcane insight to advance your circle.",
+      "options": [
+        {
+          "label": "We shall return.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_rocco_greet": {
+      "speaker": "Rocco the Whisperer (Thief Mentor)",
+      "text": "Keep your voice down, friend. You're looking at the only fellow in the Keep who knows what's really behind those locked oak doors in the caves. The Kobolds love pressure-plate pit traps. The Orcs keep their chief's loot locked in iron-bound chests behind the throne. And there's a rumor of an Ogre sitting on a mound of silver coins who might just accept a bribe if you don't fancy tasting his tree-trunk club. When your hands get nimble enough, come see me for advanced tricks.",
+      "options": [
+        {
+          "label": "Teach us about bypassing cave traps and locks.",
+          "targetNode": "node_rocco_train"
+        },
+        {
+          "label": "Much appreciated, Rocco.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_rocco_train": {
+      "speaker": "Rocco the Whisperer (Thief Mentor)",
+      "text": "Every lock has a weak pin, and every trap has a tripwire. Accumulate enough experience, bring your coin, and I'll teach your rogues how to slip through shadows like ghosts.",
+      "options": [
+        {
+          "label": "We'll keep that in mind.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_milo_greet": {
+      "speaker": "Milo the Innkeeper",
+      "text": "Welcome to the Traveler's Rest! The best roast mutton and spiced mead on this side of the border. Renting a room here is safe from wandering monsters — no goblin is bold enough to scale the Keep's bastions! Press Rest at any time inside the Keep to recover your hit points and memorise your spells in comfort.",
+      "options": [
+        {
+          "label": "Pour us a round of mead!",
+          "targetNode": "node_milo_ale"
+        },
+        {
+          "label": "Thank you, Milo.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_milo_ale": {
+      "speaker": "Milo the Innkeeper",
+      "text": "Milo slides frothing wooden flagons across the bar. 'To health and glory in the caves!' he toasts. The hearty beverage warms your spirits.",
+      "options": [
+        {
+          "label": "Cheers!",
+          "targetNode": null
+        }
+      ]
+    }
+  },
+  "monsters": {},
+  "encounters": [],
+  "map": [
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      6,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      1,
+      4,
+      4,
+      4,
+      4,
+      4,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      1,
+      4,
+      4,
+      4,
+      4,
+      4,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      2,
+      4,
+      4,
+      4,
+      4,
+      4,
+      2,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      1,
+      4,
+      4,
+      4,
+      4,
+      4,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      1,
+      4,
+      4,
+      4,
+      4,
+      4,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      2,
+      4,
+      4,
+      4,
+      4,
+      4,
+      2,
+      0,
+      9,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      1,
+      4,
+      4,
+      4,
+      4,
+      4,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      4,
+      4,
+      0,
+      4,
+      4,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      7,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ]
+  ],
+  "dialogues": {
+    "corporal_of_watch": {
+      "node_corporal_greet": {
+        "text": "Halt and state your business! You stand before the gatehouse of the Keep on the Borderlands. By order of the Castellan, peace is strictly maintained within these walls. Brawling and drawing steel inside the bailey will land you in the dungeon cells. If you seek renown, head south into the Borderlands — the ravine out there is infested with goblins, kobolds, and worse.",
+        "choices": [
+          {
+            "id": "choice_corporal_castellan",
+            "text": "Where can we find the Castellan?",
+            "onSuccess": "node_corporal_castellan"
+          },
+          {
+            "id": "choice_corporal_shops",
+            "text": "Where can we purchase weapons and supplies?",
+            "onSuccess": "node_corporal_shops"
+          },
+          {
+            "id": "choice_corporal_fighter",
+            "text": "[Fighter] \"We are seasoned sellswords ready to enforce the peace. What threats lurk nearby?\"",
+            "specialtyClass": "Fighter",
+            "specialtyBonus": 2,
+            "attribute": "strength",
+            "onSuccess": "node_corporal_fighter_intel",
+            "attitudeShift": 10
+          },
+          {
+            "id": "choice_corporal_leave",
+            "text": "We are ready to explore the Keep.",
+            "onSuccess": null
+          }
+        ]
+      },
+      "node_corporal_castellan": {
+        "text": "The Castellan resides across the inner gate in the stone Citadel at the north end of the Keep. He has posted bounties for any who can cull the monster chieftains plaguing the merchant roads.",
+        "choices": [
+          {
+            "text": "Thank you, Corporal.",
+            "onSuccess": null
+          }
+        ]
+      },
+      "node_corporal_shops": {
+        "text": "The Provisioner's warehouse is located on the east side of the outer bailey. Old Master Grimm stocks rations, torches, steel blades, and armor. For a flagon of spiced ale or a warm hearth, the Traveler's Rest Inn sits on the west side.",
+        "choices": [
+          {
+            "text": "Good to know. Thank you.",
+            "onSuccess": null
+          }
+        ]
+      },
+      "node_corporal_fighter_intel": {
+        "text": "A disciplined fighter's eye! The ravine holds several monster caves. Watch out for the kobolds' poisoned caltrops in the western branch, and never enter the bugbear caves without a stout frontline.",
+        "choices": [
+          {
+            "text": "Understood. We will keep our guard up.",
+            "onSuccess": null
+          }
+        ]
+      }
+    },
+    "castellan": {
+      "node_castellan_briefing": {
+        "text": "Hail, adventurers. The realm has need of stalwart steel. The southward trade routes are choked with raiders, and scouts report that multiple monster tribes — orcs, goblins, gnolls, and bugbears — have congregated in the rocky ravine known as the Caves of Chaos. Even more disturbing, travelers whisper of a sinister hidden shrine where dark ceremonies take place under the new moon. Clear those caves, break the monster warlords, and unmask whatever foul evil coordinates them. I promise 100 gold pieces for every chieftain's trophy, and 500 gold pieces if you destroy the unholy shrine!",
+        "choices": [
+          {
+            "id": "choice_accept_quest",
+            "text": "\"We accept your commission, my Lord. The Borderlands will be cleansed.\"",
+            "onSuccess": "node_castellan_accept",
+            "attitudeShift": 15
+          },
+          {
+            "id": "choice_intel",
+            "text": "Tell us about the various tribes and lairs in the ravine.",
+            "onSuccess": "node_castellan_intel"
+          },
+          {
+            "id": "choice_cleric_blessing",
+            "text": "[Cleric] \"We shall consecrate those caves and cleanse any chaotic corruption in Law's name.\"",
+            "specialtyClass": "Cleric",
+            "specialtyBonus": 3,
+            "attribute": "wisdom",
+            "onSuccess": "node_castellan_cleric_pledge",
+            "attitudeShift": 20
+          },
+          {
+            "id": "choice_prepare",
+            "text": "We will prepare our gear at once.",
+            "onSuccess": null
+          }
+        ]
+      },
+      "node_castellan_accept": {
+        "text": "May the blessings of Law guide your blades. Return to me when you hold proof of the evil chieftains' defeat or uncover the secret of the hidden shrine.",
+        "alignment_impact": {
+          "order": 1,
+          "morality": 1,
+          "reason": "Swore sacred oath to defend the Borderlands from chaotic monsters"
+        },
+        "choices": [
+          {
+            "text": "For the Realm and Law!",
+            "onSuccess": null
+          }
+        ]
+      },
+      "node_castellan_intel": {
+        "text": "Scouts report the lower ravine is divided between rival orc clans and goblin skirmishers. Higher up the canyon, more dangerous brutes lurk — bugbears, an outcast ogre, and well-drilled hobgoblins. Treat each lair as a fortress in itself.",
+        "choices": [
+          {
+            "text": "We will plan our assault carefully.",
+            "onSuccess": null
+          }
+        ]
+      },
+      "node_castellan_cleric_pledge": {
+        "text": "The light of righteousness shines upon your holy order. Take this purse of 50 gold pieces as an advance stipend for supplies.",
+        "giveGold": 50,
+        "alignment_impact": {
+          "order": 1,
+          "morality": 1,
+          "reason": "Consecrated mission with holy fervor"
+        },
+        "choices": [
+          {
+            "text": "Thank you, Lord Castellan.",
+            "onSuccess": null
+          }
+        ]
+      },
+      "node_castellan_bounty": {
+        "text": "By the gods! You have brought low the fearsome Ogre of the Ravine! Here is your promised bounty of 150 gold pieces from the realm's treasury. The merchants along the south road will sing your praise.",
+        "giveGold": 150,
+        "questXP": 500,
+        "alignment_impact": {
+          "order": 1,
+          "morality": 1,
+          "reason": "Delivered justice upon the ravine raiders"
+        },
+        "choices": [
+          {
+            "text": "Thank you, Lord Castellan.",
+            "onSuccess": null
+          }
+        ]
+      },
+      "node_castellan_triumph": {
+        "text": "By all that is holy! The Eye of Chaos! You have shattered the altar of the Evil Priest and cleansed the unholy Shrine! The threat hanging over the Borderlands is vanquished forever! In the name of the King and the realm of Law, I dub your fellowship the Champions of the Borderlands!",
+        "giveGold": 500,
+        "questXP": 2000,
+        "alignment_impact": {
+          "order": 3,
+          "morality": 3,
+          "reason": "Destroyed the unholy shrine of chaos and saved the realm"
+        },
+        "choices": [
+          {
+            "text": "Victory for the Keep!",
+            "onSuccess": null
+          }
+        ]
+      }
+    },
+    "captain_bain": {
+      "node_captain_greet": {
+        "text": "Stand tall, warriors! Out in the ravine, monsters fight dirty. Goblins flank in packs, orcs throw spears from high ledges, and hobgoblins advance behind shield walls. Keep your armor polished, hold the frontline, and let your spellcasters work from safety. When your experience merits promotion, come to me for training.",
+        "choices": [
+          {
+            "id": "choice_fighter_train",
+            "text": "[Train] Advance Fighter Level (Requires XP)",
+            "trainClass": "fighter",
+            "onSuccess": null
+          },
+          {
+            "id": "choice_tactics",
+            "text": "What tactical advice do you have for storming the ravine?",
+            "onSuccess": "node_captain_tactics"
+          },
+          {
+            "text": "Understood, Captain.",
+            "onSuccess": null
+          }
+        ]
+      },
+      "node_captain_tactics": {
+        "text": "Never fight in open bottleneck halls where enemy archers can shoot from elevation. Use chokepoints in doorways, lure out their scouts first, and make sure your heavy hitters protect the mages.",
+        "choices": [
+          {
+            "text": "Sound advice, Captain.",
+            "onSuccess": null
+          }
+        ]
+      }
+    },
+    "father_phous": {
+      "node_phous_greet": {
+        "text": "Peace be with you, children of the light. This consecrated shrine is dedicated to the Lords of Law and Good. Evil stirs in the ravine to the south — unnatural desecration and blood sacrifices. Clerics and paladins who uphold their Patron's Ethos may find solace and replenishment here. If sin weighs upon your soul, kneel before the marble altar to seek atonement.",
+        "choices": [
+          {
+            "id": "choice_cleric_train",
+            "text": "[Train] Advance Cleric Level (Requires XP)",
+            "trainClass": "cleric",
+            "onSuccess": null
+          },
+          {
+            "id": "choice_phous_cure",
+            "text": "[Temple Aid] Tend to fallen and wounded companions (50 GP)",
+            "cost": {
+              "gold": 50
+            },
+            "templeCure": true,
+            "onSuccess": null
+          },
+          {
+            "id": "choice_phous_bless",
+            "text": "Bless our fellowship for the trials ahead.",
+            "onSuccess": "node_phous_bless"
+          },
+          {
+            "text": "May the light protect us.",
+            "onSuccess": null
+          }
+        ]
+      },
+      "node_phous_bless": {
+        "text": "Patriarch Phous sprinkles holy water over your party and intones the Litany of Law. A warm, reassuring radiance fills your hearts.",
+        "alignment_impact": {
+          "order": 1,
+          "morality": 1,
+          "reason": "Received sacred blessing from Patriarch Phous"
+        },
+        "choices": [
+          {
+            "text": "Amen.",
+            "onSuccess": null
+          }
+        ]
+      }
+    },
+    "master_justin": {
+      "node_justin_greet": {
+        "text": "Ah, seekers of the Art. The arcane threads around the Caves of Chaos are violently warped. Something in the deepest cavern channels foul conjurations and planar entropy. Watch your step, mages — memorise your protective shields and keep a Sleep spell primed for swarming goblins. Speak to me when your intellect is ready to grasp higher circles of magic.",
+        "choices": [
+          {
+            "id": "choice_mage_train",
+            "text": "[Train] Advance Mage Level (Requires XP)",
+            "trainClass": "magic-user",
+            "onSuccess": null
+          },
+          {
+            "id": "choice_justin_arcana",
+            "text": "[Mage] \"What kind of conjurations have you detected?\"",
+            "specialtyClass": "Magic-User",
+            "specialtyBonus": 3,
+            "attribute": "intelligence",
+            "onSuccess": "node_justin_arcana_intel"
+          },
+          {
+            "text": "Thank you for the counsel, Master.",
+            "onSuccess": null
+          }
+        ]
+      },
+      "node_justin_arcana_intel": {
+        "text": "A sharp mind! The rituals in the shrine tap into planar chaos. Undead and demonic thralls in those lower depths resist standard physical damage unless struck by blessed or enchanted weapons.",
+        "choices": [
+          {
+            "text": "We will be prepared.",
+            "onSuccess": null
+          }
+        ]
+      }
+    },
+    "guild_contact": {
+      "node_rocco_greet": {
+        "text": "Keep your voice down, friend. You're looking at the only fellow in the Keep who knows what's really behind those locked oak doors in the caves. The Kobolds love pressure-plate pit traps. The Orcs keep their chief's loot locked in iron-bound chests behind the throne. And there's a rumor of an Ogre sitting on a mound of silver coins who might just accept a bribe if you don't fancy tasting his tree-trunk club. When your hands get nimble enough, come see me for advanced tricks.",
+        "choices": [
+          {
+            "id": "choice_thief_train",
+            "text": "[Train] Advance Thief Level (Requires XP)",
+            "trainClass": "thief",
+            "onSuccess": null
+          },
+          {
+            "id": "choice_rocco_bribe",
+            "text": "[Thief] \"Got any spare lockpicks or advice on the shrine's secret doors?\" (15 GP)",
+            "cost": {
+              "gold": 15
+            },
+            "specialtyClass": "Thief",
+            "specialtyBonus": 2,
+            "attribute": "dexterity",
+            "giveItem": "Thieves' Tools",
+            "onSuccess": "node_rocco_tips"
+          },
+          {
+            "text": "Much appreciated, Rocco.",
+            "onSuccess": null
+          }
+        ]
+      },
+      "node_rocco_tips": {
+        "text": "Here you go — precision picks forged in the capital. Look for displaced mortar on stone walls near torch sconces; that's where the cultists hide their secret sanctuary doors.",
+        "choices": [
+          {
+            "text": "Thanks for the tip.",
+            "onSuccess": null
+          }
+        ]
+      }
+    },
+    "innkeeper_milo": {
+      "node_milo_greet": {
+        "text": "Welcome to the Traveler's Rest! The best roast mutton and spiced mead on this side of the border. Renting a room here is safe from wandering monsters — no goblin is bold enough to scale the Keep's bastions! Press Rest at any time inside the Keep to recover your hit points and memorise your spells in comfort.",
+        "choices": [
+          {
+            "id": "choice_buy_ale",
+            "text": "Buy a round of spiced mead for the fellowship (5 GP)",
+            "cost": {
+              "gold": 5
+            },
+            "onSuccess": "node_milo_ale"
+          },
+          {
+            "text": "Thank you, Milo.",
+            "onSuccess": null
+          }
+        ]
+      },
+      "node_milo_ale": {
+        "text": "Milo slides frothing wooden flagons across the bar. 'To health and glory in the caves!' he toasts. The hearty beverage warms your spirits.",
+        "choices": [
+          {
+            "text": "Cheers!",
+            "onSuccess": null
+          }
+        ]
+      }
+    }
+  }
+}

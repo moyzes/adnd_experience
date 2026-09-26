@@ -134,8 +134,9 @@
   "chests": {
     "2,1": [
       { "name": "Ashen Crown of Binding", "type": "quest" },
+      { "name": "Gloves of Ogre Strength", "type": "gloves", "amount": 1 },
       { "name": "Gold Pieces", "amount": 250, "type": "currency" },
-      { "name": "Healing Potion", "amount": 3, "type": "consumable" },
+      { "name": "Potion of Extra-Healing", "amount": 2, "type": "consumable" },
       { "name": "Ancient Rubies", "amount": 2, "type": "treasure" }
     ],
     "12,1": [
@@ -149,8 +150,9 @@
       { "name": "Silver Ingot", "amount": 2, "type": "treasure" }
     ],
     "12,5": [
+      { "name": "Boots of Elvenkind", "type": "boots", "amount": 1 },
       { "name": "Healing Potion", "amount": 2, "type": "consumable" },
-      { "name": "Gold Pieces", "amount": 110, "type": "currency" },
+      { "name": "Gold Pieces", "amount": 140, "type": "currency" },
       { "name": "Scroll of Arcane Light", "amount": 1, "type": "consumable" }
     ]
   },

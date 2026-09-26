@@ -8,7 +8,8 @@ export class Renderer2D {
   render(state) {
     if (!state || !state.spec || !state.spec.map) return;
     const exploredCount = state.exploredTiles ? state.exploredTiles.size : 0;
-    const sig = `${state.player.x}_${state.player.y}_${state.player.facing}_${state.openedDoors.size}_${state.openedChests.size}_${exploredCount}_${state.spec.title || ''}`;
+    const zoneId = state.currentZonePath || state.spec.id || state.spec.name || '';
+    const sig = `${state.player.x}_${state.player.y}_${state.player.facing}_${state.openedDoors.size}_${state.openedChests.size}_${exploredCount}_${zoneId}`;
     if (this.lastSig === sig) return;
     this.lastSig = sig;
 
@@ -56,7 +57,29 @@ export class Renderer2D {
       }
     }
 
-    // 2. Render Shop Marker (if explored)
+    // 2. Render Zone Transitions / Exits (if explored)
+    if (state.spec.transitions && Array.isArray(state.spec.transitions)) {
+      state.spec.transitions.forEach(tr => {
+        const tx = tr.x;
+        const ty = tr.y;
+        if (tx >= 0 && tx < cols && ty >= 0 && ty < rows && state.isTileExplored(tx, ty)) {
+          this.ctx.fillStyle = 'rgba(56, 139, 253, 0.45)';
+          this.ctx.fillRect(tx * cellW, ty * cellH, cellW, cellH);
+
+          this.ctx.strokeStyle = '#58a6ff';
+          this.ctx.lineWidth = 1;
+          this.ctx.strokeRect(tx * cellW, ty * cellH, cellW, cellH);
+
+          this.ctx.fillStyle = '#ffffff';
+          this.ctx.font = `bold ${Math.max(8, Math.floor(cellH * 0.7))}px sans-serif`;
+          this.ctx.textAlign = 'center';
+          this.ctx.textBaseline = 'middle';
+          this.ctx.fillText('🚪', (tx + 0.5) * cellW, (ty + 0.5) * cellH);
+        }
+      });
+    }
+
+    // 3. Render Shop Marker (if explored)
     if (state.spec.shop && state.spec.shop.tile) {
       const [sx, sy] = state.spec.shop.tile;
       if (sx >= 0 && sx < cols && sy >= 0 && sy < rows && state.isTileExplored(sx, sy)) {

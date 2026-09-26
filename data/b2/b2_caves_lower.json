@@ -1,0 +1,912 @@
+{
+  "id": "b2_caves_lower",
+  "name": "Caves of Chaos: The Greater Strongholds",
+  "campaign": "b2_keep_on_the_borderlands",
+  "zoneType": "dungeon",
+  "combat_tracks": [
+    "combat_1",
+    "combat_2",
+    "combat_3"
+  ],
+  "town_tracks": [
+    "town_1",
+    "town_2"
+  ],
+  "wilderness_tracks": [
+    "wilderness_1"
+  ],
+  "dungeon_tracks": [
+    "dungeon_1",
+    "dungeon_2",
+    "dungeon_3"
+  ],
+  "rest_duration_seconds": 12,
+  "briefing": "You have advanced into the deeper, eastern side of the Ravine. Here dwell the deadliest warlords of Chaos: disciplined Hobgoblin legions (Cave F), a terrifying subterranean Owlbear (Cave G), savage Bugbear slavers (Cave H), a maddening labyrinth housing the Minotaur (Cave I), and the pack-hunting Gnolls (Cave J). Rumors whisper that a hidden passage here leads directly into the dreaded Shrine of Chaos!",
+  "assets": {
+    "wizard": "assets/glb/strange_wizard.glb",
+    "cultist": "assets/glb/cultist.glb",
+    "skeleton": "assets/glb/skeleton_animated.glb",
+    "goblin": "assets/glb/basic_goblin.glb",
+    "ghoul": "assets/glb/goblin_ghoul.glb",
+    "giant_spider": "assets/glb/giant_spider.glb",
+    "kobold": "assets/glb/kobold.glb",
+    "orc": "assets/glb/orc_captain.glb",
+    "assassin": "assets/glb/assassin.glb",
+    "chest": "assets/glb/chest.glb",
+    "campfire": "assets/glb/campfire.glb"
+  },
+  "start": {
+    "x": 13,
+    "y": 1,
+    "facing": "SOUTH"
+  },
+  "surface_y_min": 99,
+  "dungeon_y_max": 99,
+  "legend": {
+    "0": {
+      "name": "Hewn Stone Dungeon Corridor",
+      "walkable": true
+    },
+    "1": {
+      "name": "Massive Granite Cavern Wall",
+      "walkable": false
+    },
+    "2": {
+      "name": "Reinforced Iron-Banded Gate",
+      "walkable": false,
+      "interactive": true,
+      "locked": {
+        "methods": [
+          "mechanical",
+          "brute"
+        ],
+        "dc": 12
+      }
+    },
+    "3": {
+      "name": "Stout Strongbox Chest",
+      "walkable": false,
+      "interactive": true,
+      "locked": {
+        "methods": [
+          "mechanical",
+          "brute"
+        ],
+        "dc": 13
+      }
+    },
+    "4": {
+      "name": "Crumbled Rubble Floor",
+      "walkable": true
+    },
+    "7": {
+      "name": "Scything Blade Floor Trap",
+      "walkable": true,
+      "trap": {
+        "name": "Concealed Wall Scythe",
+        "dc": 14,
+        "damage": 12,
+        "saveCategory": "breath"
+      }
+    },
+    "8": {
+      "name": "Cavern Mouth Exit",
+      "walkable": true,
+      "interactive": true,
+      "description": "The ravine daylight shines from the passage entrance."
+    }
+  },
+  "transitions": [
+    {
+      "x": 13,
+      "y": 0,
+      "targetZone": "/data/b2/b2_wilderness.json",
+      "targetX": 12,
+      "targetY": 14,
+      "targetFacing": "NORTH",
+      "label": "Climb up to the Borderland Ravine",
+      "prompt": "Ascend the eastern rocky switchback back to the Ravine?"
+    },
+    {
+      "x": 8,
+      "y": 17,
+      "targetZone": "/data/b2/b2_shrine_of_chaos.json",
+      "targetX": 8,
+      "targetY": 1,
+      "targetFacing": "SOUTH",
+      "label": "Descend the Secret Tunnel into the Shrine of Chaos",
+      "prompt": "A hidden flagstone stairs descends into heavy, incense-laden darkness. Enter the Shrine of Chaos?"
+    }
+  ],
+  "chests": {
+    "2,3": [
+      {
+        "name": "Hobgoblin War Standard",
+        "amount": 1,
+        "type": "quest"
+      },
+      {
+        "name": "Gold Pieces",
+        "amount": 280,
+        "type": "currency"
+      },
+      {
+        "name": "Banded Mail Armor",
+        "amount": 1,
+        "type": "equipment"
+      }
+    ],
+    "15,3": [
+      {
+        "name": "Ring of Sustenance",
+        "amount": 1,
+        "type": "treasure"
+      },
+      {
+        "name": "Gold Pieces",
+        "amount": 190,
+        "type": "currency"
+      },
+      {
+        "name": "Healing Potion",
+        "amount": 3,
+        "type": "consumable"
+      }
+    ],
+    "15,12": [
+      {
+        "name": "Bugbear Chieftain's Torque",
+        "amount": 1,
+        "type": "treasure"
+      },
+      {
+        "name": "Gold Pieces",
+        "amount": 320,
+        "type": "currency"
+      },
+      {
+        "name": "Silver Ingot",
+        "amount": 4,
+        "type": "treasure"
+      }
+    ],
+    "3,14": [
+      {
+        "name": "Minotaur's Great Greataxe",
+        "amount": 1,
+        "type": "treasure"
+      },
+      {
+        "name": "Gold Pieces",
+        "amount": 400,
+        "type": "currency"
+      },
+      {
+        "name": "Star Sapphire",
+        "amount": 1,
+        "type": "treasure"
+      }
+    ]
+  },
+  "entities": [
+    {
+      "type": "prop",
+      "id": "hobgoblin_chest",
+      "name": "Hobgoblin Warlord Armory Chest",
+      "model": "chest",
+      "x": 2,
+      "y": 3,
+      "facing": "SOUTH"
+    },
+    {
+      "type": "prop",
+      "id": "owlbear_corpse_chest",
+      "name": "Slain Adventurer Pack",
+      "model": "chest",
+      "x": 15,
+      "y": 3,
+      "facing": "WEST"
+    },
+    {
+      "type": "prop",
+      "id": "bugbear_loot_chest",
+      "name": "Bugbear Slaver Vault",
+      "model": "chest",
+      "x": 15,
+      "y": 12,
+      "facing": "NORTH"
+    },
+    {
+      "type": "prop",
+      "id": "minotaur_trophy_chest",
+      "name": "Labyrinth Bronze Cache",
+      "model": "chest",
+      "x": 3,
+      "y": 14,
+      "facing": "EAST"
+    },
+    {
+      "type": "prop",
+      "id": "bugbear_slave_pen_fire",
+      "name": "Slaver Campfire",
+      "model": "campfire",
+      "x": 14,
+      "y": 11,
+      "facing": "SOUTH"
+    }
+  ],
+  "npcs": {
+    "rescued_guard": {
+      "id": "rescued_guard",
+      "name": "Corporal Thomas (Keep Scout Prisoner)",
+      "tile": [
+        14,
+        13
+      ],
+      "initialNode": "node_thomas_greet",
+      "inventory_to_steal": []
+    }
+  },
+  "dialogue": {
+    "node_thomas_greet": {
+      "speaker": "Corporal Thomas (Keep Scout Prisoner)",
+      "text": "By the grace of the Castellan! You broke through the bugbear slavers! I was captured while scouting the ravine three days ago. Listen closely: there is a secret passage at the back of this lower complex (south of the Minotaur's maze) that leads straight into Cave K — the Shrine of Chaos! The priest is preparing a massive unholy ritual!",
+      "alignment_impact": {
+        "order": 1,
+        "morality": 2,
+        "reason": "Liberated imprisoned Keep scouts from the bugbear slavers"
+      },
+      "options": [
+        {
+          "label": "We will storm the Shrine and put an end to this ritual!",
+          "targetNode": "node_thomas_honor"
+        },
+        {
+          "label": "Take this weapon and retreat to the Keep, soldier.",
+          "targetNode": "node_thomas_retreat"
+        }
+      ]
+    },
+    "node_thomas_honor": {
+      "speaker": "Corporal Thomas (Keep Scout Prisoner)",
+      "text": "The Castellan chose well when he commissioned your company. May Law watch over your strike!",
+      "options": [
+        {
+          "label": "For the Keep!",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_thomas_retreat": {
+      "speaker": "Corporal Thomas (Keep Scout Prisoner)",
+      "text": "Understood! I will rally the watchmen at the gate and tell the Castellan of your deeds!",
+      "options": [
+        {
+          "label": "Go swiftly.",
+          "targetNode": null
+        }
+      ]
+    }
+  },
+  "monsters": {
+    "hobgoblin_soldier": {
+      "id": "hobgoblin_soldier",
+      "name": "Hobgoblin Legionnaire",
+      "glbModel": "assets/glb/orc_captain.glb",
+      "scale": 1,
+      "hp": 13,
+      "maxHp": 13,
+      "armorClass": 5,
+      "armorType": "chain",
+      "attackTarget": 13,
+      "damage": "1d8",
+      "damageType": "slashing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 65,
+      "xpReward": 350
+    },
+    "hobgoblin_warlord": {
+      "id": "hobgoblin_warlord",
+      "name": "Hobgoblin Warlord Grax",
+      "glbModel": "assets/glb/orc_captain.glb",
+      "scale": 1.25,
+      "hp": 26,
+      "maxHp": 26,
+      "armorClass": 4,
+      "armorType": "plate",
+      "attackTarget": 14,
+      "damage": "1d8+2",
+      "damageType": "slashing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 80,
+      "xpReward": 800
+    },
+    "shunned_owlbear": {
+      "id": "shunned_owlbear",
+      "name": "The Shunned Owlbear",
+      "glbModel": "assets/glb/orc_captain.glb",
+      "scale": 1.5,
+      "hp": 34,
+      "maxHp": 34,
+      "armorClass": 5,
+      "armorType": "leather",
+      "attackTarget": 14,
+      "damage": "1d10+2",
+      "damageType": "slashing",
+      "actionPhase": "FAST",
+      "moraleThreshold": 75,
+      "xpReward": 1100
+    },
+    "bugbear_slaver": {
+      "id": "bugbear_slaver",
+      "name": "Bugbear Slaver Enforcer",
+      "glbModel": "assets/glb/orc_captain.glb",
+      "scale": 1.15,
+      "hp": 17,
+      "maxHp": 17,
+      "armorClass": 5,
+      "armorType": "leather",
+      "attackTarget": 13,
+      "damage": "1d8+1",
+      "damageType": "crushing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 60,
+      "xpReward": 450
+    },
+    "bugbear_chief": {
+      "id": "bugbear_chief",
+      "name": "Bugbear Chieftain Targ",
+      "glbModel": "assets/glb/orc_captain.glb",
+      "scale": 1.35,
+      "hp": 28,
+      "maxHp": 28,
+      "armorClass": 4,
+      "armorType": "chain",
+      "attackTarget": 14,
+      "damage": "1d10+1",
+      "damageType": "crushing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 75,
+      "xpReward": 900
+    },
+    "labyrinth_minotaur": {
+      "id": "labyrinth_minotaur",
+      "name": "The Labyrinth Minotaur",
+      "glbModel": "assets/glb/orc_captain.glb",
+      "scale": 1.6,
+      "hp": 38,
+      "maxHp": 38,
+      "armorClass": 4,
+      "armorType": "leather",
+      "attackTarget": 15,
+      "damage": "1d10+3",
+      "damageType": "slashing",
+      "actionPhase": "FAST",
+      "moraleThreshold": 85,
+      "xpReward": 1400
+    },
+    "gnoll_scavenger": {
+      "id": "gnoll_scavenger",
+      "name": "Ravine Gnoll Packhunter",
+      "glbModel": "assets/glb/basic_goblin.glb",
+      "scale": 1.1,
+      "hp": 14,
+      "maxHp": 14,
+      "armorClass": 5,
+      "armorType": "leather",
+      "attackTarget": 13,
+      "damage": "1d8",
+      "damageType": "piercing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 55,
+      "xpReward": 350
+    }
+  },
+  "encounters": [
+    {
+      "id": "enc_hobgoblin_barracks",
+      "x": 3,
+      "y": 2,
+      "name": "Cave F — Hobgoblin Phalanx Guards",
+      "enemies": [
+        {
+          "monsterId": "hobgoblin_soldier",
+          "count": 2
+        }
+      ],
+      "onVictoryXp": 700
+    },
+    {
+      "id": "enc_hobgoblin_warlord",
+      "x": 2,
+      "y": 4,
+      "name": "Cave F — Warlord Grax's Command Chamber",
+      "enemies": [
+        {
+          "monsterId": "hobgoblin_warlord",
+          "count": 1
+        },
+        {
+          "monsterId": "hobgoblin_soldier",
+          "count": 2
+        }
+      ],
+      "onVictoryXp": 1500
+    },
+    {
+      "id": "enc_shunned_owlbear",
+      "x": 14,
+      "y": 2,
+      "name": "Cave G — The Shunned Cavern of the Owlbear",
+      "enemies": [
+        {
+          "monsterId": "shunned_owlbear",
+          "count": 1
+        }
+      ],
+      "onVictoryXp": 1100
+    },
+    {
+      "id": "enc_bugbear_slavers",
+      "x": 13,
+      "y": 10,
+      "name": "Cave H — Bugbear Slave Guardpost",
+      "enemies": [
+        {
+          "monsterId": "bugbear_slaver",
+          "count": 2
+        }
+      ],
+      "onVictoryXp": 900
+    },
+    {
+      "id": "enc_bugbear_chief",
+      "x": 15,
+      "y": 11,
+      "name": "Cave H — Chieftain Targ's Slaver Den",
+      "enemies": [
+        {
+          "monsterId": "bugbear_chief",
+          "count": 1
+        },
+        {
+          "monsterId": "bugbear_slaver",
+          "count": 1
+        }
+      ],
+      "onVictoryXp": 1350
+    },
+    {
+      "id": "enc_minotaur_maze",
+      "x": 3,
+      "y": 12,
+      "name": "Cave I — Heart of the Minotaur's Labyrinth",
+      "enemies": [
+        {
+          "monsterId": "labyrinth_minotaur",
+          "count": 1
+        }
+      ],
+      "onVictoryXp": 1400
+    },
+    {
+      "id": "enc_gnoll_pack",
+      "x": 8,
+      "y": 4,
+      "name": "Cave J — Gnoll Den Ambush",
+      "enemies": [
+        {
+          "monsterId": "gnoll_scavenger",
+          "count": 2
+        }
+      ],
+      "onVictoryXp": 700
+    }
+  ],
+  "map": [
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      0,
+      1,
+      1,
+      0,
+      1,
+      0,
+      1,
+      1,
+      0,
+      1,
+      1,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      1,
+      0,
+      1,
+      1,
+      0,
+      1,
+      1,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      1,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      1,
+      1,
+      0,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      0,
+      1,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      1,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ]
+  ],
+  "dialogues": {
+    "rescued_guard": {
+      "node_thomas_greet": {
+        "text": "By the gods! You broke through the bugbear line! I am Thomas, a scout from the Keep garrison. Captain Bain sent my squad here a week ago, but we were overrun. The rest of my men were dragged down into the lower shrine...",
+        "choices": [
+          {
+            "id": "choice_guard_free",
+            "text": "\"Take this weapon, Thomas. Retreat to the surface while the path is clear.\"",
+            "onSuccess": "node_thomas_free",
+            "alignment_impact": {
+              "order": 2,
+              "morality": 2,
+              "reason": "Rescued captured Keep garrison scout"
+            }
+          },
+          {
+            "id": "choice_guard_intel",
+            "text": "\"Tell us about the lower shrine before you leave.\"",
+            "onSuccess": "node_thomas_shrine_intel"
+          }
+        ]
+      },
+      "node_thomas_free": {
+        "text": "Bless you all! I will make my way back to Captain Bain and report your heroism. Take my silver dagger — may it strike true against the darkness!",
+        "giveItem": "Silver Dagger",
+        "questXP": 500,
+        "choices": [
+          {
+            "text": "Godspeed, Thomas.",
+            "onSuccess": null
+          }
+        ]
+      },
+      "node_thomas_shrine_intel": {
+        "text": "The shrine is guarded by fanatical cultists in red robes and armored skeletons. Their Evil Priest carries a bronze serpent rod that casts hold person and fear spells. Do not fight him in the open altar room without magical protection!",
+        "choices": [
+          {
+            "text": "Thank you for the warning. Now get to safety.",
+            "onSuccess": null
+          }
+        ]
+      }
+    }
+  }
+}

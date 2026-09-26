@@ -6,22 +6,51 @@ import { ItemCatalog } from './item_catalog.js';
  */
 export class InventoryManager {
   /**
-   * Counts total ammunition available in personal hero inventory and shared party pack.
+   * Helper that searches across all living party members' personal inventories.
    */
-  static getAmmoCount(state, ammoName, hero = null) {
-    if (!ammoName) return 0;
-    let count = this.getPartyItemQty(state, ammoName);
-    if (hero && Array.isArray(hero.inventory)) {
-      const personal = hero.inventory.find(i => (typeof i === 'string' ? i === ammoName : i && i.name === ammoName));
-      if (personal) {
-        count += personal.amount ?? personal.count ?? 1;
-      }
-    }
-    return count;
+  static findAcrossParty(state, predicate) {
+    if (!state || !Array.isArray(state.party)) return [];
+    return state.party
+      .filter(h => h && h.hp > 0)
+      .flatMap(h => (h.personalInventory || h.inventory || []).filter(predicate));
   }
 
   /**
-   * Consumes ammunition first from personal hero inventory, then from the shared party pack.
+   * Finds the first living hero carrying a specific item in their personal pack.
+   */
+  static findHeroCarryingItem(state, nameOrPredicate) {
+    if (!state || !Array.isArray(state.party)) return null;
+    const testFn = typeof nameOrPredicate === 'function'
+      ? nameOrPredicate
+      : (i) => (typeof i === 'string' ? i === nameOrPredicate : i && i.name === nameOrPredicate);
+
+    for (let hIdx = 0; hIdx < state.party.length; hIdx++) {
+      const hero = state.party[hIdx];
+      if (!hero || hero.hp <= 0) continue;
+      const inv = hero.personalInventory || hero.inventory || [];
+      const itemIndex = inv.findIndex(testFn);
+      if (itemIndex !== -1) {
+        return { hero, heroIndex: hIdx, item: inv[itemIndex], itemIndex, inventory: inv };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Counts total ammunition available in personal hero inventory or across the party.
+   */
+  static getAmmoCount(state, ammoName, hero = null) {
+    if (!ammoName) return 0;
+    if (hero) {
+      const inv = hero.personalInventory || hero.inventory || [];
+      const personal = inv.find(i => (typeof i === 'string' ? i === ammoName : i && i.name === ammoName));
+      return personal ? (personal.amount ?? personal.count ?? 1) : 0;
+    }
+    return this.getPartyItemQty(state, ammoName);
+  }
+
+  /**
+   * Consumes ammunition first from personal hero inventory, then from other living allies.
    */
   static consumeAmmo(state, param1, param2, count = 1) {
     let hero = null;
@@ -36,16 +65,21 @@ export class InventoryManager {
 
     if (!ammoName) return { success: true, remaining: 0 };
     let toDeduct = count;
-    if (hero && Array.isArray(hero.inventory)) {
-      const personal = hero.inventory.find(i => (typeof i === 'string' ? i === ammoName : i && i.name === ammoName));
-      if (personal) {
-        const qty = personal.amount ?? personal.count ?? 1;
-        if (qty <= toDeduct) {
-          hero.inventory = hero.inventory.filter(i => i !== personal);
-          toDeduct -= qty;
-        } else {
-          personal.amount = qty - toDeduct;
-          toDeduct = 0;
+    if (hero) {
+      const inv = hero.personalInventory || hero.inventory;
+      if (Array.isArray(inv)) {
+        const personal = inv.find(i => (typeof i === 'string' ? i === ammoName : i && i.name === ammoName));
+        if (personal) {
+          const qty = personal.amount ?? personal.count ?? 1;
+          if (qty <= toDeduct) {
+            hero.personalInventory = inv.filter(i => i !== personal);
+            if (hero.inventory) hero.inventory = hero.personalInventory;
+            toDeduct -= qty;
+          } else {
+            personal.amount = qty - toDeduct;
+            if (personal.count !== undefined) personal.count = personal.amount;
+            toDeduct = 0;
+          }
         }
       }
     }
@@ -74,7 +108,7 @@ export class InventoryManager {
   }
 
   /**
-   * Lists all valid weapons available for a hero to equip from equipped slot, personal pack, and party pack.
+   * Lists all valid weapons available for a hero to equip from equipped slot and personal pack.
    */
   static getAvailableWeapons(state, heroIndex) {
     const hero = state.party[heroIndex];
@@ -83,8 +117,9 @@ export class InventoryManager {
     if (hero.equippedWeapon) {
       list.push({ name: hero.equippedWeapon, location: 'equipped', isEquipped: true });
     }
-    if (Array.isArray(hero.inventory)) {
-      hero.inventory.forEach(i => {
+    const personalInv = hero.personalInventory || hero.inventory;
+    if (Array.isArray(personalInv)) {
+      personalInv.forEach(i => {
         const iName = typeof i === 'string' ? i : i?.name;
         if (!iName) return;
         if (ItemCatalog.isKnownWeapon(iName, state.spec)) {
@@ -95,23 +130,11 @@ export class InventoryManager {
         }
       });
     }
-    if (Array.isArray(state.inventory)) {
-      state.inventory.forEach(i => {
-        const iName = typeof i === 'string' ? i : i?.name;
-        if (!iName) return;
-        if (ItemCatalog.isKnownWeapon(iName, state.spec)) {
-          const chk = ItemCatalog.isClassAllowedItem(hero.classKey, iName);
-          if (chk.allowed && !list.some(w => w.name === iName)) {
-            list.push({ name: iName, location: 'party', isEquipped: false });
-          }
-        }
-      });
-    }
     return list;
   }
 
   /**
-   * Swaps a hero's equipped weapon with another weapon from personal or party inventory.
+   * Swaps a hero's equipped weapon with another weapon from personal inventory.
    */
   static swapHeroWeapon(state, heroIndex, targetWeaponName = null) {
     const hero = state.party[heroIndex];
@@ -134,22 +157,26 @@ export class InventoryManager {
 
     const previousWeapon = hero.equippedWeapon;
     const newWeapon = nextWeapon.name;
+    const inv = hero.personalInventory || hero.inventory || (hero.personalInventory = []);
+    if (!hero.inventory) hero.inventory = inv;
 
-    if (nextWeapon.location === 'personal') {
-      const slot = hero.inventory.find(i => (typeof i === 'string' ? i === newWeapon : i && i.name === newWeapon));
-      if (slot) {
-        if ((slot.amount || 1) <= 1) hero.inventory = hero.inventory.filter(i => i !== slot);
-        else slot.amount -= 1;
+    const slot = inv.find(i => (typeof i === 'string' ? i === newWeapon : i && i.name === newWeapon));
+    if (slot) {
+      if ((slot.amount || 1) <= 1) {
+        hero.personalInventory = inv.filter(i => i !== slot);
+        hero.inventory = hero.personalInventory;
+      } else {
+        slot.amount -= 1;
+        if (slot.count !== undefined) slot.count = slot.amount;
       }
-      if (previousWeapon) {
-        const prevSlot = hero.inventory.find(i => (typeof i === 'string' ? i === previousWeapon : i && i.name === previousWeapon));
-        if (prevSlot) prevSlot.amount = (prevSlot.amount || 1) + 1;
-        else hero.inventory.push({ name: previousWeapon, amount: 1 });
-      }
-    } else if (nextWeapon.location === 'party') {
-      this.removePartyItem(state, newWeapon, 1);
-      if (previousWeapon) {
-        this.addPartyItem(state, previousWeapon, 1);
+    }
+    if (previousWeapon) {
+      const prevSlot = (hero.personalInventory || inv).find(i => (typeof i === 'string' ? i === previousWeapon : i && i.name === previousWeapon));
+      if (prevSlot) {
+        prevSlot.amount = (prevSlot.amount || 1) + 1;
+        if (prevSlot.count !== undefined) prevSlot.count = prevSlot.amount;
+      } else {
+        (hero.personalInventory || inv).push({ name: previousWeapon, amount: 1 });
       }
     }
 
@@ -186,17 +213,27 @@ export class InventoryManager {
     if (!hero || !weaponName) return { success: false, reason: 'Invalid hero or weapon.' };
     if (!ItemCatalog.isKnownWeapon(weaponName, state.spec)) return { success: false, reason: `"${weaponName}" is not a known weapon.` };
 
-    const inv = hero.inventory || (hero.inventory = []);
-    const slot = inv.find(i => i.name === weaponName);
-    if (!slot || (slot.amount || 1) < 1) return { success: false, reason: `${hero.name} does not carry ${weaponName}.` };
+    const inv = hero.personalInventory || hero.inventory || (hero.personalInventory = []);
+    if (!hero.inventory) hero.inventory = inv;
+    const slot = inv.find(i => (typeof i === 'string' ? i === weaponName : i && i.name === weaponName));
+    if (!slot || (typeof slot === 'object' && (slot.amount || 1) < 1)) return { success: false, reason: `${hero.name} does not carry ${weaponName}.` };
 
-    if ((slot.amount || 1) <= 1) hero.inventory = inv.filter(i => i !== slot);
-    else slot.amount -= 1;
+    if (typeof slot === 'object' && (slot.amount || 1) > 1) {
+      slot.amount -= 1;
+      if (slot.count !== undefined) slot.count = slot.amount;
+    } else {
+      hero.personalInventory = inv.filter(i => i !== slot);
+      hero.inventory = hero.personalInventory;
+    }
 
     if (hero.equippedWeapon) {
-      const existing = hero.inventory.find(i => i.name === hero.equippedWeapon);
-      if (existing) existing.amount = (existing.amount || 1) + 1;
-      else hero.inventory.push({ name: hero.equippedWeapon, amount: 1 });
+      const existing = (hero.personalInventory || []).find(i => (typeof i === 'string' ? i === hero.equippedWeapon : i && i.name === hero.equippedWeapon));
+      if (existing && typeof existing === 'object') {
+        existing.amount = (existing.amount || 1) + 1;
+        if (existing.count !== undefined) existing.count = existing.amount;
+      } else {
+        (hero.personalInventory || []).push({ name: hero.equippedWeapon, amount: 1 });
+      }
     }
 
     hero.equippedWeapon = weaponName;
@@ -235,17 +272,27 @@ export class InventoryManager {
       return { success: false, reason: 'Thieves cannot wear heavy armor without crippling thieving tradecraft.' };
     }
 
-    const inv = hero.inventory || (hero.inventory = []);
-    const slot = inv.find(i => i.name === armorName);
-    if (!slot || (slot.amount || 1) < 1) return { success: false, reason: `${hero.name} does not carry ${armorName}.` };
+    const inv = hero.personalInventory || hero.inventory || (hero.personalInventory = []);
+    if (!hero.inventory) hero.inventory = inv;
+    const slot = inv.find(i => (typeof i === 'string' ? i === armorName : i && i.name === armorName));
+    if (!slot || (typeof slot === 'object' && (slot.amount || 1) < 1)) return { success: false, reason: `${hero.name} does not carry ${armorName}.` };
 
-    if ((slot.amount || 1) <= 1) hero.inventory = inv.filter(i => i !== slot);
-    else slot.amount -= 1;
+    if (typeof slot === 'object' && (slot.amount || 1) > 1) {
+      slot.amount -= 1;
+      if (slot.count !== undefined) slot.count = slot.amount;
+    } else {
+      hero.personalInventory = inv.filter(i => i !== slot);
+      hero.inventory = hero.personalInventory;
+    }
 
     if (hero.equippedArmor && hero.equippedArmor.name && hero.equippedArmor.name !== "None (Unarmored)") {
-      const existing = hero.inventory.find(i => i.name === hero.equippedArmor.name);
-      if (existing) existing.amount = (existing.amount || 1) + 1;
-      else hero.inventory.push({ name: hero.equippedArmor.name, amount: 1 });
+      const existing = (hero.personalInventory || []).find(i => (typeof i === 'string' ? i === hero.equippedArmor.name : i && i.name === hero.equippedArmor.name));
+      if (existing && typeof existing === 'object') {
+        existing.amount = (existing.amount || 1) + 1;
+        if (existing.count !== undefined) existing.count = existing.amount;
+      } else {
+        (hero.personalInventory || []).push({ name: hero.equippedArmor.name, amount: 1 });
+      }
     }
 
     hero.equippedArmor = {
@@ -275,17 +322,27 @@ export class InventoryManager {
       return { success: false, reason: 'Thieves cannot wield shields without hindering stealth and nimble evasion.' };
     }
 
-    const inv = hero.inventory || (hero.inventory = []);
-    const slot = inv.find(i => i.name === shieldName);
-    if (!slot || (slot.amount || 1) < 1) return { success: false, reason: `${hero.name} does not carry ${shieldName}.` };
+    const inv = hero.personalInventory || hero.inventory || (hero.personalInventory = []);
+    if (!hero.inventory) hero.inventory = inv;
+    const slot = inv.find(i => (typeof i === 'string' ? i === shieldName : i && i.name === shieldName));
+    if (!slot || (typeof slot === 'object' && (slot.amount || 1) < 1)) return { success: false, reason: `${hero.name} does not carry ${shieldName}.` };
 
-    if ((slot.amount || 1) <= 1) hero.inventory = inv.filter(i => i !== slot);
-    else slot.amount -= 1;
+    if (typeof slot === 'object' && (slot.amount || 1) > 1) {
+      slot.amount -= 1;
+      if (slot.count !== undefined) slot.count = slot.amount;
+    } else {
+      hero.personalInventory = inv.filter(i => i !== slot);
+      hero.inventory = hero.personalInventory;
+    }
 
     if (hero.equippedShield && hero.equippedShield.name) {
-      const existing = hero.inventory.find(i => i.name === hero.equippedShield.name);
-      if (existing) existing.amount = (existing.amount || 1) + 1;
-      else hero.inventory.push({ name: hero.equippedShield.name, amount: 1 });
+      const existing = (hero.personalInventory || []).find(i => (typeof i === 'string' ? i === hero.equippedShield.name : i && i.name === hero.equippedShield.name));
+      if (existing && typeof existing === 'object') {
+        existing.amount = (existing.amount || 1) + 1;
+        if (existing.count !== undefined) existing.count = existing.amount;
+      } else {
+        (hero.personalInventory || []).push({ name: hero.equippedShield.name, amount: 1 });
+      }
     }
 
     hero.equippedShield = {
@@ -300,77 +357,235 @@ export class InventoryManager {
   }
 
   /**
-   * Recalculates descending Armor Class (lower is better) based on armor base, shield, and DEX.
+   * Equips boots (e.g. Boots of Elvenkind) from personal inventory onto a hero.
+   */
+  static equipHeroBoots(state, heroIndex, bootsName, getDexDefensiveAdjustmentFn) {
+    const hero = state.party[heroIndex];
+    if (!hero || !bootsName) return { success: false, reason: 'Invalid hero or boots.' };
+    const itemDef = ItemCatalog.getItemDef(bootsName, state.spec);
+    if (!itemDef || itemDef.kind !== 'boots') return { success: false, reason: `"${bootsName}" is not boots.` };
+
+    const inv = hero.personalInventory || hero.inventory || (hero.personalInventory = []);
+    if (!hero.inventory) hero.inventory = inv;
+    const slot = inv.find(i => (typeof i === 'string' ? i === bootsName : i && i.name === bootsName));
+    if (!slot || (typeof slot === 'object' && (slot.amount || 1) < 1)) return { success: false, reason: `${hero.name} does not carry ${bootsName}.` };
+
+    if (typeof slot === 'object' && (slot.amount || 1) > 1) {
+      slot.amount -= 1;
+      if (slot.count !== undefined) slot.count = slot.amount;
+    } else {
+      hero.personalInventory = inv.filter(i => i !== slot);
+      hero.inventory = hero.personalInventory;
+    }
+
+    if (hero.equippedBoots && hero.equippedBoots.name) {
+      const existing = (hero.personalInventory || []).find(i => (typeof i === 'string' ? i === hero.equippedBoots.name : i && i.name === hero.equippedBoots.name));
+      if (existing && typeof existing === 'object') {
+        existing.amount = (existing.amount || 1) + 1;
+        if (existing.count !== undefined) existing.count = existing.amount;
+      } else {
+        (hero.personalInventory || []).push({ name: hero.equippedBoots.name, amount: 1 });
+      }
+    }
+
+    hero.equippedBoots = {
+      id: itemDef.id,
+      name: bootsName,
+      type: 'boots',
+      acBonus: itemDef.acBonus || 0,
+      stealthBonus: itemDef.stealthBonus || 0,
+      silentSteps: !!itemDef.silentSteps,
+      description: itemDef.description || ''
+    };
+    this.recalculateHeroAC(hero, getDexDefensiveAdjustmentFn);
+    return { success: true, equipped: bootsName };
+  }
+
+  /**
+   * Equips gloves or gauntlets (e.g. Gloves of Ogre Strength) from personal inventory onto a hero.
+   */
+  static equipHeroGloves(state, heroIndex, glovesName) {
+    const hero = state.party[heroIndex];
+    if (!hero || !glovesName) return { success: false, reason: 'Invalid hero or gloves.' };
+    const itemDef = ItemCatalog.getItemDef(glovesName, state.spec);
+    if (!itemDef || itemDef.kind !== 'gloves') return { success: false, reason: `"${glovesName}" are not gloves.` };
+
+    const inv = hero.personalInventory || hero.inventory || (hero.personalInventory = []);
+    if (!hero.inventory) hero.inventory = inv;
+    const slot = inv.find(i => (typeof i === 'string' ? i === glovesName : i && i.name === glovesName));
+    if (!slot || (typeof slot === 'object' && (slot.amount || 1) < 1)) return { success: false, reason: `${hero.name} does not carry ${glovesName}.` };
+
+    if (typeof slot === 'object' && (slot.amount || 1) > 1) {
+      slot.amount -= 1;
+      if (slot.count !== undefined) slot.count = slot.amount;
+    } else {
+      hero.personalInventory = inv.filter(i => i !== slot);
+      hero.inventory = hero.personalInventory;
+    }
+
+    if (hero.equippedGloves && hero.equippedGloves.name) {
+      const existing = (hero.personalInventory || []).find(i => (typeof i === 'string' ? i === hero.equippedGloves.name : i && i.name === hero.equippedGloves.name));
+      if (existing && typeof existing === 'object') {
+        existing.amount = (existing.amount || 1) + 1;
+        if (existing.count !== undefined) existing.count = existing.amount;
+      } else {
+        (hero.personalInventory || []).push({ name: hero.equippedGloves.name, amount: 1 });
+      }
+    }
+
+    hero.equippedGloves = {
+      id: itemDef.id,
+      name: glovesName,
+      type: 'gloves',
+      strengthSet: itemDef.strengthSet || 18,
+      attackBonus: itemDef.attackBonus || 3,
+      damageBonus: itemDef.damageBonus || 4,
+      description: itemDef.description || ''
+    };
+    return { success: true, equipped: glovesName };
+  }
+
+  /**
+   * Recalculates descending Armor Class (lower is better) based on armor base, shield, boots, and DEX.
    */
   static recalculateHeroAC(hero, getDexDefensiveAdjustmentFn) {
     const baseArmorAc = hero.equippedArmor?.baseAc != null ? hero.equippedArmor.baseAc : 10;
     const shieldBonus = hero.equippedShield ? (hero.equippedShield.acBonus || 1) : 0;
+    const bootsBonus = hero.equippedBoots ? (hero.equippedBoots.acBonus || 0) : 0;
     const dexMod = getDexDefensiveAdjustmentFn ? getDexDefensiveAdjustmentFn(hero.attributes?.dexterity) : 0;
-    hero.armorClass = baseArmorAc - shieldBonus + dexMod;
+    hero.armorClass = baseArmorAc - shieldBonus - bootsBonus + dexMod;
     return hero.armorClass;
   }
 
   /**
-   * Retrieves an item entry from the shared party pack.
+   * Retrieves an item entry across living party members' personal inventories.
    */
   static getPartyItem(state, name) {
-    if (!state.inventory) state.inventory = [];
-    return state.inventory.find(i => i.name === name) || null;
+    if (name === 'Gold Pieces') {
+      const gold = this.getPartyGold(state);
+      return gold > 0 ? { name: 'Gold Pieces', amount: gold, type: 'currency' } : null;
+    }
+    const found = this.findHeroCarryingItem(state, name);
+    return found ? found.item : null;
   }
 
   /**
-   * Retrieves the quantity of an item in the shared party pack.
+   * Retrieves the total quantity of an item across all living party members' personal inventories.
    */
   static getPartyItemQty(state, name) {
-    const item = this.getPartyItem(state, name);
-    return item ? (item.amount ?? item.count ?? 0) : 0;
+    if (name === 'Gold Pieces') return this.getPartyGold(state);
+    if (!state || !Array.isArray(state.party)) return 0;
+    let total = 0;
+    state.party.filter(h => h && h.hp > 0).forEach(h => {
+      const inv = h.personalInventory || h.inventory || [];
+      inv.forEach(i => {
+        if (!i) return;
+        const iName = typeof i === 'string' ? i : i.name;
+        if (iName === name) {
+          total += (typeof i === 'object') ? (i.amount ?? i.count ?? 1) : 1;
+        }
+      });
+    });
+    return total;
   }
 
   /**
-   * Retrieves the current party gold pieces.
+   * Retrieves the current party gold pieces (shared ledger).
    */
   static getPartyGold(state) {
-    return this.getPartyItemQty(state, 'Gold Pieces');
+    if (!state) return 0;
+    return typeof state.partyGold === 'number' ? state.partyGold : 0;
   }
 
   /**
-   * Adds an item into the shared party pack (or increments stack).
+   * Adds an item to a party member's personal inventory.
+   * If gold, adds to shared state.partyGold.
    */
-  static addPartyItem(state, name, amount = 1) {
-    if (!state.inventory) state.inventory = [];
-    const def = ItemCatalog.getItemDef(name, state.spec);
+  static addPartyItem(state, name, amount = 1, preferredHeroIndex = null) {
+    if (name === 'Gold Pieces') {
+      state.partyGold = (state.partyGold || 0) + amount;
+      return { name: 'Gold Pieces', amount: state.partyGold, type: 'currency' };
+    }
+    if (!state || !Array.isArray(state.party)) return null;
+    let hero = null;
+    if (preferredHeroIndex != null && state.party[preferredHeroIndex] && state.party[preferredHeroIndex].hp > 0) {
+      hero = state.party[preferredHeroIndex];
+    } else {
+      hero = state.party.find(h => h && h.hp > 0) || state.party[0];
+    }
+    if (!hero) return null;
+    return this.addItemToHero(hero, name, amount, state.spec);
+  }
+
+  /**
+   * Adds an item directly to a hero's personalInventory.
+   */
+  static addItemToHero(hero, name, amount = 1, spec = null) {
+    if (!hero) return null;
+    if (!hero.personalInventory) hero.personalInventory = hero.inventory || [];
+    if (!hero.inventory) hero.inventory = hero.personalInventory;
+    const inv = hero.personalInventory;
+    const def = ItemCatalog.getItemDef(name, spec);
     const qty = Math.max(1, amount | 0);
-    const existing = this.getPartyItem(state, name);
-    if (existing && (def ? def.stackable !== false : true)) {
-      existing.amount = (existing.amount ?? existing.count ?? 0) + qty;
-      if (existing.count !== undefined) existing.count = existing.amount;
+    const existing = inv.find(i => (typeof i === 'string' ? i === name : i && i.name === name));
+    if (existing && typeof existing === 'object' && (def ? def.stackable !== false : true)) {
+      const qtyKey = existing.amount !== undefined ? 'amount' : 'count';
+      existing[qtyKey] = (existing[qtyKey] ?? 0) + qty;
+      if (existing.count !== undefined && existing.amount !== undefined) existing.count = existing.amount;
       return existing;
     }
     const entry = { name, amount: qty };
     if (def && def.kind) entry.type = def.kind;
-    state.inventory.push(entry);
+    inv.push(entry);
     return entry;
   }
 
   /**
-   * Removes an item quantity from the shared party pack.
+   * Removes an item quantity across living party members' personal inventories.
+   * If gold, deducts from state.partyGold.
    */
   static removePartyItem(state, name, amount = 1) {
-    const item = this.getPartyItem(state, name);
-    if (!item) return false;
-    const qtyKey = item.amount !== undefined ? 'amount' : 'count';
-    const have = item[qtyKey] ?? 0;
-    if (have < amount) return false;
-    item[qtyKey] = have - amount;
-    if (item[qtyKey] <= 0) state.inventory = state.inventory.filter(i => i !== item);
-    return true;
+    if (name === 'Gold Pieces') return this.spendGold(state, amount);
+    if (!state || !Array.isArray(state.party)) return false;
+    let needed = amount;
+    if (this.getPartyItemQty(state, name) < amount) return false;
+
+    const livingHeroes = state.party.filter(h => h && h.hp > 0);
+    for (const hero of livingHeroes) {
+      const inv = hero.personalInventory || hero.inventory || [];
+      for (let i = 0; i < inv.length; i++) {
+        const item = inv[i];
+        if (!item) continue;
+        const iName = typeof item === 'string' ? item : item.name;
+        if (iName === name) {
+          const qtyKey = (typeof item === 'object' && item.amount !== undefined) ? 'amount' : 'count';
+          const have = (typeof item === 'object') ? (item[qtyKey] ?? 1) : 1;
+          if (have <= needed) {
+            needed -= have;
+            inv.splice(i, 1);
+            i--;
+          } else {
+            item[qtyKey] = have - needed;
+            if (item.count !== undefined && item.amount !== undefined) item.count = item.amount;
+            needed = 0;
+          }
+          if (needed <= 0) break;
+        }
+      }
+      if (needed <= 0) break;
+    }
+    return needed <= 0;
   }
 
   /**
-   * Spends party gold pieces.
+   * Spends party gold pieces from the shared partyGold ledger.
    */
   static spendGold(state, amount) {
-    return this.removePartyItem(state, 'Gold Pieces', amount);
+    if (!state) return false;
+    const current = this.getPartyGold(state);
+    if (current < amount) return false;
+    state.partyGold = current - amount;
+    return true;
   }
 
   /**
@@ -379,7 +594,7 @@ export class InventoryManager {
   static useConsumable(state, itemName, heroIndex = null) {
     const def = ItemCatalog.getItemDef(itemName, state.spec);
     if (!def || !def.usable) return { success: false, reason: `${itemName} cannot be used.` };
-    if (this.getPartyItemQty(state, itemName) < 1) return { success: false, reason: `No ${itemName} left in the pack.` };
+    if (this.getPartyItemQty(state, itemName) < 1) return { success: false, reason: `No ${itemName} carried by the party.` };
     if (state.combat && state.combat.active && def.useEffect === 'light') return { success: false, reason: 'Cannot light a torch in the middle of a melee.' };
 
     const hero = (heroIndex != null) ? state.party[heroIndex] : null;
@@ -401,7 +616,148 @@ export class InventoryManager {
         wasIncapacitated: wasInc,
         log: wasInc
           ? `❤️ Healing draught poured down ${hero.name}'s throat! Revived from incapacitation (+${actual} HP, now ${hero.hp}/${hero.maxHp})!`
-          : `${hero.name} drinks a Healing Potion and recovers ${actual} HP (${hero.hp}/${hero.maxHp}).`
+          : `${hero.name} drinks a ${itemName} and recovers ${actual} HP (${hero.hp}/${hero.maxHp}).`
+      };
+    }
+
+    if (def.useEffect === 'extra_heal') {
+      if (!hero) return { success: false, reason: 'Choose an ally to drink the potion.' };
+      if (hero.hp <= -10) return { success: false, reason: `${hero.name} is permanently dead (-10 HP) and cannot be revived.` };
+      if (hero.hp >= hero.maxHp) return { success: false, reason: `${hero.name} is already at full health.` };
+      
+      // 3d8+3
+      const healed = (Math.floor(Math.random() * 8) + 1) + (Math.floor(Math.random() * 8) + 1) + (Math.floor(Math.random() * 8) + 1) + 3;
+      const before = hero.hp;
+      hero.hp = Math.min(hero.maxHp, hero.hp + healed);
+      const actual = hero.hp - before;
+      this.removePartyItem(state, itemName, 1);
+      const wasInc = before <= 0;
+      return {
+        success: true,
+        healed: actual,
+        wasIncapacitated: wasInc,
+        log: wasInc
+          ? `💖 Radiant Extra-Healing draught poured down ${hero.name}'s throat! Miraculously revived (+${actual} HP, now ${hero.hp}/${hero.maxHp})!`
+          : `${hero.name} quaffs a Potion of Extra-Healing and surges with vitality (+${actual} HP, now ${hero.hp}/${hero.maxHp}).`
+      };
+    }
+
+    if (def.useEffect === 'ogre_strength') {
+      if (!hero) return { success: false, reason: 'Choose an ally to drink the potion.' };
+      this.removePartyItem(state, itemName, 1);
+      hero.tempAttackBonus = Math.max(hero.tempAttackBonus || 0, 3);
+      hero.tempDamageBonus = Math.max(hero.tempDamageBonus || 0, 4);
+      hero.tempAttackRounds = Math.max(hero.tempAttackRounds || 0, 30);
+      hero.tempAttackSource = 'Potion of Ogre Strength';
+      return {
+        success: true,
+        log: `💪 ${hero.name} drinks the Potion of Ogre Strength! Muscles surge with raw brute force (+3 to-hit, +4 melee damage for 30 exploration turns or combat)!`
+      };
+    }
+
+    if (def.useEffect === 'giant_strength') {
+      if (!hero) return { success: false, reason: 'Choose an ally to drink the potion.' };
+      this.removePartyItem(state, itemName, 1);
+      hero.tempAttackBonus = Math.max(hero.tempAttackBonus || 0, 4);
+      hero.tempDamageBonus = Math.max(hero.tempDamageBonus || 0, 6);
+      hero.tempAttackRounds = Math.max(hero.tempAttackRounds || 0, 30);
+      hero.tempAttackSource = 'Potion of Giant Strength';
+      return {
+        success: true,
+        log: `🏔️ ${hero.name} drinks the Potion of Giant Strength! Immense giant power surges through their limbs (+4 to-hit, +6 melee damage for 30 exploration turns or combat)!`
+      };
+    }
+
+    if (def.useEffect === 'speed') {
+      if (!hero) return { success: false, reason: 'Choose an ally to drink the potion.' };
+      this.removePartyItem(state, itemName, 1);
+      hero.tempAcBonus = Math.max(hero.tempAcBonus || 0, 2);
+      hero.tempAcRounds = Math.max(hero.tempAcRounds || 0, 25);
+      hero.tempAcSource = 'Potion of Speed';
+      hero.tempAttackBonus = Math.max(hero.tempAttackBonus || 0, 2);
+      hero.tempAttackRounds = Math.max(hero.tempAttackRounds || 0, 25);
+      return {
+        success: true,
+        log: `⚡ ${hero.name} drinks the Potion of Speed! Swift reflexes blur reality (+2 to-hit, -2 AC warding for 25 exploration turns or combat)!`
+      };
+    }
+
+    if (def.useEffect === 'invisibility') {
+      if (!hero) return { success: false, reason: 'Choose an ally to drink the potion.' };
+      this.removePartyItem(state, itemName, 1);
+      hero.isStealth = true;
+      hero.tempAcBonus = Math.max(hero.tempAcBonus || 0, 2);
+      hero.tempAcRounds = Math.max(hero.tempAcRounds || 0, 30);
+      hero.tempAcSource = 'Potion of Invisibility';
+      return {
+        success: true,
+        log: `🌫️ ${hero.name} drinks the Potion of Invisibility and vanishes from sight! (Stealth & evasion active for 30 exploration turns).`
+      };
+    }
+
+    if (def.useEffect === 'heroism') {
+      if (!hero) return { success: false, reason: 'Choose an ally to drink the potion.' };
+      this.removePartyItem(state, itemName, 1);
+      hero.tempHp = (hero.tempHp || 0) + 10;
+      hero.hp = hero.hp + 10;
+      hero.tempAttackBonus = Math.max(hero.tempAttackBonus || 0, 2);
+      hero.tempAttackRounds = Math.max(hero.tempAttackRounds || 0, 30);
+      return {
+        success: true,
+        log: `🛡️ ${hero.name} quaffs the Potion of Heroism! Fearless fortitude fills their spirit (+10 temporary HP, +2 to-hit for 30 turns)!`
+      };
+    }
+
+    if (def.useEffect === 'fire_resistance') {
+      if (!hero) return { success: false, reason: 'Choose an ally to drink the potion.' };
+      this.removePartyItem(state, itemName, 1);
+      hero.fireResistance = 60;
+      return {
+        success: true,
+        log: `🔥 ${hero.name} drinks the Potion of Fire Resistance! A cooling mystical aura wards against flames and scorch traps (60 turns).`
+      };
+    }
+
+    if (def.useEffect === 'antidote') {
+      if (!hero) return { success: false, reason: 'Choose an ally to drink the potion.' };
+      this.removePartyItem(state, itemName, 1);
+      hero.isPoisoned = false;
+      hero.poisonRounds = 0;
+      hero.poisonDamage = 0;
+      hero.tempIntDrain = 0;
+      return {
+        success: true,
+        log: `🌿 ${hero.name} drinks the Potion of Antidote! Toxins, venom, and incapacitating poisons are purged completely from their body!`
+      };
+    }
+
+    if (def.useEffect === 'clairvoyance') {
+      this.removePartyItem(state, itemName, 1);
+      state.clairvoyanceUntil = (state.totalExplorationMinutes || 0) + 30;
+      return {
+        success: true,
+        log: `👁️ The party drinks the Potion of Clairvoyance! Hidden secrets, concealed doors, and subterranean hazards are revealed in the mind's eye!`
+      };
+    }
+
+    if (def.useEffect === 'levitation') {
+      if (!hero) return { success: false, reason: 'Choose an ally to drink the potion.' };
+      this.removePartyItem(state, itemName, 1);
+      hero.isLevitating = 30;
+      return {
+        success: true,
+        log: `🪶 ${hero.name} drinks the Potion of Levitation and drifts weightlessly above the ground! (Immune to pit traps and floor pressure plates for 30 turns).`
+      };
+    }
+
+    if (def.useEffect === 'diminution') {
+      if (!hero) return { success: false, reason: 'Choose an ally to drink the potion.' };
+      this.removePartyItem(state, itemName, 1);
+      hero.isStealth = true;
+      hero.isDiminished = 30;
+      return {
+        success: true,
+        log: `🔍 ${hero.name} drinks the Potion of Diminution and shrinks to 6 inches tall! (Evasion and stealth enabled for 30 turns).`
       };
     }
 
@@ -433,16 +789,10 @@ export class InventoryManager {
       if (!thief) return { success: false, reason: 'No thief in the party.' };
       if ((thief.toolsDurability || 0) >= 100) return { success: false, reason: 'Tools are already in perfect condition.' };
       
-      const personal = (thief.inventory || []).find(i => i.name === 'Thief Tools');
-      const fromParty = this.getPartyItemQty(state, 'Thief Tools') > 0;
+      const hasTools = this.getPartyItemQty(state, 'Thief Tools') > 0;
+      if (!hasTools) return { success: false, reason: 'No spare Thief Tools available in any hero pack.' };
       
-      if (!fromParty && !personal) return { success: false, reason: 'No spare Thief Tools available.' };
-      
-      if (fromParty) this.removePartyItem(state, 'Thief Tools', 1);
-      else {
-        if ((personal.amount || 1) <= 1) thief.inventory = thief.inventory.filter(i => i !== personal);
-        else personal.amount -= 1;
-      }
+      this.removePartyItem(state, 'Thief Tools', 1);
       thief.toolsDurability = 100;
       return { success: true, log: `${thief.name} refits a fresh set of tools. Durability restored to 100%.` };
     }
@@ -464,7 +814,7 @@ export class InventoryManager {
       return { success: false, reason: `Insufficient gold for temple cure. Requires 100 GP (You have ${goldQty} GP).` };
     }
 
-    this.removePartyItem(state, "Gold Pieces", COST);
+    this.spendGold(state, COST);
     hero.hp = 1; // Restored with 1 HP per AD&D rules
 
     return {
@@ -497,7 +847,7 @@ export class InventoryManager {
   }
 
   /**
-   * Sells an item from party pack or personal hero inventory at fair market value.
+   * Sells an item from a hero's personal inventory at fair market value.
    */
   static sellItem(state, itemName, qty = 1, heroIndex = null, getDexDefensiveAdjustmentFn) {
     const def = ItemCatalog.getItemDef(itemName, state.spec);
@@ -513,72 +863,91 @@ export class InventoryManager {
     }
 
     const totalEarned = unitPrice * qty;
-    let fromSource = 'Party Pack';
-    let heroName = '';
-
+    let hero = null;
     if (heroIndex != null && heroIndex >= 0 && state.party[heroIndex]) {
-      const hero = state.party[heroIndex];
-      heroName = hero.name;
-      fromSource = hero.name;
-      if (!hero.inventory) hero.inventory = [];
-      const itemSlot = hero.inventory.find(i => (typeof i === 'string' ? i === itemName : i.name === itemName));
-      if (!itemSlot) return { success: false, reason: `${hero.name} does not have ${itemName} in their inventory.` };
-      
-      const currentAmt = typeof itemSlot === 'string' ? 1 : (itemSlot.amount || 1);
-      if (currentAmt < qty) return { success: false, reason: `Not enough ${itemName} to sell.` };
-      
-      if (typeof itemSlot === 'object') {
-        itemSlot.amount = currentAmt - qty;
-        if (itemSlot.amount <= 0) {
-          hero.inventory = hero.inventory.filter(i => i !== itemSlot);
-        }
-      } else {
-        hero.inventory = hero.inventory.filter(i => i !== itemSlot);
-      }
-
-      // If hero has this weapon/armor/shield equipped and has no more in inventory, unequip it
-      if (hero.equippedWeapon === itemName) {
-        const stillHas = hero.inventory.some(i => (typeof i === 'string' ? i === itemName : i.name === itemName));
-        if (!stillHas) {
-          hero.equippedWeapon = null;
-        }
-      }
-      if (hero.equippedArmor && hero.equippedArmor.name === itemName) {
-        const stillHas = hero.inventory.some(i => (typeof i === 'string' ? i === itemName : i.name === itemName));
-        if (!stillHas) {
-          hero.equippedArmor = null;
-          this.recalculateHeroAC(hero, getDexDefensiveAdjustmentFn);
-        }
-      }
-      if (hero.equippedShield && hero.equippedShield.name === itemName) {
-        const stillHas = hero.inventory.some(i => (typeof i === 'string' ? i === itemName : i.name === itemName));
-        if (!stillHas) {
-          hero.equippedShield = null;
-          this.recalculateHeroAC(hero, getDexDefensiveAdjustmentFn);
-        }
-      }
+      hero = state.party[heroIndex];
     } else {
-      // Selling from Party Pack
-      const partyQty = this.getPartyItemQty(state, itemName);
-      if (partyQty < qty) return { success: false, reason: `Party pack does not have ${qty}× ${itemName}.` };
-      const ok = this.removePartyItem(state, itemName, qty);
-      if (!ok) return { success: false, reason: `Could not remove ${itemName} from party pack.` };
+      const carrier = this.findHeroCarryingItem(state, itemName);
+      if (carrier) hero = carrier.hero;
     }
 
-    this.addPartyItem(state, 'Gold Pieces', totalEarned);
+    if (!hero) {
+      return { success: false, reason: `No hero carries ${itemName}.` };
+    }
+
+    const inv = hero.personalInventory || hero.inventory || [];
+    const itemSlot = inv.find(i => (typeof i === 'string' ? i === itemName : i && i.name === itemName));
+    if (!itemSlot) {
+      return { success: false, reason: `${hero.name} does not have ${itemName} in their personal inventory.` };
+    }
+
+    const currentAmt = typeof itemSlot === 'string' ? 1 : (itemSlot.amount ?? itemSlot.count ?? 1);
+    if (currentAmt < qty) {
+      return { success: false, reason: `Not enough ${itemName} to sell.` };
+    }
+
+    if (typeof itemSlot === 'object') {
+      const qtyKey = itemSlot.amount !== undefined ? 'amount' : 'count';
+      itemSlot[qtyKey] = currentAmt - qty;
+      if (itemSlot.count !== undefined && itemSlot.amount !== undefined) itemSlot.count = itemSlot[qtyKey];
+      if (itemSlot[qtyKey] <= 0) {
+        hero.personalInventory = inv.filter(i => i !== itemSlot);
+        hero.inventory = hero.personalInventory;
+      }
+    } else {
+      hero.personalInventory = inv.filter(i => i !== itemSlot);
+      hero.inventory = hero.personalInventory;
+    }
+
+    // If hero has this weapon/armor/shield equipped and has no more in inventory, unequip it
+    if (hero.equippedWeapon === itemName) {
+      const stillHas = (hero.personalInventory || []).some(i => (typeof i === 'string' ? i === itemName : i.name === itemName));
+      if (!stillHas) {
+        hero.equippedWeapon = null;
+      }
+    }
+    if (hero.equippedArmor && hero.equippedArmor.name === itemName) {
+      const stillHas = (hero.personalInventory || []).some(i => (typeof i === 'string' ? i === itemName : i.name === itemName));
+      if (!stillHas) {
+        hero.equippedArmor = null;
+        this.recalculateHeroAC(hero, getDexDefensiveAdjustmentFn);
+      }
+    }
+    if (hero.equippedShield && hero.equippedShield.name === itemName) {
+      const stillHas = (hero.personalInventory || []).some(i => (typeof i === 'string' ? i === itemName : i.name === itemName));
+      if (!stillHas) {
+        hero.equippedShield = null;
+        this.recalculateHeroAC(hero, getDexDefensiveAdjustmentFn);
+      }
+    }
+    if (hero.equippedBoots && hero.equippedBoots.name === itemName) {
+      const stillHas = (hero.personalInventory || []).some(i => (typeof i === 'string' ? i === itemName : i.name === itemName));
+      if (!stillHas) {
+        hero.equippedBoots = null;
+        this.recalculateHeroAC(hero, getDexDefensiveAdjustmentFn);
+      }
+    }
+    if (hero.equippedGloves && hero.equippedGloves.name === itemName) {
+      const stillHas = (hero.personalInventory || []).some(i => (typeof i === 'string' ? i === itemName : i.name === itemName));
+      if (!stillHas) {
+        hero.equippedGloves = null;
+      }
+    }
+
+    state.partyGold = (state.partyGold || 0) + totalEarned;
     return {
       success: true,
       itemName,
       qty,
       unitPrice,
       totalEarned,
-      fromSource,
-      heroName
+      fromSource: hero.name,
+      heroName: hero.name
     };
   }
 
   /**
-   * Purchases an item from a merchant, delivering to personal pack or shared party pack.
+   * Purchases an item from a merchant, delivering into a hero's personalInventory.
    */
   static buyItem(state, itemName, qty = 1, heroIndex = null) {
     const def = ItemCatalog.getItemDef(itemName, state.spec);
@@ -589,33 +958,99 @@ export class InventoryManager {
     if (this.getPartyGold(state) < total) return { success: false, reason: `Not enough gold (need ${total} gp).` };
     if (!this.spendGold(state, total)) return { success: false, reason: 'Payment failed.' };
 
-    if (def.scope === 'personal') {
-      let hero = null;
-      if (itemName === 'Thief Tools') {
-        hero = state.party.find(p => p.classKey === 'thief');
-        if (!hero) {
-          this.addPartyItem(state, 'Gold Pieces', total);
-          return { success: false, reason: 'No rogue or thief in the party to utilize Thief Tools.' };
-        }
-      } else {
-        hero = heroIndex != null ? state.party[heroIndex] : (state.party.find(p => p.hp > 0) || state.party[0]);
-      }
+    let hero = null;
+    if (itemName === 'Thief Tools') {
+      hero = state.party.find(p => p.classKey === 'thief');
       if (!hero) {
-        this.addPartyItem(state, 'Gold Pieces', total);
-        return { success: false, reason: 'No hero to receive the item.' };
+        state.partyGold = (state.partyGold || 0) + total;
+        return { success: false, reason: 'No rogue or thief in the party to utilize Thief Tools.' };
       }
-      if (!hero.inventory) hero.inventory = [];
-      const existing = hero.inventory.find(i => i.name === itemName);
-      if (existing) {
-        existing.amount = (existing.amount || 1) + qty;
-      } else {
-        hero.inventory.push({ name: itemName, amount: qty });
-      }
-      if (itemName === 'Thief Tools' && hero.classKey === 'thief') hero.toolsDurability = 100;
-      return { success: true, total, destination: 'personal', heroName: hero.name };
+    } else {
+      hero = (heroIndex != null && state.party[heroIndex]) ? state.party[heroIndex] : (state.party.find(p => p.hp > 0) || state.party[0]);
+    }
+    if (!hero) {
+      state.partyGold = (state.partyGold || 0) + total;
+      return { success: false, reason: 'No hero to receive the item.' };
     }
 
-    this.addPartyItem(state, itemName, qty);
-    return { success: true, total, destination: 'party' };
+    this.addItemToHero(hero, itemName, qty, state.spec);
+    if (itemName === 'Thief Tools' && hero.classKey === 'thief') hero.toolsDurability = 100;
+    return { success: true, total, destination: 'personal', heroName: hero.name };
+  }
+
+  /**
+   * Transfers an item between two heroes in the party.
+   * If the sending hero had the item equipped (weapon/armor/shield), it is safely unequipped.
+   */
+  static transferItemBetweenHeroes(state, fromHeroIndex, toHeroIndex, itemName, amount = 1, getDexDefensiveAdjustmentFn = null) {
+    if (fromHeroIndex === toHeroIndex) {
+      return { success: false, reason: "Cannot hand an item to the same hero." };
+    }
+    const fromHero = state.party[fromHeroIndex];
+    const toHero = state.party[toHeroIndex];
+    if (!fromHero || !toHero) {
+      return { success: false, reason: "Invalid party member selected." };
+    }
+    if (toHero.hp <= -10) {
+      return { success: false, reason: `${toHero.name} has fallen in death and cannot hold gear.` };
+    }
+
+    const fromInv = fromHero.personalInventory || fromHero.inventory || [];
+    const itemSlot = fromInv.find(i => (typeof i === 'string' ? i === itemName : i && i.name === itemName));
+    if (!itemSlot) {
+      return { success: false, reason: `${fromHero.name} does not possess ${itemName}.` };
+    }
+
+    const currentQty = typeof itemSlot === 'string' ? 1 : (itemSlot.amount ?? itemSlot.count ?? 1);
+    const transferQty = Math.min(currentQty, Math.max(1, amount));
+
+    // Deduct from sender
+    if (typeof itemSlot === 'object') {
+      const qtyKey = itemSlot.amount !== undefined ? 'amount' : 'count';
+      itemSlot[qtyKey] = currentQty - transferQty;
+      if (itemSlot.count !== undefined && itemSlot.amount !== undefined) itemSlot.count = itemSlot[qtyKey];
+      if (itemSlot[qtyKey] <= 0) {
+        fromHero.personalInventory = fromInv.filter(i => i !== itemSlot);
+        fromHero.inventory = fromHero.personalInventory;
+      }
+    } else {
+      fromHero.personalInventory = fromInv.filter(i => i !== itemSlot);
+      fromHero.inventory = fromHero.personalInventory;
+    }
+
+    // Unequip if sender was wielding/wearing it and has none left
+    const senderStillHas = (fromHero.personalInventory || []).some(i => (typeof i === 'string' ? i === itemName : i.name === itemName));
+    if (!senderStillHas) {
+      if (fromHero.equippedWeapon === itemName) {
+        fromHero.equippedWeapon = null;
+      }
+      if (fromHero.equippedArmor && fromHero.equippedArmor.name === itemName) {
+        fromHero.equippedArmor = null;
+        this.recalculateHeroAC(fromHero, getDexDefensiveAdjustmentFn);
+      }
+      if (fromHero.equippedShield && fromHero.equippedShield.name === itemName) {
+        fromHero.equippedShield = null;
+        this.recalculateHeroAC(fromHero, getDexDefensiveAdjustmentFn);
+      }
+      if (fromHero.equippedBoots && fromHero.equippedBoots.name === itemName) {
+        fromHero.equippedBoots = null;
+        this.recalculateHeroAC(fromHero, getDexDefensiveAdjustmentFn);
+      }
+      if (fromHero.equippedGloves && fromHero.equippedGloves.name === itemName) {
+        fromHero.equippedGloves = null;
+      }
+    }
+
+    // Add to recipient
+    this.addItemToHero(toHero, itemName, transferQty, state.spec);
+
+    return {
+      success: true,
+      fromHeroName: fromHero.name,
+      toHeroName: toHero.name,
+      itemName,
+      qty: transferQty,
+      log: `🤝 ${fromHero.name} handed ${transferQty > 1 ? `${transferQty}× ` : ''}${itemName} to ${toHero.name}.`
+    };
   }
 }

@@ -1,0 +1,999 @@
+{
+  "id": "b2_caves_upper",
+  "name": "Caves of Chaos: The Lesser Warrens",
+  "campaign": "b2_keep_on_the_borderlands",
+  "zoneType": "dungeon",
+  "combat_tracks": [
+    "combat_1",
+    "combat_2",
+    "combat_3"
+  ],
+  "town_tracks": [
+    "town_1",
+    "town_2"
+  ],
+  "wilderness_tracks": [
+    "wilderness_1"
+  ],
+  "dungeon_tracks": [
+    "dungeon_1",
+    "dungeon_2",
+    "dungeon_3"
+  ],
+  "rest_duration_seconds": 12,
+  "briefing": "You have breached the western cave mouth of the Caves of Chaos. Damp limestone corridors reek of offal and unwashed hide. Tunnels branch toward the Kobold warrens (Cave A), two rival Orc clans (Caves B and C), the Goblin halls (Cave D), and the cavernous den of a solitary Ogre (Cave E). Keep your torches burning and shields raised!",
+  "assets": {
+    "wizard": "assets/glb/strange_wizard.glb",
+    "cultist": "assets/glb/cultist.glb",
+    "skeleton": "assets/glb/skeleton_animated.glb",
+    "goblin": "assets/glb/basic_goblin.glb",
+    "ghoul": "assets/glb/goblin_ghoul.glb",
+    "giant_spider": "assets/glb/giant_spider.glb",
+    "kobold": "assets/glb/kobold.glb",
+    "orc": "assets/glb/orc_captain.glb",
+    "assassin": "assets/glb/assassin.glb",
+    "chest": "assets/glb/chest.glb",
+    "campfire": "assets/glb/campfire.glb"
+  },
+  "start": {
+    "x": 2,
+    "y": 1,
+    "facing": "SOUTH"
+  },
+  "surface_y_min": 99,
+  "dungeon_y_max": 99,
+  "legend": {
+    "0": {
+      "name": "Carved Cavern Floor",
+      "walkable": true
+    },
+    "1": {
+      "name": "Jagged Limestone Wall",
+      "walkable": false
+    },
+    "2": {
+      "name": "Crude Timber Barricade Door",
+      "walkable": false,
+      "interactive": true,
+      "locked": {
+        "methods": [
+          "mechanical",
+          "brute"
+        ],
+        "dc": 11
+      }
+    },
+    "3": {
+      "name": "Iron-Bound Monster Chest",
+      "walkable": false,
+      "interactive": true,
+      "locked": {
+        "methods": [
+          "mechanical",
+          "brute"
+        ],
+        "dc": 12
+      }
+    },
+    "4": {
+      "name": "Bone-Strewn Cave Floor",
+      "walkable": true
+    },
+    "7": {
+      "name": "Kobold Pit Trap",
+      "walkable": true,
+      "trap": {
+        "name": "Spiked Kobold Deadfall",
+        "dc": 13,
+        "damage": 10,
+        "saveCategory": "breath"
+      }
+    },
+    "8": {
+      "name": "Cavern Mouth Exit",
+      "walkable": true,
+      "interactive": true,
+      "description": "The daylight of the Ravine illuminates the tunnel entrance."
+    }
+  },
+  "transitions": [
+    {
+      "x": 2,
+      "y": 0,
+      "targetZone": "/data/b2/b2_wilderness.json",
+      "targetX": 2,
+      "targetY": 14,
+      "targetFacing": "NORTH",
+      "label": "Climb up to the Borderland Ravine",
+      "prompt": "Ascend the rocky passage back up to the Ravine?"
+    }
+  ],
+  "chests": {
+    "1,5": [
+      {
+        "name": "Kobold Chieftain's Dagger",
+        "amount": 1,
+        "type": "treasure"
+      },
+      {
+        "name": "Gold Pieces",
+        "amount": 140,
+        "type": "currency"
+      },
+      {
+        "name": "Small Garnet",
+        "amount": 3,
+        "type": "treasure"
+      }
+    ],
+    "14,2": [
+      {
+        "name": "Orc Clan Battle Standard",
+        "amount": 1,
+        "type": "quest"
+      },
+      {
+        "name": "Boots of Elvenkind",
+        "amount": 1,
+        "type": "boots"
+      },
+      {
+        "name": "Gold Pieces",
+        "amount": 220,
+        "type": "currency"
+      },
+      {
+        "name": "Healing Potion",
+        "amount": 2,
+        "type": "consumable"
+      }
+    ],
+    "2,14": [
+      {
+        "name": "Goblin King's Crown",
+        "amount": 1,
+        "type": "treasure"
+      },
+      {
+        "name": "Gold Pieces",
+        "amount": 180,
+        "type": "currency"
+      },
+      {
+        "name": "Silver Goblet",
+        "amount": 2,
+        "type": "treasure"
+      }
+    ],
+    "9,8": [
+      {
+        "name": "Ogre's War Club",
+        "amount": 1,
+        "type": "quest"
+      },
+      {
+        "name": "Gloves of Ogre Strength",
+        "amount": 1,
+        "type": "gloves"
+      },
+      {
+        "name": "Gold Pieces",
+        "amount": 350,
+        "type": "currency"
+      },
+      {
+        "name": "Potion of Giant Strength",
+        "amount": 1,
+        "type": "consumable"
+      },
+      {
+        "name": "Flawless Topaz",
+        "amount": 2,
+        "type": "treasure"
+      }
+    ]
+  },
+  "entities": [
+    {
+      "type": "prop",
+      "id": "kobold_chest_prop",
+      "name": "Kobold Hoard Chest",
+      "model": "chest",
+      "x": 1,
+      "y": 5,
+      "facing": "EAST"
+    },
+    {
+      "type": "prop",
+      "id": "orc_t1_chest_prop",
+      "name": "Orc Chieftain Strongbox",
+      "model": "chest",
+      "x": 14,
+      "y": 2,
+      "facing": "SOUTH"
+    },
+    {
+      "type": "prop",
+      "id": "goblin_king_chest",
+      "name": "Goblin King's Treasury",
+      "model": "chest",
+      "x": 2,
+      "y": 14,
+      "facing": "NORTH"
+    },
+    {
+      "type": "prop",
+      "id": "ogre_hoard_chest",
+      "name": "Ogre's Massive Stash",
+      "model": "chest",
+      "x": 9,
+      "y": 8,
+      "facing": "WEST"
+    },
+    {
+      "type": "prop",
+      "id": "ogre_spit_fire",
+      "name": "Roasting Spit Fire",
+      "model": "campfire",
+      "x": 8,
+      "y": 8,
+      "facing": "NORTH"
+    }
+  ],
+  "npcs": {
+    "merchant_captive": {
+      "id": "merchant_captive",
+      "name": "Gerrard the Merchant (Captive)",
+      "tile": [
+        14,
+        4
+      ],
+      "initialNode": "node_captive_greet",
+      "inventory_to_steal": []
+    },
+    "orc_t2_emissary": {
+      "id": "orc_t2_emissary",
+      "name": "Gorbad (Orc Tribe 2 Sentry)",
+      "tile": [
+        14,
+        11
+      ],
+      "initialNode": "node_orc2_parley",
+      "inventory_to_steal": [
+        {
+          "name": "Gold Pieces",
+          "type": "currency",
+          "amount": 20
+        }
+      ]
+    }
+  },
+  "dialogue": {
+    "node_captive_greet": {
+      "speaker": "Gerrard the Merchant (Captive)",
+      "text": "Praised be the gods! You broke through the orc guard! I am Gerrard, a wine merchant from the southern road. The orcs ambushed our caravan three days ago. They slaughtered my guards and dragged me here. Please, tell me the path to the Keep is clear!",
+      "alignment_impact": {
+        "order": 1,
+        "morality": 2,
+        "reason": "Rescued captured merchant from the orc chieftain"
+      },
+      "options": [
+        {
+          "label": "The way behind us is cleared. Flee to the Keep, friend!",
+          "targetNode": "node_captive_safe"
+        },
+        {
+          "label": "Did you hear anything about an evil shrine nearby?",
+          "targetNode": "node_captive_intel"
+        }
+      ]
+    },
+    "node_captive_safe": {
+      "speaker": "Gerrard the Merchant (Captive)",
+      "text": "Thank you, noble heroes! Take this pouch of 50 gold pieces I had sewn inside my boot lining. May fortune favor your blades!",
+      "options": [
+        {
+          "label": "Go safely, Gerrard.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_captive_intel": {
+      "speaker": "Gerrard the Merchant (Captive)",
+      "text": "Yes! The orcs spoke of 'The Masters in Red' who dwell in the great chasm at the ravine's head. They bring tribute to the shrine every full moon to receive dark blessings. The shrine is heavily guarded by priests and undead!",
+      "options": [
+        {
+          "label": "Flee to the Keep now. We will handle the cult.",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_orc2_parley": {
+      "speaker": "Gorbad (Orc Tribe 2 Sentry)",
+      "text": "Grrr! Halt, pink-skins! You kill Tribe 1 chieftain in north cave? Good! Tribe 1 are filthy dogs! We of Tribe 2 rule the south tunnels. If you not attack our chieftain Grash, we not skewer you... for now!",
+      "options": [
+        {
+          "label": "We have no quarrel with Tribe 2 if you stay out of our way.",
+          "targetNode": "node_orc2_truce"
+        },
+        {
+          "label": "All monsters in these caves must fall! Draw steel!",
+          "targetNode": null
+        }
+      ]
+    },
+    "node_orc2_truce": {
+      "speaker": "Gorbad (Orc Tribe 2 Sentry)",
+      "text": "Ha! Smart humans. Beware the big ugly Ogre in the middle cavern. He eats orcs and humans alike!",
+      "alignment_impact": {
+        "order": 0,
+        "morality": 0,
+        "reason": "Negotiated uneasy truce with rival orc clan"
+      },
+      "options": [
+        {
+          "label": "We will take note.",
+          "targetNode": null
+        }
+      ]
+    }
+  },
+  "monsters": {
+    "kobold_sentry": {
+      "id": "kobold_sentry",
+      "name": "Cave Kobold Sentry",
+      "glbModel": "assets/glb/kobold.glb",
+      "scale": 0.85,
+      "hp": 6,
+      "maxHp": 6,
+      "armorClass": 7,
+      "armorType": "leather",
+      "attackTarget": 11,
+      "damage": "1d4",
+      "damageType": "piercing",
+      "actionPhase": "FAST",
+      "moraleThreshold": 40,
+      "xpReward": 150
+    },
+    "kobold_chieftain": {
+      "id": "kobold_chieftain",
+      "name": "Kobold Chieftain Snik",
+      "glbModel": "assets/glb/kobold.glb",
+      "scale": 1.05,
+      "hp": 14,
+      "maxHp": 14,
+      "armorClass": 6,
+      "armorType": "leather",
+      "attackTarget": 13,
+      "damage": "1d6+1",
+      "damageType": "piercing",
+      "actionPhase": "FAST",
+      "moraleThreshold": 60,
+      "xpReward": 400
+    },
+    "orc_warrior": {
+      "id": "orc_warrior",
+      "name": "Orc Ravine Raider",
+      "glbModel": "assets/glb/orc_captain.glb",
+      "scale": 0.95,
+      "hp": 11,
+      "maxHp": 11,
+      "armorClass": 6,
+      "armorType": "leather",
+      "attackTarget": 12,
+      "damage": "1d8",
+      "damageType": "slashing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 50,
+      "xpReward": 250
+    },
+    "orc_chieftain": {
+      "id": "orc_chieftain",
+      "name": "Orc Chieftain Korg",
+      "glbModel": "assets/glb/orc_captain.glb",
+      "scale": 1.2,
+      "hp": 22,
+      "maxHp": 22,
+      "armorClass": 5,
+      "armorType": "chain",
+      "attackTarget": 14,
+      "damage": "1d8+2",
+      "damageType": "slashing",
+      "actionPhase": "MEDIUM",
+      "moraleThreshold": 75,
+      "xpReward": 600
+    },
+    "goblin_skirmisher": {
+      "id": "goblin_skirmisher",
+      "name": "Cave Goblin Skirmisher",
+      "glbModel": "assets/glb/basic_goblin.glb",
+      "scale": 0.9,
+      "hp": 8,
+      "maxHp": 8,
+      "armorClass": 6,
+      "armorType": "leather",
+      "attackTarget": 12,
+      "damage": "1d6",
+      "damageType": "slashing",
+      "actionPhase": "FAST",
+      "moraleThreshold": 45,
+      "xpReward": 200
+    },
+    "goblin_king": {
+      "id": "goblin_king",
+      "name": "Goblin King Brak",
+      "glbModel": "assets/glb/basic_goblin.glb",
+      "scale": 1.15,
+      "hp": 18,
+      "maxHp": 18,
+      "armorClass": 5,
+      "armorType": "chain",
+      "attackTarget": 13,
+      "damage": "1d6+2",
+      "damageType": "slashing",
+      "actionPhase": "FAST",
+      "moraleThreshold": 70,
+      "xpReward": 550
+    },
+    "cavern_ogre": {
+      "id": "cavern_ogre",
+      "name": "The Ravine Ogre",
+      "glbModel": "assets/glb/orc_captain.glb",
+      "scale": 1.65,
+      "hp": 36,
+      "maxHp": 36,
+      "armorClass": 5,
+      "armorType": "leather",
+      "attackTarget": 15,
+      "damage": "1d10+3",
+      "damageType": "crushing",
+      "actionPhase": "SLOW",
+      "moraleThreshold": 70,
+      "xpReward": 1200
+    }
+  },
+  "encounters": [
+    {
+      "id": "enc_kobold_guards",
+      "x": 3,
+      "y": 3,
+      "name": "Cave A — Kobold Warren Sentries",
+      "enemies": [
+        {
+          "monsterId": "kobold_sentry",
+          "count": 3
+        }
+      ],
+      "onVictoryXp": 450
+    },
+    {
+      "id": "enc_kobold_chieftain",
+      "x": 2,
+      "y": 5,
+      "name": "Cave A — Chieftain Snik's Lair",
+      "enemies": [
+        {
+          "monsterId": "kobold_chieftain",
+          "count": 1
+        },
+        {
+          "monsterId": "kobold_sentry",
+          "count": 2
+        }
+      ],
+      "onVictoryXp": 700
+    },
+    {
+      "id": "enc_orc_tribe1_guards",
+      "x": 12,
+      "y": 3,
+      "name": "Cave B — Orc Tribe 1 Guardpost",
+      "enemies": [
+        {
+          "monsterId": "orc_warrior",
+          "count": 2
+        }
+      ],
+      "onVictoryXp": 500
+    },
+    {
+      "id": "enc_orc_tribe1_chief",
+      "x": 14,
+      "y": 3,
+      "name": "Cave B — Chieftain Korg's Throne",
+      "enemies": [
+        {
+          "monsterId": "orc_chieftain",
+          "count": 1
+        },
+        {
+          "monsterId": "orc_warrior",
+          "count": 2
+        }
+      ],
+      "onVictoryXp": 1100
+    },
+    {
+      "id": "enc_goblin_barracks",
+      "x": 3,
+      "y": 12,
+      "name": "Cave D — Goblin Warren Skirmishers",
+      "enemies": [
+        {
+          "monsterId": "goblin_skirmisher",
+          "count": 3
+        }
+      ],
+      "onVictoryXp": 600
+    },
+    {
+      "id": "enc_goblin_king",
+      "x": 3,
+      "y": 14,
+      "name": "Cave D — Goblin King's Chamber",
+      "enemies": [
+        {
+          "monsterId": "goblin_king",
+          "count": 1
+        },
+        {
+          "monsterId": "goblin_skirmisher",
+          "count": 2
+        }
+      ],
+      "onVictoryXp": 950
+    },
+    {
+      "id": "enc_cavern_ogre",
+      "x": 8,
+      "y": 8,
+      "name": "Cave E — The Ravine Ogre's Lair",
+      "enemies": [
+        {
+          "monsterId": "cavern_ogre",
+          "count": 1
+        }
+      ],
+      "onVictoryXp": 1200
+    }
+  ],
+  "map": [
+    [
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      0,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      7,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      1,
+      2,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      1,
+      2,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ]
+  ],
+  "dialogues": {
+    "merchant_captive": {
+      "node_captive_greet": {
+        "text": "Merciful gods, you killed the guards! Please, untie my bonds before the rest of the warband returns! I am Master Corvin of the Merchant Guild. The goblins ambushed our caravan on the mountain pass two days ago.",
+        "choices": [
+          {
+            "id": "choice_rescue_corvin",
+            "text": "\"You are safe now, Corvin. Cut his ropes and escort him toward the exit.\"",
+            "onSuccess": "node_captive_rescued",
+            "alignment_impact": {
+              "order": 1,
+              "morality": 2,
+              "reason": "Rescued captive merchant from goblin warrens"
+            }
+          },
+          {
+            "id": "choice_thief_bounty",
+            "text": "[Thief] \"Rescues don't come free in goblin territory. What reward can the Merchant Guild offer?\"",
+            "specialtyClass": "Thief",
+            "specialtyBonus": 2,
+            "attribute": "charisma",
+            "onSuccess": "node_captive_reward"
+          }
+        ]
+      },
+      "node_captive_rescued": {
+        "text": "Thank you, brave heroes! I shall sprint for the sunlight immediately. When you return to the Keep, tell the Provisioner that Corvin lives — he will reward you handsomely with fine gear!",
+        "giveGold": 75,
+        "questXP": 400,
+        "choices": [
+          {
+            "text": "Run swiftly, Corvin!",
+            "onSuccess": null
+          }
+        ]
+      },
+      "node_captive_reward": {
+        "text": "I have a hidden stash of 120 gold pieces back at the Keep's counting house, and a pouch of uncut gems right in my boot lining! Take the gems now, and collect the rest at the bailey!",
+        "giveItem": "Ancient Rubies",
+        "giveGold": 60,
+        "questXP": 300,
+        "choices": [
+          {
+            "text": "Pleasure doing business. Head for the exit.",
+            "onSuccess": null
+          }
+        ]
+      }
+    },
+    "orc_t2_emissary": {
+      "node_orc2_parley": {
+        "text": "Hold your steel, surface dogs! Chief Grash of Clan Bloodskull does not want your blood today. The filthy Tree-Biter Goblins in the eastern tunnels stole our sacred war horn. If you slaughter their chieftains, we will grant you safe passage through our lower hall!",
+        "choices": [
+          {
+            "id": "choice_orc_parley_accept",
+            "text": "\"A temporary truce. We will eliminate the goblin leaders.\"",
+            "onSuccess": "node_orc_truce",
+            "attitudeShift": 15
+          },
+          {
+            "id": "choice_orc_parley_refuse",
+            "text": "\"We make no pacts with ravenous orcs. Draw your blade!\"",
+            "onSuccess": null
+          }
+        ]
+      },
+      "node_orc_truce": {
+        "text": "Hahaha! Good! Bring us word of their demise, and we shall not paint our shields with your entrails.",
+        "choices": [
+          {
+            "text": "We shall see.",
+            "onSuccess": null
+          }
+        ]
+      }
+    }
+  }
+}

@@ -164,6 +164,20 @@
       "facing": "WEST"
     }
   ],
+  "chests": {
+    "2,2": [
+      { "name": "Gloves of Ogre Strength", "type": "gloves", "amount": 1 },
+      { "name": "Gold Pieces", "amount": 160, "type": "currency" },
+      { "name": "Potion of Extra-Healing", "amount": 1, "type": "consumable" },
+      { "name": "Ancient Rubies", "amount": 2, "type": "treasure" }
+    ],
+    "12,7": [
+      { "name": "Boots of Elvenkind", "type": "boots", "amount": 1 },
+      { "name": "Gold Pieces", "amount": 95, "type": "currency" },
+      { "name": "Potion of Neutralize Poison", "amount": 1, "type": "consumable" },
+      { "name": "Potion of Invisibility", "amount": 1, "type": "consumable" }
+    ]
+  },
   "npcs": {
     "mira_vale": {
       "id": "mira_vale",
@@ -399,6 +413,12 @@
             "specialtyClass": "Cleric",
             "specialtyBonus": 4,
             "moral_tax": 12,
+            "alignment_impact": {
+              "order": 6,
+              "morality": 14,
+              "tags": ["relieve_suffering", "nurture_life", "defend_wronged", "mercy"],
+              "description": "Tending wounds and offering sanctuary to Mira"
+            },
             "clericMultiplier": 1.5,
             "attitudeShift": 30,
             "onSuccess": "node_mira_trusts",
@@ -412,6 +432,12 @@
             "specialtyClass": "Fighter",
             "specialtyBonus": 3,
             "moral_tax": -10,
+            "alignment_impact": {
+              "order": -4,
+              "morality": -12,
+              "tags": ["cruelty", "intimidation", "ruthless"],
+              "description": "Interrogating a captive girl with unyielding cruelty"
+            },
             "clericMultiplier": 2.0,
             "attitudeShift": -15,
             "onSuccess": "node_mira_points",
@@ -425,6 +451,12 @@
             "specialtyClass": "Mage",
             "specialtyBonus": 3,
             "moral_tax": 0,
+            "alignment_impact": {
+              "order": 5,
+              "morality": 3,
+              "tags": ["truth", "impartial_justice"],
+              "description": "Patiently listening to uncover the hidden truth"
+            },
             "attitudeShift": 10,
             "onSuccess": "node_mira_truth",
             "onFail": "node_mira_wary"
@@ -437,6 +469,12 @@
             "specialtyClass": "Thief",
             "specialtyBonus": 4,
             "moral_tax": -5,
+            "alignment_impact": {
+              "order": -8,
+              "morality": -4,
+              "tags": ["deception", "bargain", "ambition"],
+              "description": "Striking a covert deal for map secrets"
+            },
             "attitudeShift": 5,
             "onSuccess": "node_mira_bargain",
             "onFail": "node_mira_wary"
@@ -522,6 +560,12 @@
             "specialtyClass": "Cleric",
             "specialtyBonus": 4,
             "moral_tax": 20,
+            "alignment_impact": {
+              "order": 14,
+              "morality": 18,
+              "tags": ["eradicate_evil", "truth", "justice", "impartial_justice"],
+              "description": "Calling on sacred truth and urging surrender to divine judgment"
+            },
             "clericMultiplier": 2.0,
             "attitudeShift": 25,
             "onSuccess": "node_corvin_yields_faith",
@@ -535,6 +579,12 @@
             "specialtyClass": "Fighter",
             "specialtyBonus": 4,
             "moral_tax": -8,
+            "alignment_impact": {
+              "order": 8,
+              "morality": -8,
+              "tags": ["mercenary", "intimidation", "ruthless"],
+              "description": "Executing mercenary contract through threat of drawn steel"
+            },
             "clericMultiplier": 1.8,
             "attitudeShift": -30,
             "onSuccess": "node_corvin_cowed",
@@ -548,6 +598,12 @@
             "specialtyClass": "Mage",
             "specialtyBonus": 4,
             "moral_tax": 5,
+            "alignment_impact": {
+              "order": 12,
+              "morality": 8,
+              "tags": ["truth", "impartial_justice", "bear_burden"],
+              "description": "Appealing to evidence and demanding a public accounting"
+            },
             "attitudeShift": 15,
             "onSuccess": "node_corvin_considers",
             "onFail": "node_corvin_defiant"
@@ -560,6 +616,12 @@
             "specialtyClass": "Thief",
             "specialtyBonus": 3,
             "moral_tax": -12,
+            "alignment_impact": {
+              "order": -14,
+              "morality": -8,
+              "tags": ["deception", "ambition", "treachery"],
+              "description": "Brokering an unprincipled backroom deal to bury the feud"
+            },
             "clericMultiplier": 2.2,
             "attitudeShift": 10,
             "onSuccess": "node_corvin_deal",

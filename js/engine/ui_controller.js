@@ -81,13 +81,15 @@ export class UIController {
         if (!cache || !cache.defense || !cache.buffs) return;
         const baseAc = hero.armorClass != null ? hero.armorClass : 5;
         const activeSpellAc = hero.tempAcBonus || 0;
-        const effectiveAc = baseAc - activeSpellAc;
+        const partyTier = this.state.getPartyEncumbranceTier ? this.state.getPartyEncumbranceTier() : null;
+        const encAcPenalty = (partyTier && partyTier.acPenalty) || 0;
+        const effectiveAc = baseAc - activeSpellAc + encAcPenalty;
         const armorShort = (hero.equippedArmor && hero.equippedArmor.name) ? hero.equippedArmor.name.split(' ')[0] : 'None';
         const shieldIcon = (hero.equippedShield && hero.equippedShield.name) ? ' + 🛡️' : '';
 
         cache.defense.innerHTML = `
           <div class="hero-defense-bar">
-            <span>AC: <b style="color:var(--gold-tsr);">${effectiveAc}</b>${activeSpellAc > 0 ? ` <span style="color:#79c0ff; font-weight: bold;">(-${activeSpellAc})</span>` : ''}</span>
+            <span>AC: <b style="color:var(--gold-tsr);">${effectiveAc}</b>${activeSpellAc > 0 ? ` <span style="color:#79c0ff; font-weight: bold;">(-${activeSpellAc})</span>` : ''}${encAcPenalty > 0 ? ` <span style="color:#f85149; font-weight: bold;" title="Encumbered (+1 AC penalty)">(+${encAcPenalty} enc)</span>` : ''}</span>
             <span style="color: var(--text-parchment);">${armorShort}${shieldIcon}</span>
           </div>
         `;
@@ -95,6 +97,15 @@ export class UIController {
         const buffBadges = [];
         if (hero.tempAcBonus > 0) {
             buffBadges.push(`<span class="hero-buff-pill ac-buff" title="${hero.tempAcSource || 'AC Ward'}: -${hero.tempAcBonus} AC protection (${hero.tempAcRounds} round${hero.tempAcRounds === 1 ? '' : 's'} remaining)">🛡️ -${hero.tempAcBonus} AC (${hero.tempAcRounds}r)</span>`);
+        }
+        if (encAcPenalty > 0) {
+            buffBadges.push(`<span class="hero-buff-pill" style="background:#3c1111;color:#ff7b72;border:1px solid #d23f31;" title="Encumbrance: +1 AC penalty from heavy load">⚖️ +1 AC</span>`);
+        }
+        if (hero.equippedGloves && (hero.equippedGloves.strengthSet || hero.equippedGloves.name?.toLowerCase().includes('ogre'))) {
+            buffBadges.push(`<span class="hero-buff-pill" style="background:#281b0a;color:#f0883e;border:1px solid #bd561d;" title="${hero.equippedGloves.name}: STR 18/00 (+3 To-Hit, +4 Melee Dmg, 180 lb load)">🥊 STR 18/00</span>`);
+        }
+        if (hero.equippedBoots && (hero.equippedBoots.name?.toLowerCase().includes('elvenkind') || hero.equippedBoots.name?.toLowerCase().includes('evenkind') || hero.equippedBoots.silentSteps)) {
+            buffBadges.push(`<span class="hero-buff-pill" style="background:#0f2b1d;color:#7ee787;border:1px solid #238636;" title="${hero.equippedBoots.name}: Utter Silence (+25% Stealth, -1 AC, Ambush Immunity)">🧝 Elven Boots</span>`);
         }
         if (hero.tempAttackBonus > 0) {
             const isHaste = hero.tempAttackBonus >= 2;
@@ -136,13 +147,21 @@ export class UIController {
         this.elements.coordVal.textContent = `${this.state.player.x}, ${this.state.player.y}`;
         this.elements.dirVal.textContent = this.state.player.facing;
 
-        const goldItem = (this.state.inventory || []).find(i => i && i.name === "Gold Pieces");
-        if (this.elements.goldVal) this.elements.goldVal.textContent = goldItem ? goldItem.amount : 0;
+        if (this.elements.goldVal) this.elements.goldVal.textContent = this.state.getPartyGold();
 
-        const rationsItem = (this.state.inventory || []).find(i => i && (i.name || "").toLowerCase().includes("ration"));
         const rationsVal = document.getElementById('rations-val');
         if (rationsVal) {
-            rationsVal.textContent = rationsItem ? (rationsItem.amount !== undefined ? rationsItem.amount : rationsItem.count || 0) : 0;
+            let totalRations = 0;
+            (this.state.party || []).forEach(hero => {
+                const inv = hero.personalInventory || hero.inventory || [];
+                inv.forEach(item => {
+                    const name = typeof item === 'string' ? item : item?.name;
+                    if (name && name.toLowerCase().includes('ration')) {
+                        totalRations += typeof item === 'object' ? (item.amount ?? item.count ?? 1) : 1;
+                    }
+                });
+            });
+            rationsVal.textContent = totalRations;
         }
 
         const light = this.state.getActiveLightSource ? this.state.getActiveLightSource() : null;
@@ -159,14 +178,59 @@ export class UIController {
             }
         }
 
+        const partyTier = this.state.getPartyEncumbranceTier ? this.state.getPartyEncumbranceTier() : null;
+        const encRow = document.getElementById('encumbrance-val-row');
+        const encBadge = document.getElementById('encumbrance-badge');
+        if (encRow && encBadge) {
+            if (partyTier && partyTier.tier !== 'unencumbered') {
+                encRow.style.display = 'block';
+                const sharedLoad = Math.round((this.state.getPartySharedLoad ? this.state.getPartySharedLoad() : 0) * 10) / 10;
+                const heroBreakdowns = (this.state.party || []).map(h => {
+                    const cap = this.state.getHeroCapacity ? Math.round(this.state.getHeroCapacity(h) * 10) / 10 : 10;
+                    const tot = this.state.getHeroTotalLoad ? Math.round(this.state.getHeroTotalLoad(h) * 10) / 10 : 0;
+                    const hTier = this.state.getHeroEncumbranceTier ? this.state.getHeroEncumbranceTier(h).tier : 'unencumbered';
+                    return `${h.name}: ${tot}/${cap} (${hTier})`;
+                }).join(' | ');
+
+                const tooltip = `Party Encumbrance: ${partyTier.tier.toUpperCase()} [Shared Pack: ${sharedLoad}] — ${heroBreakdowns}`;
+                encBadge.setAttribute('title', tooltip);
+
+                if (partyTier.tier === 'immobile') {
+                    encBadge.className = 'encumbrance-immobile-pulse';
+                    encBadge.style.background = '#490202';
+                    encBadge.style.color = '#ff7b72';
+                    encBadge.style.border = '1px solid #f85149';
+                    encBadge.textContent = '⛔ IMMOBILE';
+                } else if (partyTier.tier === 'overloaded') {
+                    encBadge.className = '';
+                    encBadge.style.background = '#3c1111';
+                    encBadge.style.color = '#ff7b72';
+                    encBadge.style.border = '1px solid #d23f31';
+                    encBadge.textContent = '🔴 OVERLOADED (3x Time, +1 AC, No Stealth)';
+                } else if (partyTier.tier === 'burdened') {
+                    encBadge.className = '';
+                    encBadge.style.background = '#2e2305';
+                    encBadge.style.color = '#e3b341';
+                    encBadge.style.border = '1px solid #bb8009';
+                    encBadge.textContent = '⚠️ BURDENED (2x Time, Loud)';
+                }
+            } else {
+                encRow.style.display = 'none';
+            }
+        }
+
         const lockTarget = this.state.getLockInFront();
         const trapInFront = this.state.getTrapInFront();
 
         const partySig = this.state.party.map(h => {
             const aType = this.state.getWeaponAmmoType(h.equippedWeapon);
             const aQty = aType ? this.state.getAmmoCount(aType, h) : 0;
-            return `${h.canLevelUp ? 1 : 0}_${h.hp}_${h.level}_${h.toolsDurability ?? ''}_${h.cognition ?? ''}_${h.divineFavor ?? ''}_${h.isStealth ? 1 : 0}_${h.tempIntDrain || 0}_${h.tempAcBonus || 0}_${h.tempAcRounds || 0}_${h.tempAttackBonus || 0}_${h.tempAttackRounds || 0}_${h.equippedWeapon || ''}_${h.specializedWeapon || ''}_${aQty}`;
-        }).join('_');
+            const armName = h.equippedArmor?.name || '';
+            const shName = h.equippedShield?.name || '';
+            const bootsName = h.equippedBoots?.name || '';
+            const glovesName = h.equippedGloves?.name || '';
+            return `${h.canLevelUp ? 1 : 0}_${h.hp}_${h.level}_${h.toolsDurability ?? ''}_${h.cognition ?? ''}_${h.divineFavor ?? ''}_${h.isStealth ? 1 : 0}_${h.tempIntDrain || 0}_${h.tempAcBonus || 0}_${h.tempAcRounds || 0}_${h.tempAttackBonus || 0}_${h.tempAttackRounds || 0}_${h.equippedWeapon || ''}_${h.specializedWeapon || ''}_${armName}_${shName}_${bootsName}_${glovesName}_${aQty}`;
+        }).join('_') + `_${partyTier ? partyTier.tier : 'unencumbered'}`;
         // Build a lightweight signature of contextual UI triggers to prevent unnecessary DOM reconstruction on every step
         const lockSig = lockTarget ? `${lockTarget.x},${lockTarget.y},${lockTarget.locked}` : '';
         const trapSig = trapInFront ? `${trapInFront.x},${trapInFront.y},${trapInFront.detected}` : '';
@@ -184,7 +248,11 @@ export class UIController {
         if (this.state.combat.active) {
             const existingBtn = document.getElementById('resolve-round-btn');
             if (!existingBtn || !existingBtn.disabled) {
-                this.elements.globalActions.innerHTML = `<button id="resolve-round-btn" class="action-tab primary" style="width: 100%; padding: 10px; font-size: 11px;">🔥 RESOLVE ROUND ${this.state.combat.round}</button>`;
+                this.elements.globalActions.innerHTML = `
+                    <div style="display: flex; gap: 6px; width: 100%;">
+                        <button id="resolve-round-btn" class="action-tab primary" style="flex: 2; padding: 10px; font-size: 11px;">🔥 RESOLVE ROUND ${this.state.combat.round}</button>
+                        <button id="flee-combat-btn" class="action-tab warning" style="flex: 1; padding: 10px; font-size: 11px; background: #21262d; border-color: #d29922; color: #e3b341;" title="Retreat from battle (Agility check & tactical disengagement)">🏃 RETREAT</button>
+                    </div>`;
             }
 
             const aliveEnemies = this.state.combat.enemies.filter(e => e.hp > 0 && !e.fled && !e.surrendered);
@@ -367,7 +435,23 @@ export class UIController {
               ? `<button id="strike-captive-btn" class="action-tab danger" style="color: #ff7b72; border-color: #ff7b72;">🗡️ Strike Captive</button>`
               : '';
 
+            const curNpc = (typeof this.state.getCurrentNPC === 'function') ? this.state.getCurrentNPC() : null;
+            const facNpc = (typeof this.state.getFacingNPC === 'function') ? this.state.getFacingNPC() : null;
+            const activeNpc = curNpc || facNpc;
+            const talkBtnHTML = activeNpc
+              ? `<button id="talk-btn" class="action-tab" style="color: #58a6ff; border-color: #58a6ff;">💬 Talk (${activeNpc.name || 'NPC'})</button>`
+              : '';
+
+            const curTrans = (typeof this.state.getCurrentTransition === 'function') ? this.state.getCurrentTransition() : null;
+            const facTrans = (typeof this.state.getFacingTransition === 'function') ? this.state.getFacingTransition() : null;
+            const activeTrans = curTrans || facTrans;
+            const travelBtnHTML = activeTrans
+              ? `<button id="travel-btn" class="action-tab primary" style="background: #1f6feb; border-color: #58a6ff; color: #ffffff;">🚪 Travel</button>`
+              : '';
+
             this.elements.globalActions.innerHTML = `
+              ${talkBtnHTML}
+              ${travelBtnHTML}
               ${openBtnHTML}
               ${shopBtnHTML}
               ${restBtnHTML}
@@ -560,6 +644,9 @@ export class UIController {
 
         this.elements.globalActions.addEventListener('click', (e) => {
             if (e.target.closest('#resolve-round-btn')) this.callbacks.onGlobalAction('RESOLVE_ROUND');
+            if (e.target.closest('#flee-combat-btn')) this.callbacks.onGlobalAction('FLEE_COMBAT');
+            if (e.target.closest('#talk-btn')) this.callbacks.onGlobalAction('TALK_NPC');
+            if (e.target.closest('#travel-btn')) this.callbacks.onGlobalAction('TRAVEL_TRANSITION');
             if (e.target.closest('#open-btn')) this.callbacks.onGlobalAction('OPEN_OBJECT');
             if (e.target.closest('#shop-btn')) this.callbacks.onGlobalAction('OPEN_SHOP');
             if (e.target.closest('#rest-btn')) this.callbacks.onGlobalAction('REST_CAMP');
@@ -819,13 +906,13 @@ export class UIController {
         this.elements.interactionActions.innerHTML = '';
         choices.forEach((choice) => {
             const btn = document.createElement('button');
-            btn.className = 'action-tab';
+            btn.className = choice.className || 'action-tab';
             btn.style.textAlign = 'left';
             btn.style.padding = '8px 12px';
             btn.style.margin = '4px 0';
             btn.style.width = '100%';
             btn.disabled = !!choice.disabled;
-            btn.textContent = choice.text;
+            btn.textContent = choice.text || choice.label || 'Select';
             btn.addEventListener('click', () => {
                 this.elements.interactionModal.style.display = 'none';
                 if (choice.callback) choice.callback();

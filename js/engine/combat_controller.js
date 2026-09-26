@@ -215,7 +215,7 @@ export class CombatController {
                 this.stopCombatMusic();
                 this.callbacks.playSFX('victory');
                 if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
-                    const surrenderedMob = this.state.surrenderedEnemy || this.state.combat.enemies.find(e => e.surrendered);
+                    const surrenderedMob = this.state.combat.enemies.find(e => e.surrendered && (finalMobHp[e.instanceId] ?? e.hp) > 0 && !e.fled && !e.slain);
                     if (surrenderedMob && typeof this.renderer3D.renderEncounterMonsters === 'function') {
                         this.renderer3D.renderEncounterMonsters([surrenderedMob], this.state.player);
                     } else {
@@ -260,7 +260,7 @@ export class CombatController {
             this.state.combat.active = false;
             this.stopCombatMusic();
             if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
-                if (this.state.surrenderedEnemy && typeof this.renderer3D.renderEncounterMonsters === 'function') {
+                if (this.state.surrenderedEnemy && this.state.surrenderedEnemy.hp > 0 && !this.state.surrenderedEnemy.fled && !this.state.surrenderedEnemy.slain && typeof this.renderer3D.renderEncounterMonsters === 'function') {
                     this.renderer3D.renderEncounterMonsters([this.state.surrenderedEnemy], this.state.player);
                 } else {
                     this.renderer3D.clearEncounterMonsters();
@@ -287,6 +287,114 @@ export class CombatController {
                 resolveBtn.style.cursor = 'pointer';
                 resolveBtn.textContent = `🔥 RESOLVE ROUND ${this.state.combat.round}`;
             }
+        }
+
+        this.state.isDirty = true;
+        this.callbacks.updateHUD(true);
+    }
+
+    async handlePartyRetreat() {
+        if (!this.state.combat || !this.state.combat.active) return;
+
+        const resolveBtn = document.getElementById('resolve-round-btn');
+        const fleeBtn = document.getElementById('flee-combat-btn');
+        if (resolveBtn) {
+            resolveBtn.disabled = true;
+            resolveBtn.style.opacity = '0.5';
+        }
+        if (fleeBtn) {
+            fleeBtn.disabled = true;
+            fleeBtn.style.opacity = '0.7';
+            fleeBtn.textContent = '🏃 RETREATING...';
+        }
+
+        const { success, partyWiped, finalHeroHp, events } = this.state.attemptPartyRetreat();
+
+        const visualEnemies = this.state.combat.enemies.map(e => ({ ...e }));
+        const visualHeroHp = this.state.party.map(h => h.hp);
+
+        for (const evt of events) {
+            this.callbacks.log(evt.logText, evt.logType);
+
+            if (evt.cueBadge && typeof this.callbacks.showCombatFloatingCue === 'function') {
+                const isHeroTarget = evt.eventType === 'HERO_HIT' || evt.cueClass === 'hero';
+                this.callbacks.showCombatFloatingCue(evt.cueBadge, evt.cueClass || 'normal', isHeroTarget);
+            }
+
+            if (evt.eventType === 'HERO_HIT') {
+                this.callbacks.playSFX('sword_hit');
+                if (evt.targetHeroIndex != null && visualHeroHp[evt.targetHeroIndex] !== undefined) {
+                    visualHeroHp[evt.targetHeroIndex] = Math.max(0, visualHeroHp[evt.targetHeroIndex] - (evt.damage || 0));
+                }
+                if (evt.isDead) this.callbacks.playSFX('death');
+                this.callbacks.flashHeroCard(evt.targetHeroIndex);
+                if (this.callbacks.applyVisualCombatHp) {
+                    this.callbacks.applyVisualCombatHp(visualEnemies, visualHeroHp);
+                }
+            } else if (evt.eventType === 'HERO_MISS') {
+                this.callbacks.playSFX('sword_miss');
+            } else if (evt.eventType === 'RETREAT_ATTEMPT') {
+                this.callbacks.playSFX(evt.success ? 'button' : 'sword_miss');
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 800));
+        }
+
+        // Apply real HP after retreat resolution
+        if (finalHeroHp) {
+            this.state.party.forEach((hero, idx) => {
+                if (finalHeroHp[idx] !== undefined) {
+                    hero.hp = finalHeroHp[idx];
+                }
+            });
+        }
+
+        if (partyWiped || this.state.party.every(h => h.hp <= 0)) {
+            this.stopCombatMusic();
+            if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
+                this.renderer3D.clearEncounterMonsters();
+            }
+            this.state.combat.active = false;
+            this.callbacks.log(`💀 PARTY WIPED. The retreat was cut short in blood.`, "danger");
+            if (this.callbacks.onPartyWiped) {
+                this.callbacks.onPartyWiped();
+            }
+        } else if (success) {
+            this.stopCombatMusic();
+            this.callbacks.playSFX('button');
+            this.state.combat.active = false;
+
+            // Push the party back safely 1 tile if walkable
+            let dx = 0, dy = 0;
+            if (this.state.player.facing === 'NORTH') dy = 1;
+            else if (this.state.player.facing === 'SOUTH') dy = -1;
+            else if (this.state.player.facing === 'EAST') dx = -1;
+            else if (this.state.player.facing === 'WEST') dx = 1;
+
+            const targetX = this.state.player.x + dx;
+            const targetY = this.state.player.y + dy;
+            if (this.state.isWalkable(targetX, targetY)) {
+                this.state.player.x = targetX;
+                this.state.player.y = targetY;
+                if (this.callbacks.syncCamera) {
+                    this.callbacks.syncCamera(this.state.player.x, this.state.player.y, this.state.player.facing);
+                }
+            }
+            this.state.revealExploration();
+
+            if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
+                this.renderer3D.clearEncounterMonsters();
+            }
+
+            this.callbacks.log(`💨 You successfully broke contact and retreated to safety!`, "success");
+            if (this.callbacks.onCombatEnd) {
+                this.callbacks.onCombatEnd();
+            }
+        } else {
+            // Failed retreat - advance round and stay in combat
+            this.state.combat.round = (this.state.combat.round || 1) + 1;
+            this.callbacks.playSFX('combat_turn');
+            this.callbacks.log(`The party remains pinned down in melee! Prepare for round ${this.state.combat.round}.`, "warning");
         }
 
         this.state.isDirty = true;
