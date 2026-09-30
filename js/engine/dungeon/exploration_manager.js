@@ -1,5 +1,6 @@
 import { ProgressionManager } from '../characters/progression_manager.js';
 import { EncumbranceManager } from '../items/encumbrance_manager.js';
+import { CharacterFactory } from '../characters/character_factory.js';
 
 /**
  * ExplorationManager handles dungeon exploration turns, light/torch timers,
@@ -290,6 +291,81 @@ export class ExplorationManager {
   }
 
   /**
+   * Evaluates the best direction for the party to face during combat.
+   * If currently facing a wall, closed door, or obstacle (such as at a corner or dead-end),
+   * selects an open walkable corridor or room direction so the party faces the enemies instead of a solid wall.
+   */
+  static getBestCombatFacing(state) {
+    const directions = ['NORTH', 'EAST', 'SOUTH', 'WEST'];
+    const currentFacing = state.player.facing || 'NORTH';
+
+    if (!this.isFacingClosedObstacle(state)) {
+      return currentFacing;
+    }
+
+    const px = state.player.x;
+    const py = state.player.y;
+    const deltas = {
+      NORTH: { dx: 0, dy: -1 },
+      EAST: { dx: 1, dy: 0 },
+      SOUTH: { dx: 0, dy: 1 },
+      WEST: { dx: -1, dy: 0 }
+    };
+
+    const isWalkable = (dir) => {
+      const tx = px + deltas[dir].dx;
+      const ty = py + deltas[dir].dy;
+      if (!state.spec || !state.spec.map) return false;
+      if (ty < 0 || ty >= state.spec.map.length || tx < 0 || tx >= state.spec.map[0].length) return false;
+      const tileId = state.spec.map[ty][tx];
+      if (tileId === 1) return false;
+      const key = `${tx},${ty}`;
+      if ((tileId === 2 || tileId === 8) && (!state.openedDoors || !state.openedDoors.has(key))) return false;
+      if (tileId === 7) return false;
+      const legend = state.spec.legend && state.spec.legend[tileId];
+      if (legend && legend.walkable === false) return false;
+      return true;
+    };
+
+    // Priority 1: Perpendicular turn (e.g. if walking North into corner, check East then West continuation)
+    const perpDirs = (currentFacing === 'NORTH' || currentFacing === 'SOUTH')
+      ? ['EAST', 'WEST']
+      : ['NORTH', 'SOUTH'];
+
+    for (const d of perpDirs) {
+      if (isWalkable(d)) return d;
+    }
+
+    // Priority 2: Reverse direction (where the party entered from)
+    const oppositeDir = directions[(directions.indexOf(currentFacing) + 2) % 4];
+    if (isWalkable(oppositeDir)) return oppositeDir;
+
+    // Fallback: Any available walkable direction
+    for (const d of directions) {
+      if (isWalkable(d)) return d;
+    }
+
+    return currentFacing;
+  }
+
+  /**
+   * Aligns party facing when combat begins or patrols spawn, ensuring the camera
+   * faces open space and visible enemies rather than staring into a solid wall.
+   */
+  static alignCombatFacing(state) {
+    if (this.isFacingClosedObstacle(state)) {
+      const newFacing = this.getBestCombatFacing(state);
+      if (newFacing && newFacing !== state.player.facing) {
+        state.player.facing = newFacing;
+        state.revealExploration();
+        state.isDirty = true;
+        return newFacing;
+      }
+    }
+    return null;
+  }
+
+  /**
    * Retrieves active trap directly in front of the party.
    */
   static getTrapInFront(state) {
@@ -313,11 +389,24 @@ export class ExplorationManager {
 
   /**
    * Rogue skill: Find Traps.
+   * Cross-cutting racial trait: Dwarven Stonesense grants +15% passive detection in dungeons.
    */
   static attemptFindTrap(state, target) {
     const thief = state.party.find(p => p.classKey === 'thief');
     if (!thief) return { success: false, roll: 0, chance: 0 };
-    const chance = state.getSkillTarget(thief, 'find_traps');
+    let chance = state.getSkillTarget(thief, 'find_traps');
+
+    const zone = state.getCurrentZone ? state.getCurrentZone() : 'dungeon';
+    let stonesenseBonus = 0;
+    const hasDwarf = state.party.some(p => {
+      const traits = CharacterFactory.getRaceTraits(p);
+      return traits?.detectionBias?.zone === 'dungeon' && p.hp > 0;
+    });
+    if (zone === 'dungeon' && hasDwarf) {
+      stonesenseBonus = 15;
+      chance = Math.min(95, chance + stonesenseBonus);
+    }
+
     const roll = Math.floor(Math.random() * 100) + 1;
     const success = roll <= chance;
     if (success) {
@@ -325,7 +414,7 @@ export class ExplorationManager {
       state.awardQuestXP(100);
     }
     const turnResult = this.advanceExplorationTurn(state, 10, "Find Traps");
-    return { success, roll, chance, turnResult };
+    return { success, roll, chance, stonesenseBonus, turnResult };
   }
 
   /**
@@ -374,7 +463,16 @@ export class ExplorationManager {
     else if (state.player.facing === 'EAST') dx = 1;
     else if (state.player.facing === 'WEST') dx = -1;
 
-    const chance = state.getSkillTarget(thief, 'find_traps');
+    let chance = state.getSkillTarget(thief, 'find_traps');
+    const zone = state.getCurrentZone ? state.getCurrentZone() : 'dungeon';
+    const hasElf = state.party.some(p => {
+      const traits = CharacterFactory.getRaceTraits(p);
+      return traits?.detectionBias?.zone === 'wilderness' && p.hp > 0;
+    });
+    if (zone === 'wilderness' && hasElf) {
+      chance = Math.min(95, chance + 15); // Elf Keen Senses in wilderness
+    }
+
     const roll = Math.floor(Math.random() * 100) + 1;
     const success = roll <= chance;
     const discoveries = [];
@@ -431,7 +529,16 @@ export class ExplorationManager {
     });
     if (!nearby) return null;
 
-    const chance = state.getSkillTarget(thief, 'hear_noise');
+    let chance = state.getSkillTarget(thief, 'hear_noise');
+    const zone = state.getCurrentZone ? state.getCurrentZone() : 'dungeon';
+    const hasElf = state.party.some(p => {
+      const traits = CharacterFactory.getRaceTraits(p);
+      return traits?.detectionBias?.zone === 'wilderness' && p.hp > 0;
+    });
+    if (zone === 'wilderness' && hasElf) {
+      chance = Math.min(95, chance + 15); // Elf Keen Senses in wilderness
+    }
+
     const roll = Math.floor(Math.random() * 100) + 1;
     if (roll > chance) return null;
 
@@ -839,7 +946,15 @@ export class ExplorationManager {
    */
   static attemptBash(state, fighter) {
     const hero = fighter || state.party.find(p => p.classKey === 'fighter') || state.party[0];
-    const target = state.getSkillTarget(hero, 'bash');
+    let target = state.getSkillTarget(hero, 'bash');
+
+    // Cross-cutting racial bias: Dwarven Stonesense & architectural leverage in dungeons (+1 target)
+    const zone = state.getCurrentZone ? state.getCurrentZone() : 'dungeon';
+    const heroTraits = CharacterFactory.getRaceTraits(hero);
+    if (zone === 'dungeon' && heroTraits?.detectionBias?.bashBonus) {
+      target += heroTraits.detectionBias.bashBonus;
+    }
+
     const roll = Math.floor(Math.random() * 20) + 1;
     const success = (roll <= target) && (roll !== 20);
     

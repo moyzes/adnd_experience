@@ -7,17 +7,17 @@
 export class AudioManager {
   /**
    * SFX catalog — id → absolute path under /assets/audio/
-   * Add new one-shot effects here only.
+   * Fully indexed for all assets present in /assets/audio/
    */
   static SFX = {
-    // UI / sheet / equip
+    // UI / Sheet / Rewards
     button: '/assets/audio/button.mp3',
     sheet: '/assets/audio/sheet.mp3',
     reward: '/assets/audio/reward.mp3',
     blocked: '/assets/audio/blocked.mp3',
     equip: '/assets/audio/equip.mp3',
 
-    // Exploration
+    // Exploration / Environment
     footstep: '/assets/audio/footstep.mp3',
     door_opening: '/assets/audio/door_opening.mp3',
     chest_opening: '/assets/audio/chest_opening.mp3',
@@ -30,57 +30,101 @@ export class AudioManager {
     rested: '/assets/audio/rested.mp3',
     falling: '/assets/audio/falling.mp3',
     fire_torch: '/assets/audio/fire_torch.mp3',
+    campfire: '/assets/audio/campfire.mp3',
+    crickets: '/assets/audio/crickets.mp3',
 
-    // Combat hits / misses
+    // Combat Attacks & Impacts
+    sword: '/assets/audio/sword.mp3',
+    sword_draw: '/assets/audio/sword_draw.mp3',
     sword_hit: '/assets/audio/sword_hit.mp3',
     sword_miss: '/assets/audio/sword_miss.mp3',
+    sword_missed: '/assets/audio/sword_missed.mp3',
     arrow_impact: '/assets/audio/arrow_impact.mp3',
+    ranged: '/assets/audio/ranged.mp3',
     backstab: '/assets/audio/backstab.mp3',
     death: '/assets/audio/death.mp3',
+    death_groan: '/assets/audio/death.mp3',
     combat_turn: '/assets/audio/combat_turn.mp3',
+    combat_turn_1: '/assets/audio/combat_turn.mp3',
     victory: '/assets/audio/victory.mp3',
+    victory2: '/assets/audio/victory2.mp3',
 
-    // Magic / divine
+    // Spells / Divine / Monsters / Fanfares
     cure_wounds: '/assets/audio/cure_wounds.mp3',
     magic_missile: '/assets/audio/magic_missile.mp3',
+    fireball: '/assets/audio/fireball.mp3',
     sleep: '/assets/audio/sleep.mp3',
     bless: '/assets/audio/bless.mp3',
     turn_undead: '/assets/audio/turn_undead.mp3',
     read_magic: '/assets/audio/study.mp3',
+    study: '/assets/audio/study.mp3',
     relic: '/assets/audio/relic.mp3',
-    goblin: '/assets/audio/goblin.mp3',
     level_up: '/assets/audio/level_up.mp3',
-    monster_grunt: '/assets/audio/monster-grunts.mp3',
-    ranged: '/assets/audio/ranged.mp3',
-    sword_missed: '/assets/audio/sword_missed.mp3',
-    combat_turn_1: '/assets/audio/combat_turn-1.mp3',
+    goblin: '/assets/audio/goblin.mp3',
+    monster_grunt: '/assets/audio/roar_troll.mp3',
+    'monster-grunts': '/assets/audio/roar_troll.mp3',
+    giant_spider_attack: '/assets/audio/giant_spider_attack.mp3',
+    giant_spider_walking: '/assets/audio/giant_spider_walking.mp3',
+    roar_troll: '/assets/audio/roar_troll.mp3',
   };
 
   /**
    * Looping / long tracks — combat music, camp ambient, dungeon environments, towns, wilderness, etc.
    */
   static BGM = {
+    // Combat
     combat_1: '/assets/audio/combat_1.mp3',
     combat_2: '/assets/audio/combat_2.mp3',
     combat_3: '/assets/audio/combat_3.mp3',
+    drums: '/assets/audio/drums.mp3',
+
+    // Town / Tavern / Settlements
     town_1: '/assets/audio/town_1.mp3',
     town_2: '/assets/audio/town_2.mp3',
     town: '/assets/audio/town_1.mp3',
     tavern_1: '/assets/audio/tavern_1.mp3',
     tavern_2: '/assets/audio/tavern_2.mp3',
     outfitter: '/assets/audio/outfitter.mp3',
+
+    // Wilderness / Nature / Camp
     wilderness_1: '/assets/audio/wilderness_1.mp3',
+    wilderness_2: '/assets/audio/wilderness_1.mp3',
     wilderness: '/assets/audio/wilderness_1.mp3',
+    dark_forest: '/assets/audio/wilderness_1.mp3',
+    ambience_1: '/assets/audio/wilderness_1.mp3',
+
+    // Dungeon / Crypts / Caves / Ruins
     dungeon_1: '/assets/audio/dungeon_1.mp3',
     dungeon_2: '/assets/audio/dungeon_2.mp3',
     dungeon_3: '/assets/audio/dungeon_3.mp3',
     dungeon: '/assets/audio/dungeon_1.mp3',
-    campfire: '/assets/audio/campfire.mp3',
-    crickets: '/assets/audio/crickets.mp3',
-    ambience_1: '/assets/audio/ambience_1.mp3',
-    dark_forest: '/assets/audio/dark_forest.mp3',
-    ruin_dungeon_1: '/assets/audio/ruin_dungeon_1.mp3',
+    ruin_dungeon_1: '/assets/audio/dungeon_1.mp3',
   };
+
+  /**
+   * Fully syncs with server audio manifest to dynamically index any sound files
+   */
+  static async loadManifest() {
+    try {
+      const res = await fetch('/api/audio-manifest');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.files)) {
+          data.files.forEach(f => {
+            if (f.id && f.path) {
+              AudioManager.SFX[f.id] = f.path;
+              if (f.id.startsWith('combat_') || f.id.startsWith('town_') || f.id.startsWith('tavern_') || f.id.startsWith('wilderness_') || f.id.startsWith('dungeon_') || f.id === 'outfitter' || f.id === 'drums') {
+                AudioManager.BGM[f.id] = f.path;
+              }
+            }
+          });
+          console.log(`[AudioManager] Indexed ${data.files.length} audio assets from server manifest.`);
+        }
+      }
+    } catch (e) {
+      console.warn('[AudioManager] Note: audio manifest fetch skipped, using static registry:', e);
+    }
+  }
 
   /**
    * Allows an adventure module JSON spec to register custom SFX or BGM tracks declaratively.
@@ -110,6 +154,9 @@ export class AudioManager {
 
     // Active fading audio elements
     this._fadingOutAudios = new Set();
+
+    // Dynamically refresh audio index from server
+    AudioManager.loadManifest();
 
     // Setup global user gesture unlocker for browser autoplay policies
     this._setupAutoplayUnlock();
@@ -225,6 +272,9 @@ export class AudioManager {
       if (this._shopBgm && this._shopBgm.paused) {
         this._shopBgm.play().catch(() => { });
       }
+      if (this._combatBgm && this._combatBgm.paused) {
+        this._combatBgm.play().catch(() => { });
+      }
     };
 
     window.addEventListener('click', unlockHandler, { capture: true, passive: true });
@@ -248,13 +298,21 @@ export class AudioManager {
    */
   _resolve(idOrPath, catalog) {
     if (!idOrPath || typeof idOrPath !== 'string') return null;
-    if (catalog[idOrPath]) return catalog[idOrPath];
-    // Legacy path fallback (monster soundAttack, old adventure tracks)
-    if (idOrPath.includes('.mp3')) {
-      if (idOrPath.startsWith('/') || idOrPath.startsWith('http')) return idOrPath;
-      return '/' + idOrPath.replace(/^\.\//, '');
+    const cleanId = idOrPath.trim();
+    if (catalog[cleanId]) return catalog[cleanId];
+    if (catalog[cleanId.toLowerCase()]) return catalog[cleanId.toLowerCase()];
+
+    // Strip extension if passed as .mp3 filename
+    const stripped = cleanId.replace(/\.mp3$/i, '').replace(/^\/assets\/audio\//, '').replace(/^\.\//, '');
+    if (catalog[stripped]) return catalog[stripped];
+
+    // Legacy direct path
+    if (cleanId.includes('.mp3')) {
+      if (cleanId.startsWith('/') || cleanId.startsWith('http')) return cleanId;
+      return '/' + cleanId.replace(/^\.\//, '');
     }
-    return `/assets/audio/${idOrPath}.mp3`;
+
+    return `/assets/audio/${cleanId}.mp3`;
   }
 
   /**
@@ -376,6 +434,9 @@ export class AudioManager {
 
       a.onerror = (err) => {
         console.warn(`[AudioManager] Note: audio track "${trackId}" at ${path} could not be loaded:`, err);
+        if (this._currentEnvAudio === a) {
+          this._currentEnvAudio = null;
+        }
       };
 
       this._currentEnvAudio = a;

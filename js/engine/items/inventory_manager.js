@@ -1,10 +1,56 @@
 import { ItemCatalog } from './item_catalog.js';
+import { CharacterFactory } from '../characters/character_factory.js';
 
 /**
  * InventoryManager handles party pack storage, hero equipment equipping/swapping,
  * ammunition tracking, consumable item usage, temple resuscitation, and shop transactions.
  */
 export class InventoryManager {
+  /**
+   * Computes the effective merchant buying price for an item, taking into account
+   * racial affinities (e.g. Dwarf Master's Eye grants a 10% discount on weapons/armor/shields).
+   */
+  static getItemBuyPrice(state, def) {
+    if (!def || typeof def.price !== 'number') return 0;
+    let price = def.price;
+
+    const hasDwarfSmith = state?.party && state.party.some(p => {
+      const traits = CharacterFactory.getRaceTraits(p);
+      return traits?.shopAffinity?.categories?.includes(def.kind) && p.hp > 0;
+    });
+
+    if (hasDwarfSmith && (def.kind === 'weapon' || def.kind === 'armor' || def.kind === 'shield')) {
+      price = Math.max(1, Math.round(price * 0.90));
+    }
+
+    return price;
+  }
+
+  /**
+   * Computes the effective merchant selling price for an item, taking into account
+   * racial affinities (e.g. Dwarf Master's Eye grants a 10% appraisal bonus when selling arms/armor).
+   */
+  static getItemSellPrice(state, def) {
+    if (!def) return 0;
+    let unitPrice = 0;
+    if (def.kind === 'treasure' || def.kind === 'gem') {
+      unitPrice = def.price || 30; // Full appraised treasure value
+    } else {
+      unitPrice = Math.max(1, Math.floor((def.price || 2) * 0.5)); // 50% for standard gear
+    }
+
+    const hasDwarfSmith = state?.party && state.party.some(p => {
+      const traits = CharacterFactory.getRaceTraits(p);
+      return traits?.shopAffinity?.categories?.includes(def.kind) && p.hp > 0;
+    });
+
+    if (hasDwarfSmith && (def.kind === 'weapon' || def.kind === 'armor' || def.kind === 'shield')) {
+      unitPrice = Math.max(1, Math.round(unitPrice * 1.10));
+    }
+
+    return unitPrice;
+  }
+
   /**
    * Helper that searches across all living party members' personal inventories.
    */
@@ -855,13 +901,7 @@ export class InventoryManager {
     if (def.kind === 'quest') return { success: false, reason: `"${itemName}" is an essential quest artifact and cannot be sold!` };
     if (def.kind === 'currency') return { success: false, reason: "Cannot sell coin currency." };
 
-    let unitPrice = 0;
-    if (def.kind === 'treasure' || def.kind === 'gem') {
-      unitPrice = def.price || 30; // Full appraised treasure value
-    } else {
-      unitPrice = Math.max(1, Math.floor((def.price || 2) * 0.5)); // 50% for standard gear and provisions
-    }
-
+    const unitPrice = this.getItemSellPrice(state, def);
     const totalEarned = unitPrice * qty;
     let hero = null;
     if (heroIndex != null && heroIndex >= 0 && state.party[heroIndex]) {
@@ -954,7 +994,8 @@ export class InventoryManager {
     if (!def) return { success: false, reason: `Unknown item: ${itemName}` };
     if (def.kind === 'currency') return { success: false, reason: 'Cannot buy gold with gold.' };
 
-    const total = (def.price || 0) * qty;
+    const unitPrice = this.getItemBuyPrice(state, def);
+    const total = unitPrice * qty;
     if (this.getPartyGold(state) < total) return { success: false, reason: `Not enough gold (need ${total} gp).` };
     if (!this.spendGold(state, total)) return { success: false, reason: 'Payment failed.' };
 

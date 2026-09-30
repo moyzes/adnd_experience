@@ -1386,69 +1386,13 @@
 <body>
   <!-- Pre-game Party & Spells Setup Screen -->
   <div id="setup-screen">
-    <div class="setup-container">
-      <div class="panel-header" style="font-size: 15px; text-align: center; margin-bottom: 14px;">
-        ADVANCED DUNGEONS & DRAGONS — EXPEDITION SETUP
+    <div class="setup-container" style="width: min(900px, 95vw); max-height: 94vh; padding: 20px; display: flex; flex-direction: column; gap: 14px; text-align: center; justify-content: center; align-items: center; min-height: 200px;">
+      <div class="panel-header" style="font-size: 16px; color: var(--gold-tsr); margin-bottom: 8px;">
+        ⚔️ ADVANCED DUNGEONS & DRAGONS — EXPEDITION SETUP ⚔️
       </div>
-
-      <div style="margin-bottom: 16px;">
-        <div
-          style="font-family: 'Cinzel', serif; font-size: 12px; font-weight: bold; color: var(--gold-tsr); margin-bottom: 6px;">
-          🗺️ Choose Adventure Module:</div>
-        <div id="module-choices" style="display: flex; flex-direction: column; gap: 6px;">
-          <label class="spell-option-label" style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
-            <input type="radio" name="adventure-module" value="/data/adventure_shadows_blackstone.json" checked style="margin-top: 3px;">
-            <div>
-              <b style="color: var(--gold-tsr);">The Shadow of Blackstone Keep</b> <span style="color: #3fb950; font-size: 9.5px; font-weight: bold; margin-left: 4px;">⭐ [Level Up & Training Patrons]</span>
-              <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">
-                Commissioned by Baron Justinian Vane in Highstone Hamlet. Train with dedicated class mentors (Garrison, Spire, Temple, Thieves' Guild), traverse the moors, conquer the sunken crypts, and defeat Malakor the Despoiler to level up!
-              </div>
-            </div>
-          </label>
-          <label class="spell-option-label" style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
-            <input type="radio" name="adventure-module" value="/data/adventure_goblin_relic.json" style="margin-top: 3px;">
-            <div>
-              <b style="color: var(--gold-tsr);">The Stolen Relic of Greenfall Ruins</b>
-              <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">
-                Hired by Lord Albright in Oakhaven village. Buy expedition gear at the village shop, trek through the pine wilderness, assault the goblin ruins, and return the Sun-Forged Relic of Dawn.
-              </div>
-            </div>
-          </label>
-          <label class="spell-option-label" style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
-            <input type="radio" name="adventure-module" value="/data/adventure.json" style="margin-top: 3px;">
-            <div>
-              <b style="color: var(--gold-tsr);">The Flooded Crypt of Saint Orlan</b>
-              <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">
-                Investigate the flooded crypt of Saint Orlan, rescue young Mira Vale, and recover the saint's bones from cultists.
-              </div>
-            </div>
-          </label>
-        </div>
+      <div style="font-size: 11px; color: var(--text-muted); font-family: 'Cinzel', serif;">
+        Gathering party roster & preparing grimoires...
       </div>
-
-      <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 14px; text-align: center;">
-        Select 2 spells to transcribe into your Mage's Grimoire and 2 granted prayers for your Cleric.
-      </div>
-
-      <div style="margin-bottom: 14px;">
-        <div
-          style="font-family: 'Cinzel', serif; font-size: 12px; font-weight: bold; color: var(--cognition-purple); margin-bottom: 3px;">
-          📖 Mage Grimoire Inscription (Select 2):</div>
-        <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 6px;">
-          Transcribed directly to your grimoire. Spells begin unmemorized so your mind starts completely free of cognitive burden.
-        </div>
-        <div id="mage-spells-choices"></div>
-      </div>
-
-      <div style="margin-bottom: 16px;">
-        <div
-          style="font-family: 'Cinzel', serif; font-size: 12px; font-weight: bold; color: var(--favor-blue); margin-bottom: 6px;">
-          ✨ Cleric Prayers (Select 2):</div>
-        <div id="cleric-spells-choices"></div>
-      </div>
-
-      <button id="start-adventure-btn" class="action-tab primary"
-        style="width: 100%; padding: 10px; font-size: 12px;">BEGIN EXPEDITION</button>
     </div>
   </div>
 

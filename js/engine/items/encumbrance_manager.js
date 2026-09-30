@@ -1,4 +1,5 @@
 import { ItemCatalog } from './item_catalog.js';
+import { CharacterFactory } from '../characters/character_factory.js';
 
 /**
  * EncumbranceManager calculates carry capacity, personal gear load, shared party load,
@@ -9,14 +10,16 @@ import { ItemCatalog } from './item_catalog.js';
  */
 export class EncumbranceManager {
   /**
-   * Calculates STR-based carry capacity for a hero.
-   * Formula: capacity = (15 + (strength - 10)) * 2, floored at a minimum of 10.
+   * Calculates STR-based carry capacity for a hero with racial encumbrance modifiers.
+   * Formula: baseCapacity = (15 + (strength - 10)) * 2, floored at a minimum of 10.
+   * Racial Modifier (e.g. Dwarf Stone-Born Stamina): +20% capacity.
    * Accepts either a hero object or a numeric strength value.
    *
    * Sanity Check:
    * A STR-13 Fighter wearing Chain Mail (15) + Small Shield (3) + Longsword (4) = 22 Load
-   * has capacity = (15 + (13 - 10)) * 2 = 36.
-   * Load ratio: 22 / 36 = 61.1% of capacity (Unencumbered, within the 60–75% target range).
+   * has base capacity = (15 + (13 - 10)) * 2 = 36.
+   * A Dwarf with +20% Stone-Born capacity has 36 * 1.2 = 43 capacity!
+   * Load ratio: 22 / 43 = 51.1% of capacity (Solid Unencumbered).
    */
   static getCapacity(heroOrStrength) {
     let strength = 10;
@@ -29,7 +32,17 @@ export class EncumbranceManager {
       strength = Math.max(strength, heroOrStrength.equippedGloves.strengthSet || 18);
     }
     const raw = (15 + (strength - 10)) * 2;
-    return Math.max(10, raw);
+    let capacity = Math.max(10, raw);
+
+    // Cross-cutting racial encumbrance modifier (e.g. Dwarf Stone-Born Stamina: +20%)
+    if (heroOrStrength && typeof heroOrStrength === 'object') {
+      const raceTraits = CharacterFactory.getRaceTraits(heroOrStrength);
+      if (raceTraits && typeof raceTraits.encumbranceModifier === 'number' && raceTraits.encumbranceModifier !== 0) {
+        capacity = Math.round(capacity * (1 + raceTraits.encumbranceModifier));
+      }
+    }
+
+    return Math.max(10, capacity);
   }
 
   /**

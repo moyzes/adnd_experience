@@ -30,7 +30,8 @@ export class CharacterFactory {
   }
 
   /**
-   * Returns racial attribute adjustments and restrictions.
+   * Returns racial attribute adjustments, descriptions, restrictions,
+   * and cross-cutting innate racial traits.
    */
   static getRaces() {
     return {
@@ -38,21 +39,102 @@ export class CharacterFactory {
         name: 'Human',
         description: 'Adaptable and versatile mortals without attribute penalties or class restrictions.',
         adjustments: {},
-        allowedClasses: ['fighter', 'thief', 'cleric', 'mage']
+        allowedClasses: ['fighter', 'thief', 'cleric', 'mage'],
+        traits: {
+          title: 'Mortal Versatility',
+          summary: 'Unconstrained class progression and unrestricted advancement without racial penalties.',
+          savingThrowBonuses: {},
+          encumbranceModifier: 0,
+          combatBonus: null,
+          detectionBias: null,
+          cognitiveLoadModifier: 1.0,
+          shopAffinity: null,
+          immunities: []
+        }
       },
       elf: {
         name: 'Elf',
-        description: '+1 Dexterity, -1 Constitution. Graceful and keen-eyed woodland folk.',
+        description: '+1 Dexterity, -1 Constitution. Fey-blooded, keen-eyed scouts and natural warrior-arcanists.',
         adjustments: { dexterity: 1, constitution: -1 },
-        allowedClasses: ['fighter', 'thief', 'cleric', 'mage']
+        allowedClasses: ['fighter', 'thief', 'cleric', 'mage'],
+        traits: {
+          title: 'Fey-Blooded & Keen-Eyed',
+          summary: 'Fey Resistance (Sleep/Charm Immunity), Unhurried Mind (+2 vs Spells), Keen Senses (Wilderness Ambush Shield & Spotting), Martial Affinity (+1 to-hit with Swords & Bows), Arcane Affinity (15% lighter Mage spell burden).',
+          savingThrowBonuses: {
+            SPELL: 2
+          },
+          encumbranceModifier: 0,
+          combatBonus: {
+            weapons: ['Longsword', 'Short Sword', 'Long Bow', 'Short Bow'],
+            toHitBonus: 1
+          },
+          detectionBias: {
+            zone: 'wilderness',
+            ambushReduction: 0.15,
+            scoutBonus: 15
+          },
+          cognitiveLoadModifier: 0.85, // 15% reduced mental strain when memorizing formulas
+          shopAffinity: null,
+          immunities: ['sleep', 'charm', 'ghoul_paralysis']
+        }
       },
       dwarf: {
         name: 'Dwarf',
-        description: '+1 Constitution, -1 Charisma. Hardy underground warriors and craftsmen.',
+        description: '+1 Constitution, -1 Charisma. Earthen constitution, master smiths, and unyielding tunnel fighters.',
         adjustments: { constitution: 1, charisma: -1 },
-        allowedClasses: ['fighter', 'thief', 'cleric'] // In AD&D 2e standard, Dwarves cannot be Mages
+        allowedClasses: ['fighter', 'thief', 'cleric'], // In AD&D 2e standard, Dwarves cannot be Mages
+        traits: {
+          title: 'Stone-Kin & Smith-Folk',
+          summary: 'Stalwart Constitution (+2 vs Poison/Death & Petrification), Stone-Born Stamina (+20% Carry Capacity), Stonesense (+15% Trap finding & Door Bashing in Dungeons), Old Grudges (+1 to-hit vs Goblins, Orcs & Kobolds), Master\'s Eye (10% Smithcraft Trade Value).',
+          savingThrowBonuses: {
+            PARALYZATION_POISON_DEATH: 2,
+            PETRIFICATION_POLYMORPH: 2
+          },
+          encumbranceModifier: 0.20, // +20% carry capacity: armor and heavy iron sit easier
+          combatBonus: {
+            enemyTypes: ['goblin', 'orc', 'kobold', 'bugbear', 'hobgoblin'],
+            toHitBonus: 1
+          },
+          detectionBias: {
+            zone: 'dungeon',
+            trapBonus: 15,
+            bashBonus: 1
+          },
+          cognitiveLoadModifier: 1.0,
+          shopAffinity: {
+            categories: ['weapon', 'armor', 'shield'],
+            buyDiscount: 0.10, // 10% discount on arms & armor
+            sellMarkup: 0.10   // 10% bonus when selling arms & armor
+          },
+          immunities: []
+        }
       }
     };
+  }
+
+  /**
+   * Retrieves race data object safely from a race key, race name, or hero object.
+   */
+  static getRace(raceKeyOrHero) {
+    if (!raceKeyOrHero) return this.getRaces().human;
+    let key = '';
+    if (typeof raceKeyOrHero === 'string') {
+      key = raceKeyOrHero.toLowerCase();
+    } else if (typeof raceKeyOrHero === 'object') {
+      key = (raceKeyOrHero.raceKey || raceKeyOrHero.race || '').toLowerCase();
+    }
+    return this.getRaces()[key] || this.getRaces().human;
+  }
+
+  /**
+   * Retrieves structured racial traits safely from a hero or race key.
+   */
+  static getRaceTraits(raceKeyOrHero) {
+    if (raceKeyOrHero && typeof raceKeyOrHero === 'object' && raceKeyOrHero.raceTraits) {
+      return raceKeyOrHero.raceTraits;
+    }
+    const race = this.getRace(raceKeyOrHero);
+    return race ? race.traits : {};
   }
 
   /**
@@ -501,12 +583,37 @@ export class CharacterFactory {
       });
     }
 
+    // Determine initial alignment coordinates:
+    // General heroes start uncommitted (True Neutral: 0, 0).
+    // Consecrated Clerics begin in harmony with their Patron Deity's sacred ethos.
+    let initialOrder = (options && options.orderScore != null) ? options.orderScore : 0;
+    let initialMorality = (options && options.moralityScore != null) ? options.moralityScore : 0;
+    const initialHistory = [];
+
+    if (classKey === 'cleric' && (!options || (options.orderScore == null && options.moralityScore == null))) {
+      const pDeityId = (options && options.patronDeityId) ? options.patronDeityId : 'pelor';
+      const deity = AlignmentManager.getDeity(pDeityId);
+      if (deity && deity.idealCoordinates) {
+        initialOrder = deity.idealCoordinates.order;
+        initialMorality = deity.idealCoordinates.morality;
+        const alignObj = AlignmentManager.getAlignment(initialOrder, initialMorality);
+        initialHistory.push({
+          reason: `Sacred Ordination in devotion to ${deity.name}`,
+          orderDelta: initialOrder,
+          moralityDelta: initialMorality,
+          resultingAlignment: alignObj.name,
+          timestamp: Date.now()
+        });
+      }
+    }
+
     const member = {
       name: customName || archetype.name,
       classKey: classKey,
       className: archetype.name,
       race: raceData.name,
       raceKey: raceKey,
+      raceTraits: JSON.parse(JSON.stringify(raceData.traits || {})),
       group: archetype.group,
       portrait: this.resolvePortrait(classKey, customName, options.portrait),
       level: 1,
@@ -533,9 +640,9 @@ export class CharacterFactory {
       inventory: inventory,
       weaponUsage: {},
       spells: [],
-      orderScore: (options && options.orderScore != null) ? options.orderScore : 0,
-      moralityScore: (options && options.moralityScore != null) ? options.moralityScore : 0,
-      alignmentHistory: []
+      orderScore: initialOrder,
+      moralityScore: initialMorality,
+      alignmentHistory: initialHistory
     };
 
     if (classKey === 'mage' && archetype.vancian_magic) {
@@ -593,11 +700,11 @@ export class CharacterFactory {
       member.divineFavor = maxFav;
       member.maxDivineFavor = maxFav;
       member.patronDeityId = (options && options.patronDeityId) ? options.patronDeityId : 'pelor';
-      const deity = AlignmentManager.getDeity(member.patronDeityId);
-      member.patronDeityName = deity.name;
-      member.patronDeitySymbol = deity.symbol;
+      const deity = AlignmentManager.getDeity(member.patronDeityId) || { name: 'Pelor', symbol: '☀️' };
+      member.patronDeityName = deity.name || 'Pelor';
+      member.patronDeitySymbol = deity.symbol || '☀️';
       const initialConcordance = AlignmentManager.calculateEthosConcordance(member);
-      member.ethosStatus = initialConcordance ? `${initialConcordance.statusLabel} (${deity.name})` : "Full Communion";
+      member.ethosStatus = initialConcordance ? `${initialConcordance.statusLabel} (${deity.name || 'Pelor'})` : "Full Communion";
       member.ethosConcordance = initialConcordance ? initialConcordance.concordancePct : 100;
       member.absoluteSilence = false;
       member.hasPrayedSinceRest = true;

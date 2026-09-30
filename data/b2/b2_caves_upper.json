@@ -256,7 +256,7 @@
       "name": "Gorbad (Orc Tribe 2 Sentry)",
       "tile": [
         14,
-        11
+        12
       ],
       "initialNode": "node_orc2_parley",
       "inventory_to_steal": [

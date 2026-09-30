@@ -10,11 +10,45 @@
  * - Saving throws against special monster attacks (Poison, Petrification, Spells)
  */
 
-import { CombatCalculator } from './combat_calculator.js';
 import { SpellRegistry } from '../spell_registry.js';
 import { GameState } from '../state.js';
+import { CharacterFactory } from '../characters/character_factory.js';
 
 export class CombatActions {
+  /**
+   * Evaluates cross-cutting racial combat to-hit bonus (e.g. Dwarf Old Grudges vs Goblins/Orcs, Elf Martial Affinity with swords & bows).
+   */
+  static getRacialCombatBonus(hero, target, weaponName, attackMode) {
+    if (!hero) return 0;
+    const raceTraits = hero.raceTraits || CharacterFactory.getRaceTraits(hero);
+    if (!raceTraits || !raceTraits.combatBonus) return 0;
+
+    const cb = raceTraits.combatBonus;
+    let bonus = 0;
+
+    // 1. Enemy Type Bonus (e.g. Dwarf Old Grudges against Goblins, Orcs, Kobolds, Hobgoblins, Bugbears)
+    if (cb.enemyTypes && Array.isArray(cb.enemyTypes) && target) {
+      const mobName = (target.name || '').toLowerCase();
+      const mobType = (target.type || '').toLowerCase();
+      const mobId = (target.id || '').toLowerCase();
+      const matchesEnemy = cb.enemyTypes.some(t => mobName.includes(t) || mobType.includes(t) || mobId.includes(t));
+      if (matchesEnemy) {
+        bonus = Math.max(bonus, cb.toHitBonus || 1);
+      }
+    }
+
+    // 2. Weapon Affinity Bonus (e.g. Elf Martial Affinity with Longsword, Short Sword, Long Bow, Short Bow)
+    if (cb.weapons && Array.isArray(cb.weapons) && weaponName) {
+      const wepNorm = weaponName.toLowerCase();
+      const matchesWep = cb.weapons.some(w => wepNorm === w.toLowerCase() || wepNorm.includes(w.toLowerCase()));
+      if (matchesWep) {
+        bonus = Math.max(bonus, cb.toHitBonus || 1);
+      }
+    }
+
+    return bonus;
+  }
+
   /**
    * Resolves a hero's melee weapon strike.
    */
@@ -37,7 +71,8 @@ export class CombatActions {
     const bless = (hero.tempAttackBonus || 0) + glovesAtk;
 
     const mastery = state.getWeaponMastery(hero, hero.equippedWeapon);
-    const targetNum = strVal + (hero.attackBonus || 1) + state.getLevelAttackBonus(hero) + mastery.atkBonus + bless;
+    const racialAtk = this.getRacialCombatBonus(hero, target, hero.equippedWeapon, 'melee');
+    const targetNum = strVal + (hero.attackBonus || 1) + state.getLevelAttackBonus(hero) + mastery.atkBonus + bless + racialAtk;
     const dmgType = state.getWeaponDamageType(hero.equippedWeapon, 'slashing');
     const baseMaxDmg = state.getWeaponMaxDamage(hero.equippedWeapon, 8) || 8;
     const isFighterSpec = state.isHeroSpecialistWithEquipped(hero);
@@ -161,7 +196,8 @@ export class CombatActions {
 
     const mastery = state.getWeaponMastery(hero, hero.equippedWeapon);
     const isFighterSpec = (hero.classKey === 'fighter' && hero.specializedWeapon === hero.equippedWeapon);
-    const targetNum = dexVal + (hero.attackBonus != null ? hero.attackBonus : 1) + state.getLevelAttackBonus(hero) + mastery.atkBonus + bless;
+    const racialAtk = this.getRacialCombatBonus(hero, target, hero.equippedWeapon, 'ranged');
+    const targetNum = dexVal + (hero.attackBonus != null ? hero.attackBonus : 1) + state.getLevelAttackBonus(hero) + mastery.atkBonus + bless + racialAtk;
     const dmgType = state.getWeaponDamageType(hero.equippedWeapon, 'piercing');
     const baseMaxDmg = state.getWeaponMaxDamage(hero.equippedWeapon, 6) || 6;
     const maxWepDmg = baseMaxDmg + mastery.dmgBonus;
@@ -567,13 +603,19 @@ export class CombatActions {
 
         if (saveRes.success) {
           const modStr = saveRes.abilityMod ? (saveRes.abilityMod > 0 ? `+${saveRes.abilityMod}` : `${saveRes.abilityMod}`) : '';
+          const racialStr = saveRes.racialMod ? `+${saveRes.racialMod} racial` : '';
+          const fullMod = [modStr, racialStr].filter(Boolean).join(' ');
+          const logMsg = saveRes.isImmune
+            ? `🧝 FEY IMMUNITY: ${saveRes.narrative}`
+            : `🛡️ HEROIC FORTITUDE: ${saveRes.narrative} [d20=${saveRes.roll}${fullMod ? ` (${fullMod})` : ''} vs Target ${saveRes.target}]`;
+
           combatEvents.push({
             eventType: 'SAVE_SUCCESS',
             savingThrow: saveRes,
             targetHeroIndex: finalHeroIndex,
             targetHeroName: finalHero.name,
             sourceName: mob.name,
-            logText: `🛡️ HEROIC FORTITUDE: ${saveRes.narrative} [d20=${saveRes.roll}${modStr} vs Target ${saveRes.target}]`,
+            logText: logMsg,
             logType: 'success'
           });
         } else {

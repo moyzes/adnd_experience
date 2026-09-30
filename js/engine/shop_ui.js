@@ -1,4 +1,5 @@
 import { GameState } from './state.js';
+import { InventoryManager } from './items/inventory_manager.js';
 
 export class ShopUI {
   constructor(state, context) {
@@ -126,7 +127,9 @@ export class ShopUI {
       <div style="display:flex; flex-direction:column; gap:8px;">
         ${filtered.map(([name, def]) => {
           const isPersonal = def.scope === 'personal';
-          const canAfford = partyGold >= (def.price || 0);
+          const buyPrice = InventoryManager.getItemBuyPrice(this.state, def);
+          const canAfford = partyGold >= buyPrice;
+          const isDiscounted = buyPrice < (def.price || 0);
 
           // Calculate how many are currently owned across personal inventories
           const owned = party.reduce((sum, h) => {
@@ -200,7 +203,8 @@ export class ShopUI {
                 <div style="flex:1;">
                   <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                     <b style="color:var(--gold-tsr); font-size:12px;">${name}</b>
-                    <span style="color:#d29922; font-size:11px; font-weight:700;">${def.price} gp</span>
+                    <span style="color:#d29922; font-size:11px; font-weight:700;">${buyPrice} gp</span>
+                    ${isDiscounted ? `<span style="background:#281b0a; color:#f0883e; border:1px solid #bd561d; padding:1px 5px; border-radius:2px; font-size:9px; font-weight:700;" title="Dwarf Master's Eye: 10% Smithcraft Discount">🪙 Master's Eye (-10%)</span>` : ''}
                     ${metricTag}
                   </div>
                   <div style="font-size:10px; color:var(--parchment); margin-top:3px; line-height:1.3;">
@@ -238,12 +242,9 @@ export class ShopUI {
         if (!def) return;
 
         const isQuest = def.kind === 'quest';
-        let sellPrice = 0;
-        if (def.kind === 'treasure' || def.kind === 'gem') {
-          sellPrice = def.price || 30;
-        } else {
-          sellPrice = Math.max(1, Math.floor((def.price || 2) * 0.5));
-        }
+        const sellPrice = InventoryManager.getItemSellPrice(this.state, def);
+        const baseHalfPrice = Math.max(1, Math.floor((def.price || 2) * 0.5));
+        const isMarkedUp = (def.kind === 'weapon' || def.kind === 'armor' || def.kind === 'shield') && sellPrice > baseHalfPrice;
 
         const isEquipped = hero.equippedWeapon === name || 
                            (hero.equippedArmor && hero.equippedArmor.name === name) ||
@@ -255,6 +256,7 @@ export class ShopUI {
           def,
           sellPrice,
           isQuest,
+          isMarkedUp,
           holderName: `${hero.name} (${hero.className})`,
           heroIndex: hIdx,
           isEquipped
@@ -294,6 +296,7 @@ export class ShopUI {
                   <b style="color:var(--gold-tsr); font-size:11px;">${row.name}</b>
                   <span style="font-size:10px; color:var(--parchment);">×${row.qty}</span>
                   ${kindBadge}
+                  ${row.isMarkedUp ? `<span style="background:#281b0a; color:#f0883e; border:1px solid #bd561d; padding:1px 5px; border-radius:2px; font-size:9px; font-weight:700;" title="Dwarf Master's Eye: 10% Smithcraft Appraisal Bonus">🪙 Master's Eye (+10%)</span>` : ''}
                   <span style="font-size:9px; color:#8b949e; background:#161b22; padding:1px 4px; border-radius:2px; border:1px solid #30363d;">${row.holderName}</span>
                 </div>
                 <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">

@@ -187,43 +187,26 @@ export class RendererThreeJS {
       }
     }
 
-    // 2. Position Active Monsters
-    let gridDx = 0, gridDz = 0;
-    if (playerState.facing === 'NORTH') gridDz = -0.9;
-    else if (playerState.facing === 'SOUTH') gridDz = 0.9;
-    else if (playerState.facing === 'EAST') gridDx = 0.9;
-    else if (playerState.facing === 'WEST') gridDx = -0.9;
+    // 2. Position Active Monsters with Collision-Aware Rank Formations
+    const layoutPositions = this.calculateMonsterLayoutPositions(aliveEnemies, playerState);
 
-    const targetWorldX = (playerState.x + gridDx) * ts;
-    const targetWorldZ = (playerState.y + gridDz) * ts;
-
-    const spacing = 0.8;
-    const totalWidth = (aliveEnemies.length - 1) * spacing;
-    const startOffset = -totalWidth / 2;
-
-    aliveEnemies.forEach((mob, idx) => {
+    layoutPositions.forEach(({ mob, posX, floorY, posZ, idx }) => {
       const existingMesh = this.monsterGroup.children.find(
         c => c.userData && c.userData.instanceId === mob.instanceId
       );
 
+      const playerWorldX = playerState.x * ts;
+      const playerWorldZ = playerState.y * ts;
+
       if (existingMesh) {
+        // Dynamically update position & orientation if party facing or formation shifted
+        existingMesh.position.set(posX, floorY, posZ);
+        existingMesh.lookAt(playerWorldX, floorY, playerWorldZ);
+        existingMesh.userData.baseY = floorY;
         return;
       }
 
       const modelPath = mob.glbModel || 'assets/glb/kobold.glb';
-      const lateralOffset = startOffset + (idx * spacing);
-
-      let offsetX = 0, offsetZ = 0;
-      if (playerState.facing === 'NORTH' || playerState.facing === 'SOUTH') {
-        offsetX = lateralOffset;
-      } else {
-        offsetZ = lateralOffset;
-      }
-
-      const customPosOffset = Array.isArray(mob.positionOffset) ? mob.positionOffset : [0, 0, 0];
-      const posX = targetWorldX + offsetX + (customPosOffset[0] || 0);
-      const posZ = targetWorldZ + offsetZ + (customPosOffset[2] || 0);
-      const floorY = -ts / 2 + (customPosOffset[1] || 0);
 
       this.gltfLoader.load(
         modelPath,
@@ -234,8 +217,6 @@ export class RendererThreeJS {
           outerPivot.position.set(posX, floorY, posZ);
 
           // Face the party: Three.js lookAt points outerPivot's local -Z directly at the party
-          const playerWorldX = playerState.x * ts;
-          const playerWorldZ = playerState.y * ts;
           outerPivot.lookAt(playerWorldX, floorY, playerWorldZ);
 
           // Orientation & Facing Offset:
@@ -297,6 +278,127 @@ export class RendererThreeJS {
           this.monsterGroup.add(mesh);
         }
       );
+    });
+  }
+
+  /**
+   * Calculates collision-safe, tactical AD&D rank formations for combat monsters.
+   * Ensures enemies are never placed inside walls, clamped away from corridor borders,
+   * and arranged in front-and-rear ranks rather than clipping into side stone.
+   */
+  calculateMonsterLayoutPositions(aliveEnemies, playerState) {
+    const ts = this.tileSize;
+    const facing = playerState.facing || 'NORTH';
+    const px = playerState.x;
+    const py = playerState.y;
+
+    let fwdX = 0, fwdZ = 0;
+    let rightX = 0, rightZ = 0;
+    if (facing === 'NORTH') { fwdZ = -1; rightX = 1; }
+    else if (facing === 'SOUTH') { fwdZ = 1; rightX = -1; }
+    else if (facing === 'EAST') { fwdX = 1; rightZ = 1; }
+    else if (facing === 'WEST') { fwdX = -1; rightZ = -1; }
+
+    const isWalkableTile = (tx, ty) => {
+      if (!this.spec || !this.spec.map) return true;
+      if (ty < 0 || ty >= this.spec.map.length || tx < 0 || tx >= this.spec.map[0].length) return false;
+      const tileId = this.spec.map[ty][tx];
+      if (tileId === 1) return false;
+      const key = `${tx},${ty}`;
+      if ((tileId === 2 || tileId === 8) && (!this.gameState?.openedDoors || !this.gameState.openedDoors.has(key))) return false;
+      if (tileId === 7) return false;
+      const legend = this.spec.legend && this.spec.legend[tileId];
+      if (legend && legend.walkable === false) return false;
+      return true;
+    };
+
+    const tile1Walkable = isWalkableTile(px + fwdX, py + fwdZ);
+    const tile2Walkable = isWalkableTile(px + 2 * fwdX, py + 2 * fwdZ);
+
+    const leftWalkable = isWalkableTile(px - rightX, py - rightZ) && isWalkableTile(px + fwdX - rightX, py + fwdZ - rightZ);
+    const rightWalkable = isWalkableTile(px + rightX, py + rightZ) && isWalkableTile(px + fwdX + rightX, py + fwdZ + rightZ);
+
+    // If directly facing a closed obstacle, keep depth inside current tile (before wall plane at 0.5*ts)
+    const frontRankDepth = tile1Walkable ? 0.90 : 0.40;
+    const rearRankDepth = tile1Walkable ? (tile2Walkable ? 1.48 : 1.22) : 0.40;
+
+    // Narrow 1-tile corridor vs open room lateral width constraint
+    const maxLateral = (leftWalkable && rightWalkable) ? 0.55 : 0.28;
+
+    const count = aliveEnemies.length;
+    let slots = [];
+    if (count === 1) {
+      slots = [{ lat: 0, depth: frontRankDepth }];
+    } else if (count === 2) {
+      slots = [
+        { lat: -maxLateral, depth: frontRankDepth },
+        { lat: maxLateral, depth: frontRankDepth + (tile1Walkable ? 0.08 : 0) }
+      ];
+    } else if (count === 3) {
+      slots = [
+        { lat: -maxLateral, depth: frontRankDepth },
+        { lat: maxLateral, depth: frontRankDepth },
+        { lat: 0, depth: rearRankDepth }
+      ];
+    } else if (count === 4) {
+      slots = [
+        { lat: -maxLateral, depth: frontRankDepth },
+        { lat: maxLateral, depth: frontRankDepth },
+        { lat: -maxLateral * 0.85, depth: rearRankDepth },
+        { lat: maxLateral * 0.85, depth: rearRankDepth + (tile1Walkable ? 0.08 : 0) }
+      ];
+    } else {
+      slots = [
+        { lat: -maxLateral, depth: frontRankDepth },
+        { lat: maxLateral, depth: frontRankDepth },
+        { lat: -maxLateral * 0.8, depth: rearRankDepth },
+        { lat: maxLateral * 0.8, depth: rearRankDepth }
+      ];
+      for (let i = 4; i < count; i++) {
+        slots.push({
+          lat: (i % 2 === 0 ? -0.2 : 0.2),
+          depth: rearRankDepth + 0.45 * Math.floor((i - 2) / 2)
+        });
+      }
+    }
+
+    return aliveEnemies.map((mob, idx) => {
+      const slot = slots[idx] || { lat: 0, depth: frontRankDepth };
+      const customPosOffset = Array.isArray(mob.positionOffset) ? mob.positionOffset : [0, 0, 0];
+
+      let worldX = (px + (fwdX * slot.depth) + (rightX * slot.lat)) * ts + (customPosOffset[0] || 0);
+      let worldZ = (py + (fwdZ * slot.depth) + (rightZ * slot.lat)) * ts + (customPosOffset[2] || 0);
+
+      // Wall collision avoidance: test against surrounding 5x5 grid cells
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const checkX = px + dx;
+          const checkY = py + dy;
+          if (!isWalkableTile(checkX, checkY)) {
+            const minWX = (checkX - 0.5) * ts;
+            const maxWX = (checkX + 0.5) * ts;
+            const minWZ = (checkY - 0.5) * ts;
+            const maxWZ = (checkY + 0.5) * ts;
+
+            const safeMargin = 0.40;
+            if (
+              worldX > minWX - safeMargin && worldX < maxWX + safeMargin &&
+              worldZ > minWZ - safeMargin && worldZ < maxWZ + safeMargin
+            ) {
+              const playerWX = px * ts;
+              const playerWZ = py * ts;
+              const dirX = playerWX - worldX;
+              const dirZ = playerWZ - worldZ;
+              const dist = Math.hypot(dirX, dirZ) || 1;
+              worldX += (dirX / dist) * safeMargin;
+              worldZ += (dirZ / dist) * safeMargin;
+            }
+          }
+        }
+      }
+
+      const floorY = -ts / 2 + (customPosOffset[1] || 0);
+      return { mob, posX: worldX, floorY, posZ: worldZ, idx };
     });
   }
 

@@ -178,6 +178,7 @@ export class PartyBuilderUI {
               ⚔️ ${hero.equippedWeapon || 'Unarmed'} | 🛡️ ${hero.equippedArmor?.name || 'Unarmored'}
             </div>
             ${spellSnippet}
+            ${CharacterFactory.getRaceTraits(hero).title ? `<div style="font-size: 8.5px; color: var(--gold-tsr); margin-top: 3px; border-top: 1px dashed rgba(210,153,34,0.3); padding-top: 2px;">🧬 ${CharacterFactory.getRaceTraits(hero).title}</div>` : ''}
           </div>
         `;
       } else {
@@ -551,6 +552,9 @@ export class PartyBuilderUI {
                 <input type="radio" name="char-race" value="dwarf" ${char.race === 'dwarf' ? 'checked' : ''}>
                 <span><b>Dwarf</b> (+1 CON, -1 CHA)</span>
               </label>
+            </div>
+            <div style="margin-top: 5px; padding: 6px 8px; background: rgba(0,0,0,0.35); border: 1px dashed rgba(210,153,34,0.35); border-radius: 2px; font-size: 9.5px; color: var(--text-parchment); line-height: 1.35;">
+              <b style="color: var(--gold-tsr);">🧬 ${CharacterFactory.getRace(char.race).name} Heritage:</b> ${CharacterFactory.getRaceTraits(char.race).summary || ''}
             </div>
           </div>
 

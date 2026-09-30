@@ -1,6 +1,7 @@
 import { SpellRegistry } from '../spell_registry.js';
 import { InventoryManager } from '../items/inventory_manager.js';
 import { AlignmentManager } from '../characters/alignment_manager.js';
+import { CharacterFactory } from '../characters/character_factory.js';
 
 /**
  * RestManager handles Vancian spell study/memorization, Cleric divine favor
@@ -77,7 +78,18 @@ export class RestManager {
     const px = state.player.x, py = state.player.y;
     const nearby = incomplete.filter(e => Math.abs((e.x || 0) - px) + Math.abs((e.y || 0) - py) <= 4);
 
-    const chance = nearby.length > 0 ? 35 : 12;
+    let chance = nearby.length > 0 ? 35 : 12;
+
+    // Cross-cutting racial trait: Elf Keen Senses reduce wilderness ambush chance by 45%
+    const zone = state.getCurrentZone ? state.getCurrentZone() : 'dungeon';
+    const hasElf = state.party.some(p => {
+      const traits = CharacterFactory.getRaceTraits(p);
+      return traits?.detectionBias?.zone === 'wilderness' && p.hp > 0;
+    });
+    if (zone === 'wilderness' && hasElf) {
+      chance = Math.max(5, Math.round(chance * 0.55));
+    }
+
     if (Math.random() * 100 >= chance) return null;
 
     const pool = nearby.length > 0 ? nearby : incomplete;
@@ -206,12 +218,17 @@ export class RestManager {
     let toMemorize = [];
     let skipped = [];
 
+    // Cross-cutting racial modifier: Elf Mage Arcane Affinity (15% lighter cognitive burden)
+    const raceTraits = CharacterFactory.getRaceTraits(mage);
+    const cogMod = (raceTraits && typeof raceTraits.cognitiveLoadModifier === 'number') ? raceTraits.cognitiveLoadModifier : 1.0;
+    const getEffectiveLoad = (s) => Math.max(5, Math.round((s.cognitive_load || 20) * cogMod));
+
     if (targetSpellIndex !== null && targetSpellIndex !== undefined) {
       const sp = mage.spells[targetSpellIndex];
       if (!sp) return { success: false, reason: "Spell construct not found in grimoire." };
       if (!sp.spent) return { success: false, reason: `${sp.name} is already memorized in active mind.` };
 
-      const load = sp.cognitive_load || 20;
+      const load = getEffectiveLoad(sp);
       const currentCognition = mage.cognition !== undefined ? mage.cognition : (mage.maxCognition || 100);
       if (load > currentCognition) {
         return {
@@ -235,7 +252,7 @@ export class RestManager {
 
       let availableCognition = mage.cognition !== undefined ? mage.cognition : (mage.maxCognition || 100);
       for (const sp of unmemorized) {
-        const load = sp.cognitive_load || 20;
+        const load = getEffectiveLoad(sp);
         if (load <= availableCognition) {
           toMemorize.push(sp);
           availableCognition -= load;
@@ -245,7 +262,7 @@ export class RestManager {
       }
 
       if (toMemorize.length === 0) {
-        const minReq = Math.min(...unmemorized.map(s => s.cognitive_load || 20));
+        const minReq = Math.min(...unmemorized.map(s => getEffectiveLoad(s)));
         return {
           success: false,
           reason: `No additional formulas fit in active memory (${mage.cognition || 0} Cognition available, next requires ${minReq}). Rest to clear mental strain before seating further spells.`
@@ -256,7 +273,7 @@ export class RestManager {
     const minutes = toMemorize.reduce((sum, s) => sum + 10 * Math.max(1, s.level || s.tier || 1), 0);
     const turnResult = state.advanceExplorationTurn(minutes, "Study Grimoire", false);
 
-    const cognitiveCost = toMemorize.reduce((sum, s) => sum + (s.cognitive_load || 20), 0);
+    const cognitiveCost = toMemorize.reduce((sum, s) => sum + getEffectiveLoad(s), 0);
     const currentCog = mage.cognition !== undefined ? mage.cognition : (mage.maxCognition || 100);
     mage.cognition = Math.max(0, currentCog - cognitiveCost);
 

@@ -802,6 +802,10 @@ export class GameState {
     return ExplorationManager.attemptSneakPastEncounter(this, encounter);
   }
 
+  alignCombatFacing() {
+    return ExplorationManager.alignCombatFacing(this);
+  }
+
   triggerTrap(trapDef, specificTarget = null) {
     return ExplorationManager.triggerTrap(this, trapDef, specificTarget);
   }

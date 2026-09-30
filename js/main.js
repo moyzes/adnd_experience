@@ -12,6 +12,7 @@ import { ShopUI } from './engine/shop_ui.js';
 import { LevelUpUI } from './engine/level_up_ui.js';
 import { QuestLogUI } from './engine/quest_log_ui.js';
 import { SpellRegistry } from './engine/spell_registry.js';
+import { AlignmentManager } from './engine/characters/alignment_manager.js';
 import { InventoryManager } from './engine/items/inventory_manager.js';
 import { PartyBuilderUI } from './ui/party_builder_modal.js';
 
@@ -20,11 +21,15 @@ import { PartyBuilderUI } from './ui/party_builder_modal.js';
  * and handles the transition from setup into the main game orchestrator.
  */
 async function init() {
-  let classesData, spellsData;
+  let classesData, spellsData, deitiesData;
   try {
-    [classesData, spellsData] = await Promise.all([
+    [classesData, spellsData, deitiesData] = await Promise.all([
       loadJSON('data/classes.json'),
-      loadJSON('data/spells.json')
+      loadJSON('data/spells.json'),
+      loadJSON('data/deities.json').catch(e => {
+        console.warn("Deities load fallback:", e);
+        return null;
+      })
     ]);
   } catch (err) {
     console.error("Critical error: Failed to load core game rules data:", err);
@@ -32,6 +37,9 @@ async function init() {
     return;
   }
 
+  if (deitiesData) {
+    AlignmentManager.init(deitiesData);
+  }
   SpellRegistry.init(spellsData, classesData);
 
   // Initialize PartyBuilderUI with 3d6 rolling, custom character builder & module picker
@@ -260,6 +268,7 @@ class GameOrchestrator {
   start() {
     this.uiController.initPartyDOM();
     this.uiController.updateHUD();
+    if (this.audioManager) this.audioManager.unlockAudio();
     this.updateEnvironmentAudio();
 
     if (this.spec.name) {
@@ -425,6 +434,11 @@ class GameOrchestrator {
             return;
           }
           this.log(`${thief.name}'s cover is blown!`, "danger");
+        }
+        const turnedFacing = this.state.alignCombatFacing();
+        if (turnedFacing) {
+          this.camera.targetAngle = this.facingToAngle(this.state.player.facing);
+          this.camera.angle = this.camera.targetAngle;
         }
         this.combatController.triggerEncounter(activeEncounter.id);
         return;

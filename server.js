@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -7,6 +8,31 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = 3000;
+
+// Dynamic Audio Directory Index API
+app.get('/api/audio-manifest', (req, res) => {
+  const audioDir = path.join(__dirname, 'assets', 'audio');
+  try {
+    if (fs.existsSync(audioDir)) {
+      const files = fs.readdirSync(audioDir);
+      const audioFiles = files
+        .filter(f => f.endsWith('.mp3') || f.endsWith('.wav') || f.endsWith('.ogg'))
+        .map(f => {
+          const stat = fs.statSync(path.join(audioDir, f));
+          return {
+            id: f.replace(/\.[^/.]+$/, ''),
+            filename: f,
+            path: `/assets/audio/${f}`,
+            size: stat.size
+          };
+        });
+      return res.json({ success: true, count: audioFiles.length, files: audioFiles });
+    }
+    return res.json({ success: true, count: 0, files: [] });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
 
 // Explicitly serve static files with proper MIME headers and caching controls
 app.use(express.static(__dirname, {
@@ -22,6 +48,7 @@ app.use(express.static(__dirname, {
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
     } else if (filePath.endsWith('.mp3')) {
       res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Accept-Ranges', 'bytes');
     }
   }
 }));

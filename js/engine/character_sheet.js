@@ -86,6 +86,59 @@ export class CharacterSheetUI {
       <div>Charisma: <b style="color:var(--text-parchment);">${attrs.charisma}</b></div>
     </div>`;
 
+    // Innate Racial Traits resolution
+    const raceData = CharacterFactory.getRace(hero);
+    const raceTraits = CharacterFactory.getRaceTraits(hero);
+    const traitBadges = [];
+
+    if (raceTraits.savingThrowBonuses) {
+      Object.entries(raceTraits.savingThrowBonuses).forEach(([cat, bonus]) => {
+        const catLabel = cat === 'PARALYZATION_POISON_DEATH' ? 'Poison/Death' : cat === 'PETRIFICATION_POLYMORPH' ? 'Petrification' : cat === 'SPELL' ? 'Spells' : cat;
+        traitBadges.push(`<span style="background:#1b241c;color:#7ee787;border:1px solid #238636;padding:2px 6px;border-radius:2px;font-size:10px;font-weight:600;" title="Racial saving throw resistance">🛡️ +${bonus} Save vs ${catLabel}</span>`);
+      });
+    }
+    if (raceTraits.encumbranceModifier && raceTraits.encumbranceModifier !== 0) {
+      const pct = Math.round(raceTraits.encumbranceModifier * 100);
+      traitBadges.push(`<span style="background:#1c2128;color:#79c0ff;border:1px solid #1f6feb;padding:2px 6px;border-radius:2px;font-size:10px;font-weight:600;" title="Armor & heavy load sit easier">🎒 +${pct}% Carry Capacity (Stone-Born)</span>`);
+    }
+    if (raceTraits.combatBonus) {
+      if (raceTraits.combatBonus.enemyTypes) {
+        traitBadges.push(`<span style="background:#281b0a;color:#f0883e;border:1px solid #bd561d;padding:2px 6px;border-radius:2px;font-size:10px;font-weight:600;" title="Ancestral hatred against subterranean defilers">⚔️ +${raceTraits.combatBonus.toHitBonus} To-Hit vs ${raceTraits.combatBonus.enemyTypes.slice(0, 3).join('/')} (Old Grudges)</span>`);
+      }
+      if (raceTraits.combatBonus.weapons) {
+        traitBadges.push(`<span style="background:#281b0a;color:#f0883e;border:1px solid #bd561d;padding:2px 6px;border-radius:2px;font-size:10px;font-weight:600;" title="Fey dance of blade & arrow">🏹 +${raceTraits.combatBonus.toHitBonus} To-Hit (Swords & Bows)</span>`);
+      }
+    }
+    if (raceTraits.detectionBias) {
+      if (raceTraits.detectionBias.zone === 'dungeon') {
+        traitBadges.push(`<span style="background:#211e15;color:#d29922;border:1px solid #d29922;padding:2px 6px;border-radius:2px;font-size:10px;font-weight:600;" title="Instinctive reading of structural stone">🏛️ Stonesense (+${raceTraits.detectionBias.trapBonus}% Trap/Bash in Dungeons)</span>`);
+      } else if (raceTraits.detectionBias.zone === 'wilderness') {
+        traitBadges.push(`<span style="background:#162b1a;color:#7ee787;border:1px solid #238636;padding:2px 6px;border-radius:2px;font-size:10px;font-weight:600;" title="Keen ears and woodland scouting">🌲 Keen Senses (Wilderness Ambush Shield & Scouting)</span>`);
+      }
+    }
+    if (raceTraits.cognitiveLoadModifier && raceTraits.cognitiveLoadModifier < 1.0 && hero.classKey === 'mage') {
+      const pct = Math.round((1 - raceTraits.cognitiveLoadModifier) * 100);
+      traitBadges.push(`<span style="background:#221538;color:#d2a8ff;border:1px solid #8957e5;padding:2px 6px;border-radius:2px;font-size:10px;font-weight:600;" title="Lighter Vancian memory burden">🔮 Arcane Affinity (-${pct}% Cognitive Load)</span>`);
+    }
+    if (raceTraits.shopAffinity) {
+      traitBadges.push(`<span style="background:#2e1f00;color:#f2cc60;border:1px solid #9e6a03;padding:2px 6px;border-radius:2px;font-size:10px;font-weight:600;" title="Master smith trade appraisal">🪙 Master's Eye (10% Arms & Armor Trade Value)</span>`);
+    }
+    if (raceTraits.immunities && raceTraits.immunities.length > 0) {
+      traitBadges.push(`<span style="background:#13233a;color:#58a6ff;border:1px solid #1f6feb;padding:2px 6px;border-radius:2px;font-size:10px;font-weight:600;" title="Ancient bloodline immune to unnatural charms">✨ Fey Immunity (${raceTraits.immunities.map(i => i.replace('_', ' ')).join(', ')})</span>`);
+    }
+
+    const traitsHTML = traitBadges.length > 0 ? `
+    <div style="background: rgba(210, 153, 34, 0.08); border: 1px solid var(--border-gold-frame); border-radius: 4px; padding: 8px 12px; margin-bottom: 12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
+        <span style="color: var(--gold-tsr); font-family: 'Cinzel', serif; font-weight: bold; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
+          🧬 Racial Heritage: ${raceData.name} — ${raceTraits.title || 'Innate Talents'}
+        </span>
+      </div>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+        ${traitBadges.join('')}
+      </div>
+    </div>` : '';
+
     // Dynamic Buff Indicators
     const activeBuffs = [];
     if (hero.equippedGloves && (hero.equippedGloves.strengthSet || hero.equippedGloves.name?.toLowerCase().includes('ogre'))) {
@@ -296,6 +349,10 @@ export class CharacterSheetUI {
       const concordancePct = concordance ? concordance.concordancePct : 100;
       const statusLabel = concordance ? concordance.statusLabel : hero.ethosStatus;
       const concordanceBarColor = concordancePct >= 75 ? '#3fb950' : (concordancePct >= 40 ? '#d29922' : '#f85149');
+      const idealOrder = deity.idealCoordinates ? deity.idealCoordinates.order : (deity.idealOrder != null ? deity.idealOrder : 0);
+      const idealMorality = deity.idealCoordinates ? deity.idealCoordinates.morality : (deity.idealMorality != null ? deity.idealMorality : 0);
+      const orderSign = idealOrder > 0 ? '+' : '';
+      const moralSign = idealMorality > 0 ? '+' : '';
 
       specializedHTML = `
       <div style="background: #161b22; padding: 10px; border: 1px solid var(--border-steel); border-radius: 4px; margin-bottom: 12px; font-size: 12px;">
@@ -319,7 +376,7 @@ export class CharacterSheetUI {
           <div style="margin-bottom: 8px;">
             <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 2px;">
               <span style="color: var(--text-parchment);">Sacred Ethos Concordance:</span>
-              <span style="color: ${concordanceBarColor}; font-weight: bold;">${concordancePct}% (Ideal: Order ${deity.idealOrder > 0 ? '+' : ''}${deity.idealOrder}, Morality ${deity.idealMorality > 0 ? '+' : ''}${deity.idealMorality})</span>
+              <span style="color: ${concordanceBarColor}; font-weight: bold;">${concordancePct}% (Ideal: Order ${orderSign}${idealOrder}, Morality ${moralSign}${idealMorality})</span>
             </div>
             <div style="height: 6px; background: #0d1117; border-radius: 3px; overflow: hidden; border: 1px solid #30363d;">
               <div style="width: ${concordancePct}%; height: 100%; background: ${concordanceBarColor}; transition: width 0.3s ease;"></div>
@@ -614,35 +671,49 @@ export class CharacterSheetUI {
     const orderPct = Math.round(((orderVal + 100) / 200) * 100);
     const moralityPct = Math.round(((moralityVal + 100) / 200) * 100);
 
+    let orderDescriptor = 'Neutral';
+    if (orderVal >= 60) orderDescriptor = 'Staunchly Lawful';
+    else if (orderVal >= 25) orderDescriptor = 'Disciplined & Dutiful';
+    else if (orderVal <= -60) orderDescriptor = 'Wildly Chaotic';
+    else if (orderVal <= -25) orderDescriptor = 'Independent & Unbound';
+    else orderDescriptor = 'Pragmatic Balance';
+
+    let moralityDescriptor = 'Neutral';
+    if (moralityVal >= 60) moralityDescriptor = 'Saintly Benevolence';
+    else if (moralityVal >= 25) moralityDescriptor = 'Compassionate & Righteous';
+    else if (moralityVal <= -60) moralityDescriptor = 'Diabolical Malice';
+    else if (moralityVal <= -25) moralityDescriptor = 'Ruthless Self-Interest';
+    else moralityDescriptor = 'Circumspect Balance';
+
     const matrixGrid = [
       [
-        { key: 'lawful_good', name: 'Lawful Good', short: 'LG', color: '#7ee787' },
-        { key: 'neutral_good', name: 'Neutral Good', short: 'NG', color: '#3fb950' },
-        { key: 'chaotic_good', name: 'Chaotic Good', short: 'CG', color: '#56d364' }
+        { key: 'lawful_good', name: 'Lawful Good', short: 'LG', titleTop: 'Lawful', titleBottom: 'Good', color: '#7ee787' },
+        { key: 'neutral_good', name: 'Neutral Good', short: 'NG', titleTop: 'Neutral', titleBottom: 'Good', color: '#3fb950' },
+        { key: 'chaotic_good', name: 'Chaotic Good', short: 'CG', titleTop: 'Chaotic', titleBottom: 'Good', color: '#56d364' }
       ],
       [
-        { key: 'lawful_neutral', name: 'Lawful Neutral', short: 'LN', color: '#79c0ff' },
-        { key: 'true_neutral', name: 'True Neutral', short: 'TN', color: '#e6edf3' },
-        { key: 'chaotic_neutral', name: 'Chaotic Neutral', short: 'CN', color: '#a5d6ff' }
+        { key: 'lawful_neutral', name: 'Lawful Neutral', short: 'LN', titleTop: 'Lawful', titleBottom: 'Neutral', color: '#79c0ff' },
+        { key: 'true_neutral', name: 'True Neutral', short: 'TN', titleTop: 'True', titleBottom: 'Neutral', color: '#e6edf3' },
+        { key: 'chaotic_neutral', name: 'Chaotic Neutral', short: 'CN', titleTop: 'Chaotic', titleBottom: 'Neutral', color: '#a5d6ff' }
       ],
       [
-        { key: 'lawful_evil', name: 'Lawful Evil', short: 'LE', color: '#ff7b72' },
-        { key: 'neutral_evil', name: 'Neutral Evil', short: 'NE', color: '#f85149' },
-        { key: 'chaotic_evil', name: 'Chaotic Evil', short: 'CE', color: '#da3633' }
+        { key: 'lawful_evil', name: 'Lawful Evil', short: 'LE', titleTop: 'Lawful', titleBottom: 'Evil', color: '#ff7b72' },
+        { key: 'neutral_evil', name: 'Neutral Evil', short: 'NE', titleTop: 'Neutral', titleBottom: 'Evil', color: '#f85149' },
+        { key: 'chaotic_evil', name: 'Chaotic Evil', short: 'CE', titleTop: 'Chaotic', titleBottom: 'Evil', color: '#da3633' }
       ]
     ];
 
     const matrixHTML = matrixGrid.map(row => `
       <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 4px;">
         ${row.map(cell => {
-          const isActive = alignment.key === cell.key;
+          const isActive = alignment.code === cell.short || alignment.name === cell.name || alignment.key === cell.key;
           return `
-            <div style="padding: 4px; text-align: center; border-radius: 3px; border: 1px solid ${isActive ? 'var(--gold-tsr)' : 'var(--border-iron)'}; background: ${isActive ? 'rgba(210,153,34,0.25)' : '#0d1117'}; box-shadow: ${isActive ? '0 0 6px rgba(210,153,34,0.4)' : 'none'}; transition: all 0.2s ease;">
-              <div style="font-weight: bold; font-size: 10px; color: ${isActive ? 'var(--gold-tsr)' : cell.color};">
+            <div style="padding: 6px 2px; text-align: center; border-radius: 3px; border: 1px solid ${isActive ? 'var(--gold-tsr)' : 'rgba(255,255,255,0.08)'}; background: ${isActive ? 'rgba(210,153,34,0.22)' : 'rgba(0,0,0,0.35)'}; box-shadow: ${isActive ? '0 0 10px rgba(210,153,34,0.35)' : 'none'}; transition: all 0.2s ease;">
+              <div style="font-family: 'Cinzel', serif; font-weight: bold; font-size: 11px; color: ${isActive ? 'var(--gold-tsr)' : cell.color}; line-height: 1.1;">
                 ${cell.short} ${isActive ? '★' : ''}
               </div>
-              <div style="font-size: 7.5px; color: ${isActive ? '#fff' : '#8b949e'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                ${cell.name}
+              <div style="font-size: 8px; color: ${isActive ? '#ffffff' : '#8b949e'}; line-height: 1.15; margin-top: 2px;">
+                ${cell.titleTop}<br>${cell.titleBottom}
               </div>
             </div>
           `;
@@ -650,70 +721,141 @@ export class CharacterSheetUI {
       </div>
     `).join('');
 
-    const recentHistory = (hero.alignmentHistory || []).slice(-3).reverse();
+    const recentHistory = (hero.alignmentHistory || []).slice(-4).reverse();
     const historyHTML = recentHistory.length > 0 ? `
-      <div style="margin-top: 6px; border-top: 1px dashed #30363d; padding-top: 4px;">
-        <div style="font-size: 9px; color: var(--text-muted); margin-bottom: 3px; font-weight: bold;">RECENT MORAL COMMISSIONS:</div>
-        <div style="display: flex; flex-direction: column; gap: 2px;">
+      <div style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+          <span style="font-family: 'Cinzel', serif; font-size: 9.5px; font-weight: bold; color: var(--gold-tsr); letter-spacing: 0.5px;">
+            📜 CHRONICLE OF MORAL COMMISSIONS
+          </span>
+          <span style="font-size: 8.5px; color: var(--text-muted);">
+            ${hero.alignmentHistory.length} recorded deed${hero.alignmentHistory.length === 1 ? '' : 's'}
+          </span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 3px;">
           ${recentHistory.map(h => {
-            const oDelta = (h.orderDelta > 0 ? '+' : '') + h.orderDelta;
-            const mDelta = (h.moralityDelta > 0 ? '+' : '') + h.moralityDelta;
+            const oDelta = h.orderDelta || 0;
+            const mDelta = h.moralityDelta || 0;
+            const label = h.reason || h.actionName || h.action || 'Moral decision';
             return `
-              <div style="font-size: 8.5px; color: #8b949e; display: flex; justify-content: space-between; background: #0b0d11; padding: 2px 4px; border-radius: 2px;">
-                <span>${h.actionName || 'Encounter decision'}</span>
-                <span style="color: var(--text-parchment); font-family: monospace;">Order: ${oDelta}, Moral: ${mDelta}</span>
+              <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 3px; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 9px;">
+                <div style="display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1;">
+                  <span style="color: var(--gold-tsr); font-size: 9px;">◆</span>
+                  <span style="color: var(--text-parchment); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${label}</span>
+                </div>
+                <div style="display: flex; gap: 4px; flex-shrink: 0; font-family: monospace;">
+                  ${oDelta !== 0 ? `<span style="padding: 1px 4px; border-radius: 2px; background: rgba(88,166,255,0.15); color: #79c0ff; border: 1px solid rgba(88,166,255,0.3);">Order ${oDelta > 0 ? '+' : ''}${oDelta}</span>` : ''}
+                  ${mDelta !== 0 ? `<span style="padding: 1px 4px; border-radius: 2px; background: ${mDelta > 0 ? 'rgba(63,185,80,0.15)' : 'rgba(248,81,73,0.15)'}; color: ${mDelta > 0 ? '#7ee787' : '#ff7b72'}; border: 1px solid ${mDelta > 0 ? 'rgba(63,185,80,0.3)' : 'rgba(248,81,73,0.3)'};">Moral ${mDelta > 0 ? '+' : ''}${mDelta}</span>` : ''}
+                  ${h.resultingAlignment ? `<span style="padding: 1px 4px; border-radius: 2px; background: rgba(210,153,34,0.15); color: var(--gold-tsr); border: 1px solid rgba(210,153,34,0.3); font-weight: bold;">${h.resultingAlignment}</span>` : ''}
+                </div>
               </div>
             `;
           }).join('')}
         </div>
       </div>
     ` : `
-      <div style="font-size: 8.5px; color: var(--text-muted); font-style: italic; margin-top: 4px;">
-        No moral actions recorded yet. Your decisions in dialogues, quests, and crises dynamically forge this alignment.
+      <div style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
+        <div style="background: rgba(0,0,0,0.25); border: 1px dashed rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 3px; font-size: 9.5px; color: var(--text-muted); font-style: italic; text-align: center;">
+          No moral commissions recorded yet. Your decisions in dialogues, crises, and divine covenants dynamically forge this conscience vector.
+        </div>
       </div>
     `;
 
+    const ethosCreed = alignment.creed || AlignmentManager.getAlignmentCreed(alignment.name);
+
     const alignmentHTML = `
-    <div style="background: #161b22; padding: 10px; border: 1px solid var(--border-steel); border-radius: 4px; margin-bottom: 12px; font-size: 12px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-        <div style="color: var(--accent-gold); font-weight: bold; font-size: 13px;">⚖️ Emergent Conscience & Alignment Vector</div>
-        <span style="font-size: 10px; color: ${alignment.color}; font-weight: bold; background: #0d1117; padding: 1px 6px; border-radius: 2px; border: 1px solid #30363d;">
-          Current: ${alignment.name}
-        </span>
+    <div style="background: #0d1117; border: 1px solid var(--border-steel); border-top: 2px solid var(--gold-tsr); border-radius: 4px; padding: 12px; margin-bottom: 12px; font-size: 12px;">
+      <!-- Section Header -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-family: 'Cinzel', serif; font-weight: bold; color: var(--gold-tsr); font-size: 13px; letter-spacing: 0.5px;">
+              ⚖️ EMERGENT CONSCIENCE & MORAL VECTOR
+            </span>
+          </div>
+          <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">
+            Philosophical compass forged through deeds, dialogues, crisis decisions, and divine vows.
+          </div>
+        </div>
+        <div style="text-align: right; flex-shrink: 0;">
+          <div style="display: inline-flex; align-items: center; gap: 5px; background: rgba(0,0,0,0.5); border: 1px solid ${alignment.color}; padding: 3px 8px; border-radius: 3px; box-shadow: 0 0 10px ${alignment.color}22;">
+            <span style="font-size: 11px;">🧭</span>
+            <b style="font-family: 'Cinzel', serif; font-size: 11px; color: ${alignment.color}; letter-spacing: 0.5px;">${alignment.name.toUpperCase()}</b>
+          </div>
+          <div style="font-size: 9px; color: var(--text-parchment); margin-top: 3px; font-family: monospace;">
+            Coords: Order ${orderSign}${orderVal} | Morality ${moralSign}${moralityVal}
+          </div>
+        </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: 140px 1fr; gap: 10px; align-items: center;">
-        <div>
-          ${matrixHTML}
-        </div>
+      <!-- Philosophical Creed Callout -->
+      <div style="background: rgba(255,255,255,0.02); border-left: 2px solid ${alignment.color}; padding: 6px 10px; border-radius: 0 3px 3px 0; margin-bottom: 12px; font-size: 10px; color: var(--text-parchment); line-height: 1.4; font-style: italic;">
+        "${ethosCreed}"
+      </div>
 
+      <!-- Two-Column Balanced Layout: 3x3 Grid (Left) & Dual Sliders (Right) -->
+      <div style="display: grid; grid-template-columns: 210px 1fr; gap: 14px; align-items: start;">
+        <!-- Left: 9-Fold Grid -->
         <div>
-          <div style="margin-bottom: 8px;">
-            <div style="display: flex; justify-content: space-between; font-size: 9px; color: var(--text-muted); margin-bottom: 2px;">
-              <span>Chaotic (-100)</span>
-              <span style="color: var(--gold-tsr); font-weight: bold;">Order Axis: ${orderSign}${orderVal}</span>
-              <span>Lawful (+100)</span>
-            </div>
-            <div style="position: relative; height: 6px; background: #0d1117; border: 1px solid #30363d; border-radius: 3px;">
-              <div style="position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: #555;"></div>
-              <div style="position: absolute; left: ${orderPct}%; top: -2px; transform: translateX(-50%); width: 8px; height: 10px; background: var(--favor-blue); border-radius: 2px; box-shadow: 0 0 4px #58a6ff;"></div>
-            </div>
+          <div style="font-size: 9px; color: var(--text-muted); font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-align: center;">
+            AD&D 9-Fold Alignment Grid
           </div>
-
           <div>
-            <div style="display: flex; justify-content: space-between; font-size: 9px; color: var(--text-muted); margin-bottom: 2px;">
-              <span>Evil (-100)</span>
-              <span style="color: ${moralityVal >= 0 ? '#3fb950' : '#f85149'}; font-weight: bold;">Morality Axis: ${moralSign}${moralityVal}</span>
-              <span>Good (+100)</span>
+            ${matrixHTML}
+          </div>
+        </div>
+
+        <!-- Right: Moral Vector Sliders -->
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <!-- Order Axis Card -->
+          <div style="background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); padding: 8px 10px; border-radius: 4px;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
+              <span style="font-family: 'Cinzel', serif; font-size: 10px; font-weight: bold; color: #79c0ff; letter-spacing: 0.5px;">
+                🏛️ ORDER VECTOR
+              </span>
+              <span style="font-size: 10.5px; font-weight: bold; color: var(--gold-tsr);">
+                ${orderSign}${orderVal} <span style="font-size: 9px; font-weight: normal; color: var(--text-muted);">(${orderDescriptor})</span>
+              </span>
             </div>
-            <div style="position: relative; height: 6px; background: #0d1117; border: 1px solid #30363d; border-radius: 3px;">
-              <div style="position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: #555;"></div>
-              <div style="position: absolute; left: ${moralityPct}%; top: -2px; transform: translateX(-50%); width: 8px; height: 10px; background: ${moralityVal >= 0 ? '#3fb950' : '#f85149'}; border-radius: 2px; box-shadow: 0 0 4px ${moralityVal >= 0 ? '#3fb950' : '#f85149'};"></div>
+            <div style="position: relative; height: 10px; background: #080a0f; border: 1px solid #30363d; border-radius: 5px; margin: 6px 0;">
+              <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 50%; background: linear-gradient(90deg, rgba(163,113,247,0.25), rgba(163,113,247,0.03)); border-radius: 4px 0 0 4px;"></div>
+              <div style="position: absolute; left: 50%; top: 0; bottom: 0; width: 50%; background: linear-gradient(90deg, rgba(88,166,255,0.03), rgba(88,166,255,0.25)); border-radius: 0 4px 4px 0;"></div>
+              <div style="position: absolute; left: 50%; top: -2px; bottom: -2px; width: 2px; background: #6e7681; z-index: 1;"></div>
+              <div style="position: absolute; left: ${orderPct}%; top: -3px; transform: translateX(-50%); width: 8px; height: 16px; background: #58a6ff; border: 1px solid #ffffff; border-radius: 2px; box-shadow: 0 0 6px #58a6ff; z-index: 2;" title="Order: ${orderSign}${orderVal}"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 8.5px; color: var(--text-muted); font-family: monospace;">
+              <span>◀ Chaotic (-100)</span>
+              <span style="color: #6e7681;">Neutral (0)</span>
+              <span>Lawful (+100) ▶</span>
+            </div>
+          </div>
+
+          <!-- Morality Axis Card -->
+          <div style="background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); padding: 8px 10px; border-radius: 4px;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
+              <span style="font-family: 'Cinzel', serif; font-size: 10px; font-weight: bold; color: ${moralityVal >= 0 ? '#7ee787' : '#ff7b72'}; letter-spacing: 0.5px;">
+                🕊️ MORALITY VECTOR
+              </span>
+              <span style="font-size: 10.5px; font-weight: bold; color: ${moralityVal >= 0 ? '#3fb950' : '#f85149'};">
+                ${moralSign}${moralityVal} <span style="font-size: 9px; font-weight: normal; color: var(--text-muted);">(${moralityDescriptor})</span>
+              </span>
+            </div>
+            <div style="position: relative; height: 10px; background: #080a0f; border: 1px solid #30363d; border-radius: 5px; margin: 6px 0;">
+              <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 50%; background: linear-gradient(90deg, rgba(248,81,73,0.3), rgba(248,81,73,0.03)); border-radius: 4px 0 0 4px;"></div>
+              <div style="position: absolute; left: 50%; top: 0; bottom: 0; width: 50%; background: linear-gradient(90deg, rgba(63,185,80,0.03), rgba(63,185,80,0.3)); border-radius: 0 4px 4px 0;"></div>
+              <div style="position: absolute; left: 50%; top: -2px; bottom: -2px; width: 2px; background: #6e7681; z-index: 1;"></div>
+              <div style="position: absolute; left: ${moralityPct}%; top: -3px; transform: translateX(-50%); width: 8px; height: 16px; background: ${moralityVal >= 0 ? '#3fb950' : '#f85149'}; border: 1px solid #ffffff; border-radius: 2px; box-shadow: 0 0 6px ${moralityVal >= 0 ? '#3fb950' : '#f85149'}; z-index: 2;" title="Morality: ${moralSign}${moralityVal}"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 8.5px; color: var(--text-muted); font-family: monospace;">
+              <span>◀ Evil (-100)</span>
+              <span style="color: #6e7681;">Neutral (0)</span>
+              <span>Good (+100) ▶</span>
             </div>
           </div>
         </div>
       </div>
 
+      <!-- Chronicle of Moral Decisions / Ledger -->
       ${historyHTML}
     </div>`;
 
@@ -730,7 +872,7 @@ export class CharacterSheetUI {
       </div>`;
     }
 
-    this.contentEl.innerHTML = levelUpBanner + portraitHeaderHTML + statsHTML + buffsHTML + combatHTML + skillsHTML + specializedHTML + alignmentHTML + gearHTML;
+    this.contentEl.innerHTML = levelUpBanner + portraitHeaderHTML + statsHTML + traitsHTML + buffsHTML + combatHTML + skillsHTML + specializedHTML + alignmentHTML + gearHTML;
     this.bindEvents();
     if (this.modal) this.modal.style.display = 'flex';
   }

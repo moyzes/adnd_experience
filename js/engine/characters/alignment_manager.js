@@ -10,7 +10,122 @@
  */
 
 export class AlignmentManager {
-  static DEITIES = [];
+  static DEITIES = [
+    {
+      id: "pelor",
+      name: "Pelor",
+      title: "The Sun Father",
+      symbol: "☀️",
+      alignment: "Neutral Good",
+      portfolio: "Sun, Light, Healing, Agriculture, Strength against Evil",
+      idealCoordinates: { order: 0, morality: 80 },
+      idealOrder: 0,
+      idealMorality: 80,
+      color: "#e3b341",
+      ethos: [
+        {
+          title: "Eradicate the Shadow",
+          description: "Purge undead and malignant darkness wherever they take root.",
+          favoredTags: ["purge_undead", "radiant_light", "destroy_necromancy"],
+          forbiddenTags: ["aid_undead", "desecrate_shrine", "dark_magic"]
+        },
+        {
+          title: "Relieve Suffering",
+          description: "Prioritize healing, charity, and defending the vulnerable over personal wealth or glory.",
+          favoredTags: ["heal_wounded", "charity", "defend_vulnerable"],
+          forbiddenTags: ["extortion", "neglect_wounded", "cruelty"]
+        },
+        {
+          title: "Nurture Life",
+          description: "Protect crops, communities, and simple folk, serving as a beacon of warmth and renewal.",
+          favoredTags: ["protect_innocents", "feed_hungry", "restore_community"],
+          forbiddenTags: ["slaughter_civilians", "poison_wells", "burn_fields"]
+        },
+        {
+          title: "Tempered Mercy",
+          description: "Offer redemption to those capable of change, but strike down unyielding evil without hesitation.",
+          favoredTags: ["spare_surrendered", "offer_redemption", "vanquish_evil"],
+          forbiddenTags: ["wanton_slaughter", "torture", "corrupt_bargain"]
+        }
+      ]
+    },
+    {
+      id: "lolth",
+      name: "Lolth",
+      title: "The Spider Queen",
+      symbol: "🕷️",
+      alignment: "Chaotic Evil",
+      portfolio: "Drow, Spiders, Darkness, Ambition, Treachery",
+      idealCoordinates: { order: -80, morality: -80 },
+      idealOrder: -80,
+      idealMorality: -80,
+      color: "#a371f7",
+      ethos: [
+        {
+          title: "Dominance Through Strength",
+          description: "Power belongs strictly to those ruthless enough to seize and hold it. Weakness warrants death or enslavement.",
+          favoredTags: ["ruthless_dominance", "execute_rival", "subjugate"],
+          forbiddenTags: ["show_weakness", "beg_mercy", "unconditional_submission"]
+        },
+        {
+          title: "Embrace Treachery",
+          description: "Intrigue, betrayal, and the elimination of rivals are tests of favor and natural selection.",
+          favoredTags: ["betrayal", "ambush", "poison_dagger", "eliminate_rival"],
+          forbiddenTags: ["blind_loyalty", "forgive_betrayal", "pawn_sacrifice_denied"]
+        },
+        {
+          title: "Instill Fear",
+          description: "Rule through terror, cruelty, and absolute authority over inferiors.",
+          favoredTags: ["terror", "cruelty", "intimidate", "torture"],
+          forbiddenTags: ["compassion", "comfort_weak", "unsolicited_charity"]
+        },
+        {
+          title: "Enforce Supremacy",
+          description: "Assert drow superiority over all surface dwellers and maintain Lolth's complete spiritual dominion.",
+          favoredTags: ["drow_supremacy", "crush_surface_pride", "spider_veneration"],
+          forbiddenTags: ["praise_surface_gods", "humility_before_inferiors"]
+        }
+      ]
+    },
+    {
+      id: "tyr",
+      name: "Tyr",
+      title: "The Maimed God / The Even-Handed",
+      symbol: "⚖️",
+      alignment: "Lawful Good",
+      portfolio: "Justice, Law, Duty, Righteousness, Order",
+      idealCoordinates: { order: 80, morality: 80 },
+      idealOrder: 80,
+      idealMorality: 80,
+      color: "#58a6ff",
+      ethos: [
+        {
+          title: "Uphold Blind Fairness",
+          description: "Administer laws and moral codes with absolute impartiality. True justice ignores wealth, lineage, or personal bias—applying equally to high lords and commoners alike.",
+          favoredTags: ["impartial_justice", "uphold_law", "refuse_bribe", "fair_trial"],
+          forbiddenTags: ["bribery", "nepotism", "corrupt_verdict", "mob_rule"]
+        },
+        {
+          title: "Protect the Wronged",
+          description: "Serve as an unyielding shield for those suffering under tyranny, corruption, or lawlessness. Righting systemic wrongs and restoring balance to a community is a sacred duty.",
+          favoredTags: ["defend_oppressed", "right_wrongs", "shatter_tyranny", "shield_victim"],
+          forbiddenTags: ["abet_tyrant", "ignore_plight", "complicity_in_injustice"]
+        },
+        {
+          title: "Bear the Burden of Sacrifice",
+          description: "Accept hardship, personal loss, and physical toll willingly if it advances the cause of good—emulating Tyr, who sacrificed his right hand to bind a cosmic threat and lost his sight in the pursuit of truth.",
+          favoredTags: ["self_sacrifice", "bear_wound_for_ally", "endure_hardship", "honor_duty"],
+          forbiddenTags: ["cowardice", "abandon_post", "scapegoat_innocent"]
+        },
+        {
+          title: "Enforce Justice, Reject Vengeance",
+          description: "Execute punishment swiftly and proportionally to restore order, never out of personal malice, anger, or bloodlust. Retribution without law is merely murder.",
+          favoredTags: ["proportional_punishment", "lawful_execution", "restrain_bloodlust"],
+          forbiddenTags: ["bloodlust_murder", "sadistic_revenge", "lynch_mob", "extrajudicial_slaughter"]
+        }
+      ]
+    }
+  ];
 
   static init(deitiesData = null) {
     if (deitiesData && Array.isArray(deitiesData) && deitiesData.length > 0) {
@@ -19,12 +134,37 @@ export class AlignmentManager {
   }
 
   static getDeity(id) {
-    if (!id) return this.DEITIES[0];
-    return this.DEITIES.find(d => d.id.toLowerCase() === id.toLowerCase()) || this.DEITIES[0];
+    if (!this.DEITIES || this.DEITIES.length === 0) {
+      return { id: 'pelor', name: 'Pelor', symbol: '☀️', idealCoordinates: { order: 0, morality: 80 }, idealOrder: 0, idealMorality: 80, ethos: [] };
+    }
+    const found = this.DEITIES.find(d => d.id && d.id.toLowerCase() === (id || 'pelor').toLowerCase()) || this.DEITIES[0];
+    const order = found.idealCoordinates ? found.idealCoordinates.order : (found.idealOrder ?? 0);
+    const morality = found.idealCoordinates ? found.idealCoordinates.morality : (found.idealMorality ?? 0);
+    return {
+      ...found,
+      idealCoordinates: { order, morality },
+      idealOrder: order,
+      idealMorality: morality
+    };
   }
 
   static getAllDeities() {
     return this.DEITIES;
+  }
+
+  static getAlignmentCreed(alignmentName) {
+    const creeds = {
+      'Lawful Good': 'Combines honor, discipline, and oaths with deep compassion for all life, standing as a righteous shield against tyranny and corruption.',
+      'Neutral Good': 'Devoted to doing good and uplifting mortal lives, cooperating with lawful structures when just, yet answering only to moral righteousness.',
+      'Chaotic Good': 'Follows the dictates of conscience above all, placing individual freedom, mercy, and benevolence far above arbitrary decrees and traditions.',
+      'Lawful Neutral': 'Believes that structure, duty, and honor supersede personal morals; the rule of law and fidelity to oaths are the only bulwarks against chaos.',
+      'True Neutral': 'Maintains pragmatic equilibrium without fanatical devotion to extremes, seeing the dance between order, chaos, good, and evil as a cosmic balance.',
+      'Chaotic Neutral': 'An ardent individualist answering to whim, passion, and personal liberty, distrustful of all rulers and unbound by dogma.',
+      'Lawful Evil': 'Methodical, disciplined, and ruthlessly ambitious, bending law, contract, and hierarchy to consolidate power and subjugate the weak.',
+      'Neutral Evil': 'Pure, unadulterated self-interest without remorse or honor; aligns with whatever promises personal supremacy, wealth, or survival.',
+      'Chaotic Evil': 'Driven by base malice, destructive impulse, and contempt for life, reveling in slaughter, domination, and violent unpredictability.'
+    };
+    return creeds[alignmentName] || 'Follows a personal compass shaped by experience, circumstance, and trials.';
   }
 
   static getAlignment(orderScore = 0, moralityScore = 0) {
@@ -59,9 +199,14 @@ export class AlignmentManager {
       else if (name === 'Chaotic Evil') color = '#f85149';
     }
 
+    const key = name.toLowerCase().replace(/\s+/g, '_');
+    const creed = this.getAlignmentCreed(name);
+
     return {
       name,
       code,
+      key,
+      creed,
       orderScore: oVal,
       moralityScore: mVal,
       orderTier: oTier,
@@ -74,11 +219,22 @@ export class AlignmentManager {
   static calculateEthosConcordance(cleric) {
     if (!cleric) return null;
     const deity = this.getDeity(cleric.patronDeityId || 'pelor');
-    const cOrder = cleric.orderScore || 0;
-    const cMorality = cleric.moralityScore || 0;
+    if (!deity) return null;
 
-    const dOrder = deity.idealCoordinates.order;
-    const dMorality = deity.idealCoordinates.morality;
+    const dOrder = deity.idealCoordinates ? deity.idealCoordinates.order : (deity.idealOrder ?? 0);
+    const dMorality = deity.idealCoordinates ? deity.idealCoordinates.morality : (deity.idealMorality ?? 0);
+
+    // If a newly created or uncommitted cleric starts with pristine (0, 0) scores and no moral choices recorded,
+    // they are aligned at their sacred consecration to their chosen patron deity.
+    if ((cleric.orderScore == null || cleric.orderScore === 0) &&
+        (cleric.moralityScore == null || cleric.moralityScore === 0) &&
+        (!cleric.alignmentHistory || cleric.alignmentHistory.length === 0)) {
+      cleric.orderScore = dOrder;
+      cleric.moralityScore = dMorality;
+    }
+
+    const cOrder = cleric.orderScore != null ? cleric.orderScore : dOrder;
+    const cMorality = cleric.moralityScore != null ? cleric.moralityScore : dMorality;
 
     const dx = cOrder - dOrder;
     const dy = cMorality - dMorality;

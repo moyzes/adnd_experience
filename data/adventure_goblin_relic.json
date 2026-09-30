@@ -322,7 +322,7 @@
   "encounters": [
     {
       "id": "enc_wilderness_scouts",
-      "x": 7,
+      "x": 6,
       "y": 9,
       "name": "Wilderness Clearing — Goblin Scouts",
       "enemies": [

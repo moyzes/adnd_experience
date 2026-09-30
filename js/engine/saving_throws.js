@@ -1,3 +1,5 @@
+import { CharacterFactory } from './characters/character_factory.js';
+
 /**
  * AD&D 2nd Edition Saving Throw System & Heroic Narrative Engine
  * 
@@ -250,6 +252,55 @@ export function resolveSavingThrow(hero, category, subCategory = null, dcBonus =
   const normSub = normalizeSubCategory(normCat, subCategory || category);
   const target = getBaseSavingThrowTarget(hero, normCat);
 
+  // Retrieve cross-cutting racial traits
+  const raceTraits = hero.raceTraits || CharacterFactory.getRaceTraits(hero);
+
+  // Check racial immunities (e.g. Elf Fey Resistance vs Sleep & Charm)
+  const catText = `${category || ''} ${subCategory || ''} ${normSub || ''}`.toLowerCase();
+  const isSleepOrCharm = catText.includes('sleep') || catText.includes('charm');
+  const isGhoulParalysis = normSub === 'PARALYZATION' && catText.includes('ghoul');
+  const hasFeyImmunity = raceTraits?.immunities && (
+    (isSleepOrCharm && (raceTraits.immunities.includes('sleep') || raceTraits.immunities.includes('charm'))) ||
+    (isGhoulParalysis && raceTraits.immunities.includes('ghoul_paralysis'))
+  );
+
+  const categoryLabels = {
+    PARALYZATION_POISON_DEATH: normSub ? `VS. ${normSub.replace('_', ' ')}` : 'VS. POISON / DEATH',
+    ROD_STAFF_WAND: 'VS. ROD / STAFF / WAND',
+    PETRIFICATION_POLYMORPH: normSub ? `VS. ${normSub}` : 'VS. PETRIFICATION',
+    BREATH_WEAPON: 'VS. BREATH WEAPON',
+    SPELL: 'VS. SPELL'
+  };
+
+  if (hasFeyImmunity) {
+    return {
+      success: true,
+      roll: 20,
+      naturalRoll: 20,
+      total: 20,
+      abilityMod: 0,
+      racialMod: 0,
+      dcBonus: 0,
+      target,
+      isNat20: true,
+      isNat1: false,
+      isCloseCall: false,
+      isImmune: true,
+      outcomeLabel: '✨ FEY IMMUNITY',
+      heroicDomain: 'FEY ANCESTRY & ENCHANTED BLOOD',
+      heroicBadge: '🧝 FEY RESISTANCE',
+      heroicOrigin: 'Ancient bloodline immune to enchanted sleep and charms',
+      abilitySource: 'Fey Blood Immunity',
+      category: normCat,
+      subCategory: normSub,
+      categoryLabel: categoryLabels[normCat] || 'SAVING THROW',
+      heroName: hero.name,
+      classKey: hero.classKey,
+      archetypeGroup: getClassArchetypeGroup(hero.classKey),
+      narrative: `${hero.name}'s fey blood flares in haughty defiance—the enchantment dissolves harmlessly upon their unhurried consciousness!`
+    };
+  }
+
   // Optional ability score modifiers
   let abilityMod = 0;
   const attrs = hero.attributes || {};
@@ -266,8 +317,11 @@ export function resolveSavingThrow(hero, category, subCategory = null, dcBonus =
     else if (wis >= 14) abilityMod = 1;
   }
 
+  // Cross-cutting racial saving throw bonuses (e.g. Dwarf: +2 vs Poison/Death, +2 vs Petrification; Elf: +2 vs Spells)
+  const racialMod = (raceTraits?.savingThrowBonuses?.[normCat]) || 0;
+
   const roll = Math.floor(Math.random() * 20) + 1;
-  const total = roll + abilityMod - dcBonus;
+  const total = roll + abilityMod + racialMod - dcBonus;
   
   // AD&D 2e: Nat 20 always succeeds, Nat 1 always fails
   const success = (roll === 20) || (roll !== 1 && total >= target);
@@ -304,6 +358,11 @@ export function resolveSavingThrow(hero, category, subCategory = null, dcBonus =
   };
 
   const domain = heroicDomains[archetypeGroup] || heroicDomains.WARRIOR;
+  let effectiveSource = domain.abilitySource;
+  if (racialMod > 0) {
+    const raceName = hero.race || 'Racial';
+    effectiveSource = abilityMod > 0 ? `${domain.abilitySource} + ${raceName} Resilience (+${racialMod})` : `${raceName} Resilience (+${racialMod})`;
+  }
 
   let outcomeLabel = 'HEROIC PASS';
   if (isNat20) outcomeLabel = '🔥 LEGENDARY TRIUMPH (NAT 20)';
@@ -312,15 +371,19 @@ export function resolveSavingThrow(hero, category, subCategory = null, dcBonus =
   else if (success) outcomeLabel = '✨ HEROIC FORTITUDE';
   else outcomeLabel = '💀 MORTAL THRESHOLD BROKEN';
 
-  const narrative = getHeroicSavingThrowNarrative(hero, normCat, normSub, success);
-
-  const categoryLabels = {
-    PARALYZATION_POISON_DEATH: normSub ? `VS. ${normSub.replace('_', ' ')}` : 'VS. POISON / DEATH',
-    ROD_STAFF_WAND: 'VS. ROD / STAFF / WAND',
-    PETRIFICATION_POLYMORPH: normSub ? `VS. ${normSub}` : 'VS. PETRIFICATION',
-    BREATH_WEAPON: 'VS. BREATH WEAPON',
-    SPELL: 'VS. SPELL'
-  };
+  let narrative = getHeroicSavingThrowNarrative(hero, normCat, normSub, success);
+  // Custom racial narrative enhancements
+  if (success && (hero.raceKey || hero.race || '').toLowerCase() === 'dwarf') {
+    if (normCat === 'PARALYZATION_POISON_DEATH' && normSub === 'POISON') {
+      narrative = `${hero.name}'s earthen dwarven blood flares—granite-hard bile curdles the venom into harmless slag before it reaches their heart!`;
+    } else if (normCat === 'PETRIFICATION_POLYMORPH') {
+      narrative = `${hero.name}'s body is already the living bone of the mountain; the petrifying calcification shatters against their dense dwarven flesh!`;
+    }
+  } else if (success && (hero.raceKey || hero.race || '').toLowerCase() === 'elf') {
+    if (normCat === 'SPELL') {
+      narrative = `${hero.name}'s unhurried fey mind calmly sidesteps the arcane current, leaving the spell's weave unraveling in empty air.`;
+    }
+  }
 
   return {
     success,
@@ -328,6 +391,7 @@ export function resolveSavingThrow(hero, category, subCategory = null, dcBonus =
     naturalRoll: roll,
     total,
     abilityMod,
+    racialMod,
     dcBonus,
     target,
     isNat20,
@@ -337,7 +401,7 @@ export function resolveSavingThrow(hero, category, subCategory = null, dcBonus =
     heroicDomain: domain.title,
     heroicBadge: domain.badge,
     heroicOrigin: domain.origin,
-    abilitySource: domain.abilitySource,
+    abilitySource: effectiveSource,
     category: normCat,
     subCategory: normSub,
     categoryLabel: categoryLabels[normCat] || 'SAVING THROW',

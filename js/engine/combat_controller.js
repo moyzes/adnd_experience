@@ -14,6 +14,12 @@ export class CombatController {
         const success = this.state.startEncounter(encounterId);
         if (!success) return;
 
+        // Ensure party faces open space/monsters rather than staring into a solid wall
+        const turnedFacing = this.state.alignCombatFacing ? this.state.alignCombatFacing() : null;
+        if (turnedFacing && this.callbacks.syncCamera) {
+            this.callbacks.syncCamera(this.state.player.x, this.state.player.y, turnedFacing);
+        }
+
         this.stopCombatMusic();
 
         // Prefer catalog ids; adventure.json may still list legacy paths (AudioManager accepts both)
