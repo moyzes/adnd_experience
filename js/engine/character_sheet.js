@@ -556,7 +556,7 @@ export class CharacterSheetUI {
         <div style="background: #0d1117; border: 1px dashed #21262d; border-radius: 4px; padding: 8px 10px; margin-top: 8px; font-size: 11px;">
           <div style="color: var(--gold-tsr); font-weight: bold;">🐾 Frontier Animal Companion (Level 9 Warden Bond)</div>
           <div style="color: var(--text-muted); font-size: 10.5px; margin-top: 3px; line-height: 1.3;">
-            At Level 9, a bonded animal companion (Sylvan Wolf, Hunting Falcon, or Cave Badger) answers the frontier call to fight beside the ranger.
+            At Level 9, a bonded animal companion (Wolf, Falcon, or Badger) answers the frontier call to fight beside the ranger.
           </div>
         </div>`;
       }

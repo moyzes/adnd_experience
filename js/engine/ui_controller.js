@@ -546,7 +546,7 @@ export class UIController {
                           </div>`;
                     } else {
                         secondaryMetricBar = `
-                          <div class="metric-label" title="Frontier Bond Progress: At Level 9, an animal companion (Sylvan Wolf, Falcon, or Badger) answers the Ranger's call to fight beside them.">
+                          <div class="metric-label" title="Frontier Bond Progress: At Level 9, an animal companion (Wolf, Falcon, or Badger) answers the Ranger's call to fight beside them.">
                             <span>Frontier Bond</span>
                             <span>Lvl ${hero.level}/9</span>
                           </div>

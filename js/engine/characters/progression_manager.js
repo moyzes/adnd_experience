@@ -263,6 +263,28 @@ export class ProgressionManager {
   }
 
   /**
+   * Builds a standardized companion object from classes.json spec.
+   */
+  static buildCompanion(classesSpec, archetypeId) {
+    const rangerSpec = classesSpec?.archetypes?.ranger;
+    const archetypes = rangerSpec?.companion?.archetypes || {};
+    const id = (archetypes[archetypeId] ? archetypeId : 'wolf');
+    const data = archetypes[id] || archetypes['wolf'] || { name: 'Wolf', hp: 24, maxHp: 24, ac: 6, damage: '1d6+1', icon: '🐺', stance: 'harrier', desc: '' };
+    return {
+      id: id,
+      type: id,
+      name: data.name,
+      hp: data.hp,
+      maxHp: data.maxHp,
+      ac: data.ac,
+      damage: data.damage,
+      icon: data.icon,
+      stance: data.stance || 'harrier',
+      desc: data.desc || ''
+    };
+  }
+
+  /**
    * Prepares the options and rolled metrics for a hero's training advancement modal.
    */
   static calculateLevelUpOptions(state, heroIndex) {
@@ -307,11 +329,19 @@ export class ProgressionManager {
       'Sling'
     ];
 
-    const availableCompanions = (hero.classKey === 'ranger' && nextLevel >= 9) ? [
-      { id: 'wolf', name: 'Sylvan Wolf', hp: 24, maxHp: 24, ac: 6, damage: '1d6+1', icon: '🐺', stance: 'harrier', desc: 'Loyal wolf pack striker (+1 flanking attack).' },
-      { id: 'hawk', name: 'Hunting Falcon', hp: 10, maxHp: 10, ac: 4, damage: '1d3', icon: '🦅', stance: 'disrupt', desc: 'Keen-eyed raptor that harries enemy spellcasters.' },
-      { id: 'badger', name: 'Cave Badger', hp: 28, maxHp: 28, ac: 5, damage: '1d8', icon: '🦡', stance: 'bodyguard', desc: 'Stout burrowing defender shielding allies.' }
-    ] : [];
+    const rangerSpec = state?.classesSpec?.archetypes?.ranger || {};
+    const compArchetypes = rangerSpec.companion?.archetypes || {};
+    const availableCompanions = (hero.classKey === 'ranger' && nextLevel >= 9) ? Object.entries(compArchetypes).map(([id, data]) => ({
+      id,
+      name: data.name,
+      hp: data.hp,
+      maxHp: data.maxHp,
+      ac: data.ac,
+      damage: data.damage,
+      icon: data.icon,
+      stance: data.stance,
+      desc: data.desc || ''
+    })) : [];
 
     return {
       heroIndex,
@@ -392,12 +422,7 @@ export class ProgressionManager {
       }
       if (hero.level >= 9 && (!hero.companion || choices.companionArchetype)) {
         const compArch = choices.companionArchetype || (hero.companion ? hero.companion.id : 'wolf');
-        const compMap = {
-          wolf: { id: 'wolf', name: 'Sylvan Wolf', hp: 24, maxHp: 24, ac: 6, damage: '1d6+1', icon: '🐺', stance: 'harrier' },
-          hawk: { id: 'hawk', name: 'Hunting Falcon', hp: 10, maxHp: 10, ac: 4, damage: '1d3', icon: '🦅', stance: 'disrupt' },
-          badger: { id: 'badger', name: 'Cave Badger', hp: 28, maxHp: 28, ac: 5, damage: '1d8', icon: '🦡', stance: 'bodyguard' }
-        };
-        hero.companion = compMap[compArch] || compMap.wolf;
+        hero.companion = ProgressionManager.buildCompanion(state.classesSpec, compArch);
         state.addLog(`🐾 A wild ${hero.companion.name} answers ${hero.name}'s frontier call as a loyal bonded companion!`, "success");
       }
     }

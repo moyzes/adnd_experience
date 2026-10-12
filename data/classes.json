@@ -50,7 +50,7 @@
       "skills": {
         "scout": { "name": "Scout Ahead", "type": "percentile", "base": 40, "perLevel": 5, "attribute": "wisdom", "description": "Frontier line-of-sight and reconnaissance spotting traps and hostile positions." },
         "tracking": { "name": "Tracking", "type": "percentile", "base": 35, "perLevel": 5, "attribute": "wisdom", "description": "Wilderness spoor and scent reading detecting approaching wandering patrols." },
-        "species_enemy": { "name": "Species Enemy", "type": "modifier", "target": "humanoid", "to_hit_bonus": 4, "description": "+4 to-hit against goblinoids, orcs, kobolds, and giant-kin." }
+        "species_enemy": { "name": "Species Enemy", "type": "modifier", "enemy_types": ["goblin","orc","hobgoblin","bugbear","kobold","ogre","gnoll","troll","giant"], "to_hit_bonus": 4, "description": "+4 to-hit against goblin, orc, hobgoblin, bugbear, kobold, ogre, gnoll, troll, and giant." }
       },
       "two_weapon_fighting": {
         "enabled": true,
@@ -61,9 +61,9 @@
         "enabled_level": 9,
         "default": "wolf",
         "archetypes": {
-          "wolf": { "name": "Sylvan Wolf", "hp": 24, "maxHp": 24, "ac": 6, "damage": "1d6+1", "icon": "🐺", "stance": "harrier" },
-          "hawk": { "name": "Hunting Falcon", "hp": 10, "maxHp": 10, "ac": 4, "damage": "1d3", "icon": "🦅", "stance": "disrupt" },
-          "badger": { "name": "Cave Badger", "hp": 28, "maxHp": 28, "ac": 5, "damage": "1d8", "icon": "🦡", "stance": "bodyguard" }
+          "wolf": { "name": "Sylvan Wolf", "hp": 24, "maxHp": 24, "ac": 6, "damage": "1d6+1", "icon": "🐺", "stance": "harrier", "desc": "Loyal wolf pack striker (+1 flanking attack)." },
+          "hawk": { "name": "Hunting Falcon", "hp": 10, "maxHp": 10, "ac": 4, "damage": "1d3", "icon": "🦅", "stance": "disrupt", "desc": "Keen-eyed raptor that harries enemy spellcasters." },
+          "badger": { "name": "Cave Badger", "hp": 28, "maxHp": 28, "ac": 5, "damage": "1d8", "icon": "🦡", "stance": "bodyguard", "desc": "Stout burrowing defender shielding allies." }
         }
       }
     },

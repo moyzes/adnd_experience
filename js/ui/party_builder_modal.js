@@ -338,6 +338,12 @@ export class PartyBuilderUI {
     const armOpts = CharacterFactory.getArmorOptions(p.classKey);
     const shldOpts = CharacterFactory.getShieldOptions(p.classKey);
 
+    const thiefBases = CharacterFactory.getThiefBaseSkills();
+    const defaultThiefPts = {};
+    Object.entries(thiefBases).forEach(([k, v]) => {
+      defaultThiefPts[k] = v.defaultAdded;
+    });
+
     this.activeCreatorCharacter = {
       name: p.name,
       baseAttributes: { ...p.attributes },
@@ -351,7 +357,7 @@ export class PartyBuilderUI {
       specializedWeapon: p.classKey === 'fighter' ? 'Longsword' : null,
       equippedArmorId: p.classKey === 'mage' ? 'scholars_robes' : p.classKey === 'cleric' ? 'chain_mail' : armOpts[0]?.id || 'banded_mail',
       equippedShieldId: p.classKey === 'cleric' ? 'consecrated_shield' : 'none',
-      thiefSkillPoints: p.classKey === 'thief' ? { pick_locks: 15, find_traps: 15, pick_pockets: 15, hide_in_shadows: 5, hear_noise: 10 } : null,
+      thiefSkillPoints: p.classKey === 'thief' ? { pick_locks: 15, find_traps: 15, pick_pockets: 15, hide_in_shadows: 5, hear_noise: 10 } : defaultThiefPts,
       validationError: null
     };
 
@@ -471,7 +477,7 @@ export class PartyBuilderUI {
 
     // Calculate Thief Points
     const thiefBases = CharacterFactory.getThiefBaseSkills();
-    const thiefPtsTotalSpent = Object.values(char.thiefSkillPoints).reduce((sum, v) => sum + (v || 0), 0);
+    const thiefPtsTotalSpent = Object.values(char.thiefSkillPoints || {}).reduce((sum, v) => sum + (v || 0), 0);
     const thiefPtsRemaining = 60 - thiefPtsTotalSpent;
 
     container.innerHTML = `
@@ -888,6 +894,14 @@ export class PartyBuilderUI {
       const clericPrayers = SpellRegistry.getSpellsForClass('cleric', 1);
       char.chosenClericPrayerIds = clericPrayers.slice(0, allowedCap).map(s => s.id);
     }
+
+    if (char.classKey === 'thief' && (!char.thiefSkillPoints || Object.keys(char.thiefSkillPoints).length === 0)) {
+      const thiefBases = CharacterFactory.getThiefBaseSkills();
+      char.thiefSkillPoints = {};
+      Object.entries(thiefBases).forEach(([k, v]) => {
+        char.thiefSkillPoints[k] = v.defaultAdded;
+      });
+    }
     char.validationError = null;
   }
 
@@ -1077,16 +1091,24 @@ export class PartyBuilderUI {
     const saveBtn = document.getElementById('save-custom-char-btn');
     if (saveBtn) {
       saveBtn.addEventListener('click', () => {
+        // Enforce party capacity
+        if (this.party.length >= 4) {
+          char.validationError = `The party roster is full (maximum 4 heroes). Please remove a hero before adding a new hero.`;
+          this.renderCreatorForm(container);
+          return;
+        }
+
         // Validate Thief Points
         if (char.classKey === 'thief') {
-          const spent = Object.values(char.thiefSkillPoints).reduce((sum, v) => sum + (v || 0), 0);
+          const thiefPts = char.thiefSkillPoints || {};
+          const spent = Object.values(thiefPts).reduce((sum, v) => sum + (v || 0), 0);
           const remaining = 60 - spent;
           if (remaining !== 0) {
             char.validationError = `Please distribute all 60 rogue skill points! (${remaining > 0 ? remaining + ' unallocated' : Math.abs(remaining) + ' overspent'})`;
             this.renderCreatorForm(container);
             return;
           }
-          const overCapped = Object.entries(char.thiefSkillPoints).find(([k, v]) => v > 30);
+          const overCapped = Object.entries(thiefPts).find(([k, v]) => (v || 0) > 30);
           if (overCapped) {
             char.validationError = `No more than 30 points can be added to any single skill during creation.`;
             this.renderCreatorForm(container);
@@ -1094,8 +1116,10 @@ export class PartyBuilderUI {
           }
         }
 
+        const baseAttrs = char.baseAttributes || finalAttrs || CharacterFactory.roll3d6Attributes();
+        const heroAttrs = CharacterFactory.applyRaceAdjustments(baseAttrs, char.race);
         const rStr = String(char.race || 'human');
-        const cStr = String(char.classKey || 'warrior');
+        const cStr = String(char.classKey || 'fighter');
         const heroName = (char.name || '').trim() || `${rStr.charAt(0).toUpperCase() + rStr.slice(1)} ${cStr.charAt(0).toUpperCase() + cStr.slice(1)}`;
 
         let chosenSpells = [];
@@ -1113,7 +1137,7 @@ export class PartyBuilderUI {
           specializedWeapon: char.specializedWeapon,
           equippedArmor: char.equippedArmorId,
           equippedShield: char.equippedShieldId,
-          thiefSkillPoints: char.classKey === 'thief' ? { ...char.thiefSkillPoints } : null,
+          thiefSkillPoints: char.classKey === 'thief' ? { ...(char.thiefSkillPoints || {}) } : null,
           patronDeityId: char.classKey === 'cleric' ? (char.patronDeityId || 'pelor') : null
         });
 

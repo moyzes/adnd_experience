@@ -39,7 +39,7 @@ app.use(express.static(__dirname, {
   etag: false,
   lastModified: false,
   setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.json') || filePath.endsWith('.mp3')) {
+    if (filePath.endsWith('.json') || filePath.endsWith('.mp3') || filePath.endsWith('.js') || filePath.endsWith('.html') || filePath.endsWith('.css')) {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');

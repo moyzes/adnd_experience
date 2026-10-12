@@ -52,17 +52,18 @@ export class CombatActions {
   /**
    * Evaluates class-specific combat to-hit bonus (e.g. Ranger Species Enemy +4 vs humanoids/giant-kin).
    */
-  static getClassCombatBonus(hero, target, weaponName, attackMode) {
+  static getClassCombatBonus(state, hero, target, weaponName, attackMode) {
     if (!hero || !target) return 0;
+    const specEnemy = state?.classesSpec?.archetypes?.[hero.classKey]?.skills?.species_enemy;
+    if (!specEnemy) return 0;
     let bonus = 0;
-    if (hero.classKey === 'ranger') {
-      const mobName = (target.name || '').toLowerCase();
-      const mobType = (target.type || target.creatureType || '').toLowerCase();
-      const mobId = (target.id || '').toLowerCase();
-      const humanoids = ['goblin', 'orc', 'hobgoblin', 'bugbear', 'kobold', 'ogre', 'gnoll', 'troll', 'giant'];
-      if (mobType === 'humanoid' || mobType === 'giant' || humanoids.some(h => mobName.includes(h) || mobId.includes(h))) {
-        bonus += 4;
-      }
+    const mobName = (target.name || '').toLowerCase();
+    const mobType = (target.type || target.creatureType || '').toLowerCase();
+    const mobId = (target.id || '').toLowerCase();
+    const enemyTypes = specEnemy.enemy_types || ['goblin', 'orc', 'hobgoblin', 'bugbear', 'kobold', 'ogre', 'gnoll', 'troll', 'giant'];
+    const toHitBonus = specEnemy.to_hit_bonus ?? 4;
+    if (mobType === 'humanoid' || mobType === 'giant' || enemyTypes.some(h => mobName.includes(h) || mobId.includes(h))) {
+      bonus += toHitBonus;
     }
     return bonus;
   }
@@ -155,7 +156,7 @@ export class CombatActions {
 
     const mastery = state.getWeaponMastery(hero, hero.equippedWeapon);
     const racialAtk = this.getRacialCombatBonus(hero, target, hero.equippedWeapon, 'melee');
-    const classAtk = this.getClassCombatBonus(hero, target, hero.equippedWeapon, 'melee');
+    const classAtk = this.getClassCombatBonus(state, hero, target, hero.equippedWeapon, 'melee');
     const targetNum = strVal + (hero.attackBonus || 1) + state.getLevelAttackBonus(hero) + mastery.atkBonus + bless + racialAtk + classAtk;
     const dmgType = state.getWeaponDamageType(hero.equippedWeapon, 'slashing');
     const baseMaxDmg = state.getWeaponMaxDamage(hero.equippedWeapon, 8) || 8;
@@ -236,14 +237,21 @@ export class CombatActions {
     if (hero.classKey === 'ranger' && !state.isRangedWeapon(hero.equippedWeapon)) {
       const armorType = hero.equippedArmor?.type || 'unarmored';
       const isLightArmor = armorType === 'light' || armorType === 'unarmored';
+      const hasShield = !!hero.equippedShield;
       const targetAlive = (simMobHp[target.instanceId] ?? target.hp) > 0;
-      if (isLightArmor && targetAlive) {
-        const offhandWeapon = hero.offhandWeapon || 'Short Sword';
+      const offhandWeapon = hero.offhandWeapon || 'Short Sword';
+      const personalInv = hero.personalInventory || hero.inventory || [];
+      const hasOffhandInInventory = personalInv.some(i => (typeof i === 'string' ? i === offhandWeapon : i && i.name === offhandWeapon));
+
+      if (isLightArmor && !hasShield && targetAlive && hasOffhandInInventory) {
+        const offBaseMaxDmg = state.getWeaponMaxDamage(offhandWeapon, 6) || 6;
+        const offDmgType = state.getWeaponDamageType(offhandWeapon, 'piercing');
         const offRoll = Math.floor(Math.random() * 20) + 1;
         const offTarget = 12 + Math.floor((hero.level || 1) / 2);
         if (offRoll <= offTarget && offRoll !== 20) {
-          const offDmg = Math.floor(Math.random() * 6) + 1;
-          simMobHp[target.instanceId] = Math.max(0, (simMobHp[target.instanceId] ?? target.hp) - offDmg);
+          const rawDmg = Math.floor(Math.random() * offBaseMaxDmg) + 1;
+          const netDmg = state.applyArmorMitigation(rawDmg, offDmgType, target.armorType);
+          simMobHp[target.instanceId] = Math.max(0, (simMobHp[target.instanceId] ?? target.hp) - netDmg);
           const isDead = simMobHp[target.instanceId] <= 0;
           if (isDead) {
             target.hp = 0;
@@ -256,12 +264,12 @@ export class CombatActions {
             sourceName: `${hero.name} (Offhand)`,
             targetInstanceId: target.instanceId,
             targetName: target.name,
-            damage: offDmg,
+            damage: netDmg,
             isDead: isDead,
             attackMode: 'melee',
             cueBadge: '⚔️ DUAL-WIELD',
             cueClass: 'cue-badge-flank',
-            logText: `⚔️ ${hero.name} follows through with a swift offhand ${offhandWeapon} strike for ${offDmg} damage!${isDead ? ` ${target.name} collapses!` : ''}`,
+            logText: `⚔️ ${hero.name} follows through with a swift offhand ${offhandWeapon} strike for ${netDmg} damage!${isDead ? ` ${target.name} collapses!` : ''}`,
             logType: isDead ? 'danger' : 'success'
           });
         }
@@ -320,7 +328,8 @@ export class CombatActions {
     const mastery = state.getWeaponMastery(hero, hero.equippedWeapon);
     const isFighterSpec = (hero.classKey === 'fighter' && hero.specializedWeapon === hero.equippedWeapon);
     const racialAtk = this.getRacialCombatBonus(hero, target, hero.equippedWeapon, 'ranged');
-    const targetNum = dexVal + (hero.attackBonus != null ? hero.attackBonus : 1) + state.getLevelAttackBonus(hero) + mastery.atkBonus + bless + racialAtk;
+    const classAtk = this.getClassCombatBonus(state, hero, target, hero.equippedWeapon, 'ranged');
+    const targetNum = dexVal + (hero.attackBonus != null ? hero.attackBonus : 1) + state.getLevelAttackBonus(hero) + mastery.atkBonus + bless + racialAtk + classAtk;
     const dmgType = state.getWeaponDamageType(hero.equippedWeapon, 'piercing');
     const baseMaxDmg = state.getWeaponMaxDamage(hero.equippedWeapon, 6) || 6;
     const maxWepDmg = baseMaxDmg + mastery.dmgBonus;

@@ -774,20 +774,9 @@ export class CharacterFactory {
 
     if (classKey === 'ranger') {
       member.isStealth = false;
-      member.speciesEnemy = 'humanoid';
       member.offhandWeapon = 'Short Sword';
       if (member.level >= 9) {
-        member.companion = {
-          id: 'wolf',
-          name: 'Sylvan Wolf',
-          type: 'wolf',
-          hp: 24,
-          maxHp: 24,
-          ac: 6,
-          damage: '1d6+1',
-          icon: '🐺',
-          stance: 'harrier'
-        };
+        member.companion = ProgressionManager.buildCompanion(classesSpec, 'wolf');
       } else {
         member.companion = null;
       }

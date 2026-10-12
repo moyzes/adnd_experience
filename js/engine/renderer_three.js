@@ -1054,15 +1054,26 @@ export class RendererThreeJS {
 
     // 5. Process Death Animations (delta-time)
     if (this.dyingMonsters.length > 0) {
-      const deathRate = 2.4;
-      const sinkSpeed = 1.5;
+      const deathRate = 1.8;
+      const sinkSpeed = 1.2;
       for (let i = this.dyingMonsters.length - 1; i >= 0; i--) {
         const anim = this.dyingMonsters[i];
         anim.progress = Math.min(1.0, anim.progress + deathRate * delta);
 
         anim.mesh.rotation.x = THREE.MathUtils.lerp(anim.startRotX, anim.startRotX - Math.PI / 2, anim.progress);
         anim.mesh.position.y -= sinkSpeed * delta;
-        anim.mesh.scale.multiplyScalar(Math.pow(0.95, delta * 60));
+        anim.mesh.scale.multiplyScalar(Math.pow(0.96, delta * 60));
+
+        // Gradual fade out (opacity)
+        anim.mesh.traverse(child => {
+          if (child.isMesh && child.material) {
+            if (child.userData.originalOpacity === undefined) {
+              child.userData.originalOpacity = child.material.opacity !== undefined ? child.material.opacity : 1.0;
+              child.material.transparent = true;
+            }
+            child.material.opacity = THREE.MathUtils.lerp(child.userData.originalOpacity, 0, anim.progress);
+          }
+        });
 
         if (anim.progress >= 1.0) {
           this.scene.remove(anim.mesh);
