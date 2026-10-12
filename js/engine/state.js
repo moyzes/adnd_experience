@@ -794,6 +794,10 @@ export class GameState {
     return ExplorationManager.attemptScout(this, range);
   }
 
+  attemptTrack() {
+    return ExplorationManager.attemptTrack(this);
+  }
+
   checkPassiveHearNoise() {
     return ExplorationManager.checkPassiveHearNoise(this);
   }

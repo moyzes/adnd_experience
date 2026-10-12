@@ -39,7 +39,7 @@ export class CharacterFactory {
         name: 'Human',
         description: 'Adaptable and versatile mortals without attribute penalties or class restrictions.',
         adjustments: {},
-        allowedClasses: ['fighter', 'thief', 'cleric', 'mage'],
+        allowedClasses: ['fighter', 'ranger', 'thief', 'cleric', 'mage'],
         traits: {
           title: 'Mortal Versatility',
           summary: 'Unconstrained class progression and unrestricted advancement without racial penalties.',
@@ -56,7 +56,7 @@ export class CharacterFactory {
         name: 'Elf',
         description: '+1 Dexterity, -1 Constitution. Fey-blooded, keen-eyed scouts and natural warrior-arcanists.',
         adjustments: { dexterity: 1, constitution: -1 },
-        allowedClasses: ['fighter', 'thief', 'cleric', 'mage'],
+        allowedClasses: ['fighter', 'ranger', 'thief', 'cleric', 'mage'],
         traits: {
           title: 'Fey-Blooded & Keen-Eyed',
           summary: 'Fey Resistance (Sleep/Charm Immunity), Unhurried Mind (+2 vs Spells), Keen Senses (Wilderness Ambush Shield & Spotting), Martial Affinity (+1 to-hit with Swords & Bows), Arcane Affinity (15% lighter Mage spell burden).',
@@ -175,6 +175,10 @@ export class CharacterFactory {
         available: str >= 9 && race.allowedClasses.includes('fighter'),
         reason: str < 9 ? 'Requires STR 9+' : (!race.allowedClasses.includes('fighter') ? 'Restricted by race' : 'Available')
       },
+      ranger: {
+        available: str >= 9 && dex >= 9 && wis >= 9 && race.allowedClasses.includes('ranger'),
+        reason: (str < 9 || dex < 9 || wis < 9) ? 'Requires STR 9+, DEX 9+, WIS 9+' : (!race.allowedClasses.includes('ranger') ? 'Restricted by race (Human/Elf)' : 'Available')
+      },
       thief: {
         available: dex >= 9 && race.allowedClasses.includes('thief'),
         reason: dex < 9 ? 'Requires DEX 9+' : (!race.allowedClasses.includes('thief') ? 'Restricted by race' : 'Available')
@@ -195,16 +199,16 @@ export class CharacterFactory {
    */
   static getWeaponOptions(classKey) {
     const key = (classKey || '').toLowerCase();
-    if (key === 'fighter') {
+    if (key === 'fighter' || key === 'ranger') {
       return [
         { name: 'Longsword', category: 'melee', damage: '1d8 Slashing', twoHanded: false, desc: 'Versatile martial blade (1d8 dmg).' },
+        { name: 'Short Sword', category: 'melee', damage: '1d6 Slashing', twoHanded: false, desc: 'Agile short blade favored for dual-wielding (1d6 dmg).' },
+        { name: 'Long Bow', category: 'ranged', damage: '1d8 Piercing', twoHanded: true, ammo: 'Arrows', desc: 'Powerful long-range war bow (1d8 dmg, requires arrows).' },
+        { name: 'Short Bow', category: 'ranged', damage: '1d6 Piercing', twoHanded: true, ammo: 'Arrows', desc: 'Ranged scout war bow (1d6 dmg, requires arrows).' },
         { name: 'Two-Handed Sword', category: 'melee', damage: '1d10 Slashing', twoHanded: true, desc: 'Massive greatsword (1d10 dmg, requires 2 hands).' },
         { name: 'Warhammer', category: 'melee', damage: '1d6 Bludgeoning', twoHanded: false, desc: 'Crushing war hammer (1d6 dmg).' },
         { name: 'Halberd', category: 'melee', damage: '1d10 Slashing', twoHanded: true, desc: 'Heavy polearm combining axe and spear (1d10 dmg, 2 hands).' },
         { name: 'Mace', category: 'melee', damage: '1d6 Bludgeoning', twoHanded: false, desc: 'Flanged iron bludgeon (1d6 dmg).' },
-        { name: 'Short Sword', category: 'melee', damage: '1d6 Slashing', twoHanded: false, desc: 'Agile short blade (1d6 dmg).' },
-        { name: 'Short Bow', category: 'ranged', damage: '1d6 Piercing', twoHanded: true, ammo: 'Arrows', desc: 'Ranged war bow (1d6 dmg, requires arrows).' },
-        { name: 'Long Bow', category: 'ranged', damage: '1d8 Piercing', twoHanded: true, ammo: 'Arrows', desc: 'Powerful long-range war bow (1d8 dmg, requires arrows).' },
         { name: 'Crossbow', category: 'ranged', damage: '1d8 Piercing', twoHanded: true, ammo: 'Bolts', desc: 'Mechanical crossbow (1d8 dmg, requires bolts).' }
       ];
     }
@@ -259,12 +263,12 @@ export class CharacterFactory {
   static getArmorOptions(classKey) {
     const key = (classKey || '').toLowerCase();
     const catalog = [
-      { id: 'banded_mail', name: 'Banded Mail', type: 'heavy', baseAc: 4, desc: 'Heavy steel bands on leather (Base AC 4).', allowed: ['fighter'] },
-      { id: 'chain_mail', name: 'Chain Mail', type: 'medium', baseAc: 5, desc: 'Interlinked steel rings over gambeson (Base AC 5).', allowed: ['fighter', 'cleric'] },
-      { id: 'scale_mail', name: 'Scale Mail', type: 'medium', baseAc: 6, desc: 'Overlapping bronze/iron scales (Base AC 6).', allowed: ['fighter', 'cleric'] },
-      { id: 'studded_leather', name: 'Studded Leather', type: 'light', baseAc: 7, desc: 'Boiled leather with steel rivets (Base AC 7).', allowed: ['fighter', 'cleric', 'thief'] },
-      { id: 'leather_armor', name: 'Leather Armor', type: 'light', baseAc: 8, desc: 'Cured hide jerkin (Base AC 8).', allowed: ['fighter', 'cleric', 'thief'] },
-      { id: 'scholars_robes', name: "Scholar's Robes", type: 'unarmored', baseAc: 10, desc: 'Unarmored silk/wool robes (Base AC 10).', allowed: ['fighter', 'cleric', 'thief', 'mage'] }
+      { id: 'banded_mail', name: 'Banded Mail', type: 'heavy', baseAc: 4, desc: 'Heavy steel bands on leather (Base AC 4).', allowed: ['fighter', 'ranger'] },
+      { id: 'chain_mail', name: 'Chain Mail', type: 'medium', baseAc: 5, desc: 'Interlinked steel rings over gambeson (Base AC 5).', allowed: ['fighter', 'ranger', 'cleric'] },
+      { id: 'scale_mail', name: 'Scale Mail', type: 'medium', baseAc: 6, desc: 'Overlapping bronze/iron scales (Base AC 6).', allowed: ['fighter', 'ranger', 'cleric'] },
+      { id: 'studded_leather', name: 'Studded Leather', type: 'light', baseAc: 7, desc: 'Boiled leather with steel rivets (Base AC 7, allows Dual-Wielding & Stealth).', allowed: ['fighter', 'ranger', 'cleric', 'thief'] },
+      { id: 'leather_armor', name: 'Leather Armor', type: 'light', baseAc: 8, desc: 'Cured hide jerkin (Base AC 8, allows Dual-Wielding & Stealth).', allowed: ['fighter', 'ranger', 'cleric', 'thief'] },
+      { id: 'scholars_robes', name: "Scholar's Robes", type: 'unarmored', baseAc: 10, desc: 'Unarmored silk/wool robes (Base AC 10).', allowed: ['fighter', 'ranger', 'cleric', 'thief', 'mage'] }
     ];
     return catalog.filter(a => a.allowed.includes(key));
   }
@@ -277,9 +281,9 @@ export class CharacterFactory {
     if (key === 'mage' || key === 'thief') return [];
 
     const shields = [
-      { id: 'medium_shield', name: 'Medium Shield (+1 AC)', type: 'shield', acBonus: 1, desc: 'Iron-banded heater shield (-1 AC bonus).' },
+      { id: 'none', name: 'None (Dual-Wield Twin Weapons or 2H Bow)', type: 'none', acBonus: 0, desc: 'Free off-hand for twin weapons or bow.' },
       { id: 'small_shield', name: 'Small Shield (+1 AC)', type: 'shield', acBonus: 1, desc: 'Light forearm buckler (-1 AC bonus).' },
-      { id: 'none', name: 'None (No Shield)', type: 'none', acBonus: 0, desc: 'Two-handed fighting stance or free hand.' }
+      { id: 'medium_shield', name: 'Medium Shield (+1 AC)', type: 'shield', acBonus: 1, desc: 'Iron-banded heater shield (-1 AC bonus).' }
     ];
 
     if (key === 'cleric') {
@@ -301,6 +305,7 @@ export class CharacterFactory {
   static getAvailablePortraits() {
     return [
       { id: 'valeros', name: 'Valeros (Fighter)', file: 'assets/portraits/valeros.jpeg', defaultForClass: 'fighter' },
+      { id: 'elf_ranger', name: 'Elf Ranger', file: 'assets/portraits/elf_ranger.jpg', defaultForClass: 'ranger' },
       { id: 'merisiel', name: 'Merisiel (Thief)', file: 'assets/portraits/merisiel.jpg', defaultForClass: 'thief' },
       { id: 'kyra', name: 'Kyra (Cleric)', file: 'assets/portraits/kyra.jpg', defaultForClass: 'cleric' },
       { id: 'elminster', name: 'Elminster (Mage)', file: 'assets/portraits/elminster.jpg', defaultForClass: 'mage' },
@@ -308,7 +313,6 @@ export class CharacterFactory {
       { id: 'human_warrior', name: 'Human Warrior', file: 'assets/portraits/human_warrior.png' },
       { id: 'elf_wizard', name: 'Elf Wizard', file: 'assets/portraits/elf_wizard.png' },
       { id: 'elf_warrior', name: 'Elf Warrior', file: 'assets/portraits/elf_warrior.png' },
-      { id: 'elf_ranger', name: 'Elf Ranger', file: 'assets/portraits/elf_ranger.jpg' },
       { id: 'elf_mage', name: 'Elf Mage', file: 'assets/portraits/elf_mage.png' },
       { id: 'dwarf_cleric', name: 'Dwarf Cleric', file: 'assets/portraits/dwarf_cleric.jpg' },
       { id: 'dwarf_warrior', name: 'Dwarf Warrior', file: 'assets/portraits/dwarf_warrior.jpg' }
@@ -328,6 +332,7 @@ export class CharacterFactory {
 
     const byClass = {
       fighter: 'assets/portraits/valeros.jpeg',
+      ranger: 'assets/portraits/elf_ranger.jpg',
       thief: 'assets/portraits/merisiel.jpg',
       cleric: 'assets/portraits/kyra.jpg',
       mage: 'assets/portraits/elminster.jpg'
@@ -461,6 +466,15 @@ export class CharacterFactory {
           description: 'Interlinked hardened steel rings worn over padded gambeson.'
         };
         baseArmorAc = 5;
+      } else if (classKey === 'ranger') {
+        equippedArmor = {
+          id: 'studded_leather',
+          name: 'Studded Leather',
+          type: 'light',
+          baseAc: 7,
+          description: 'Boiled leather with steel studs allowing woodsman agility and two-weapon fighting.'
+        };
+        baseArmorAc = 7;
       } else if (classKey === 'thief') {
         equippedArmor = {
           id: 'leather_armor',
@@ -528,6 +542,11 @@ export class CharacterFactory {
     let inventory = options.personalInventory ? [...options.personalInventory] : (options.inventory ? [...options.inventory] : []);
     if (inventory.length === 0) {
       if (classKey === 'fighter') {
+        inventory.push({ name: 'Short Bow', amount: 1 });
+        inventory.push({ name: 'Arrows', amount: 20 });
+        inventory.push({ name: 'Dagger', amount: 1 });
+      } else if (classKey === 'ranger') {
+        inventory.push({ name: 'Short Sword', amount: 1 });
         inventory.push({ name: 'Short Bow', amount: 1 });
         inventory.push({ name: 'Arrows', amount: 20 });
         inventory.push({ name: 'Dagger', amount: 1 });
@@ -753,6 +772,27 @@ export class CharacterFactory {
       }));
     }
 
+    if (classKey === 'ranger') {
+      member.isStealth = false;
+      member.speciesEnemy = 'humanoid';
+      member.offhandWeapon = 'Short Sword';
+      if (member.level >= 9) {
+        member.companion = {
+          id: 'wolf',
+          name: 'Sylvan Wolf',
+          type: 'wolf',
+          hp: 24,
+          maxHp: 24,
+          ac: 6,
+          damage: '1d6+1',
+          icon: '🐺',
+          stance: 'harrier'
+        };
+      } else {
+        member.companion = null;
+      }
+    }
+
     if (classKey === 'thief') {
       member.toolsDurability = 100;
       member.isStealth = false;
@@ -775,6 +815,15 @@ export class CharacterFactory {
         race: 'human',
         portrait: 'assets/portraits/valeros.jpeg',
         attributes: { strength: 16, dexterity: 12, constitution: 15, intelligence: 9, wisdom: 10, charisma: 11 },
+        chosenSpells: []
+      },
+      {
+        id: 'prebuilt_ranger',
+        name: 'Strider',
+        classKey: 'ranger',
+        race: 'elf',
+        portrait: 'assets/portraits/elf_ranger.jpg',
+        attributes: { strength: 14, dexterity: 16, constitution: 14, intelligence: 11, wisdom: 15, charisma: 10 },
         chosenSpells: []
       },
       {

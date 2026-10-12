@@ -450,11 +450,12 @@ export class ExplorationManager {
   }
 
   /**
-   * Rogue skill: Scout Ahead.
+   * Ranger / Scout skill: Scout Ahead.
+   * Prioritizes the Ranger's frontier reconnaissance and Falcon companion reach.
    */
-  static attemptScout(state, range = 3) {
-    const thief = state.party.find(p => p.classKey === 'thief' && p.hp > 0);
-    if (!thief) return { success: false, reason: "No conscious thief in the party." };
+  static attemptScout(state, baseRange = 3) {
+    const scout = state.party.find(p => p.classKey === 'ranger' && p.hp > 0) || state.party.find(p => p.classKey === 'thief' && p.hp > 0);
+    if (!scout) return { success: false, reason: "No conscious ranger or scout in the party." };
     if (this.isFacingWall(state)) return { success: false, reason: "Solid stone blocks the way ahead." };
 
     let dx = 0, dy = 0;
@@ -463,14 +464,32 @@ export class ExplorationManager {
     else if (state.player.facing === 'EAST') dx = 1;
     else if (state.player.facing === 'WEST') dx = -1;
 
-    let chance = state.getSkillTarget(thief, 'find_traps');
+    let range = baseRange;
+    let chance = 40;
+
+    if (scout.classKey === 'ranger') {
+      chance = scout.skills?.scout?.base || (40 + ((scout.level || 1) - 1) * 5);
+      const wis = scout.attributes?.wisdom || 10;
+      if (wis >= 16) chance += 10;
+      else if (wis >= 14) chance += 5;
+
+      // Falcon / Hawk companion expands scout radius and acuity!
+      if (scout.companion && scout.companion.type === 'hawk' && scout.companion.hp > 0) {
+        range += 2;
+        chance += 10;
+      }
+    } else {
+      // Fallback Thief scouting
+      chance = state.getSkillTarget(scout, 'find_traps');
+    }
+
     const zone = state.getCurrentZone ? state.getCurrentZone() : 'dungeon';
     const hasElf = state.party.some(p => {
       const traits = CharacterFactory.getRaceTraits(p);
       return traits?.detectionBias?.zone === 'wilderness' && p.hp > 0;
     });
-    if (zone === 'wilderness' && hasElf) {
-      chance = Math.min(95, chance + 15); // Elf Keen Senses in wilderness
+    if (zone === 'wilderness') {
+      chance = Math.min(95, chance + (hasElf || scout.classKey === 'ranger' ? 15 : 5));
     }
 
     const roll = Math.floor(Math.random() * 100) + 1;
@@ -478,7 +497,9 @@ export class ExplorationManager {
     const discoveries = [];
 
     if (success) {
-      thief.shadowcraftSuccesses = (thief.shadowcraftSuccesses || 0) + 1;
+      if (scout.classKey === 'thief') {
+        scout.shadowcraftSuccesses = (scout.shadowcraftSuccesses || 0) + 1;
+      }
 
       for (let step = 1; step <= range; step++) {
         const tx = state.player.x + dx * step, ty = state.player.y + dy * step;
@@ -504,23 +525,24 @@ export class ExplorationManager {
     }
     const turnResult = this.advanceExplorationTurn(state, 10, "Scout Ahead", false);
 
-    // If a wandering patrol spawned while scouting, the thief spotted them approaching ahead!
-    // Party gains awareness/advantage rather than being ambushed.
+    // If a wandering patrol spawned while scouting, the scout spotted them approaching ahead!
     if (turnResult && turnResult.wanderingSpawned && state.combat.active) {
       state.combat.surpriseRound = false;
       state.combat.alertedRound = true;
       discoveries.unshift({ type: 'patrol', name: turnResult.patrolName || 'Wandering Patrol' });
     }
 
-    return { success, roll, chance, discoveries, turnResult };
+    return { success, roll, chance, discoveries, turnResult, scoutName: scout.name, scoutClass: scout.classKey };
   }
 
   /**
-   * Rogue skill: Passive Hear Noise.
+   * Passive Awareness: Ranger Tracking spoor & Rogue Hear Noise.
    */
   static checkPassiveHearNoise(state) {
+    const ranger = state.party.find(p => p.classKey === 'ranger' && p.hp > 0);
     const thief = state.party.find(p => p.classKey === 'thief' && p.hp > 0);
-    if (!thief) return null;
+    const tracker = ranger || thief;
+    if (!tracker) return null;
 
     const nearby = (state.spec.encounters || []).find(e => {
       if (e.completed) return false;
@@ -529,14 +551,13 @@ export class ExplorationManager {
     });
     if (!nearby) return null;
 
-    let chance = state.getSkillTarget(thief, 'hear_noise');
+    let chance = tracker.classKey === 'ranger'
+      ? (tracker.skills?.tracking?.base || (35 + ((tracker.level || 1) - 1) * 5))
+      : state.getSkillTarget(tracker, 'hear_noise');
+
     const zone = state.getCurrentZone ? state.getCurrentZone() : 'dungeon';
-    const hasElf = state.party.some(p => {
-      const traits = CharacterFactory.getRaceTraits(p);
-      return traits?.detectionBias?.zone === 'wilderness' && p.hp > 0;
-    });
-    if (zone === 'wilderness' && hasElf) {
-      chance = Math.min(95, chance + 15); // Elf Keen Senses in wilderness
+    if (zone === 'wilderness' && tracker.classKey === 'ranger') {
+      chance += 15;
     }
 
     const roll = Math.floor(Math.random() * 100) + 1;
@@ -544,7 +565,86 @@ export class ExplorationManager {
 
     const dx = nearby.x - state.player.x, dy = nearby.y - state.player.y;
     const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'east' : 'west') : (dy > 0 ? 'south' : 'north');
-    return { heroName: thief.name, direction: dir };
+    return {
+      heroName: tracker.name,
+      direction: dir,
+      isRangerTracking: tracker.classKey === 'ranger',
+      hasCompanionScent: tracker.companion && tracker.companion.hp > 0
+    };
+  }
+
+  /**
+   * Active Ranger skill: Track Spoor & Wilderness Trails.
+   * Scans ground terrain and dungeon stones for footprints, blood spoor, claw marks, and scents.
+   */
+  static attemptTrack(state) {
+    const ranger = state.party.find(p => p.classKey === 'ranger' && p.hp > 0);
+    if (!ranger) return { success: false, reason: "No conscious ranger in the party to read trails." };
+
+    let chance = ranger.skills?.tracking?.base || (35 + ((ranger.level || 1) - 1) * 5);
+    const wis = ranger.attributes?.wisdom || 10;
+    if (wis >= 16) chance += 10;
+    else if (wis >= 14) chance += 5;
+
+    const zone = state.getCurrentZone ? state.getCurrentZone() : 'dungeon';
+    if (zone === 'wilderness') chance += 15;
+
+    // Wolf or hunting companion adds keen scent tracking bonus
+    if (ranger.companion && ranger.companion.hp > 0 && ranger.companion.type === 'wolf') {
+      chance += 10;
+    }
+
+    const roll = Math.floor(Math.random() * 100) + 1;
+    const success = roll <= chance;
+
+    // Advance 1 exploration turn (10 minutes)
+    const turnResult = state.advanceDungeonTurn ? state.advanceDungeonTurn(10, 'Tracking spoor and inspecting wilderness trails') : null;
+
+    if (!success) {
+      return {
+        success: false,
+        roll,
+        chance,
+        rangerName: ranger.name,
+        turnResult,
+        reason: `${ranger.name} searches the terrain closely, but finds only cold dust and faded tracks.`
+      };
+    }
+
+    // Find nearby uncompleted encounters within 5 squares
+    const nearbyEncounters = (state.spec.encounters || []).filter(e => {
+      if (e.completed) return false;
+      const dist = Math.max(Math.abs(e.x - state.player.x), Math.abs(e.y - state.player.y));
+      return dist > 0 && dist <= 5;
+    });
+
+    const trails = nearbyEncounters.map(e => {
+      const dx = e.x - state.player.x;
+      const dy = e.y - state.player.y;
+      const dist = Math.max(Math.abs(dx), Math.abs(dy));
+      let dir = '';
+      if (Math.abs(dx) > Math.abs(dy)) {
+        dir = dx > 0 ? 'East' : 'West';
+      } else {
+        dir = dy > 0 ? 'South' : 'North';
+      }
+      return {
+        name: e.name || 'creatures',
+        distance: dist,
+        direction: dir,
+        enemies: e.enemies || []
+      };
+    });
+
+    return {
+      success: true,
+      roll,
+      chance,
+      rangerName: ranger.name,
+      trails,
+      turnResult,
+      hasCompanionScent: ranger.companion && ranger.companion.hp > 0
+    };
   }
 
   /**

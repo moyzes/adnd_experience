@@ -139,8 +139,8 @@ export class PartyBuilderUI {
     for (let i = 0; i < 4; i++) {
       const hero = this.party[i];
       if (hero) {
-        const classColor = hero.classKey === 'fighter' ? '#d29922' : hero.classKey === 'thief' ? '#a371f7' : hero.classKey === 'cleric' ? '#58a6ff' : '#bc8cff';
-        const raceName = hero.race || (hero.raceKey ? hero.raceKey.toUpperCase() : 'HUMAN');
+        const classColor = hero.classKey === 'fighter' ? '#d29922' : hero.classKey === 'ranger' ? '#3fb950' : hero.classKey === 'thief' ? '#a371f7' : hero.classKey === 'cleric' ? '#58a6ff' : '#bc8cff';
+        const raceName = hero.race || (hero.raceKey ? String(hero.raceKey).toUpperCase() : 'HUMAN');
         const portraitUrl = hero.portrait || CharacterFactory.resolvePortrait(hero.classKey, hero.name);
         
         let spellSnippet = '';
@@ -160,7 +160,7 @@ export class PartyBuilderUI {
                   <button class="remove-hero-btn" data-index="${i}" style="background: transparent; border: none; color: #ff7b72; font-size: 12px; cursor: pointer; padding: 0 2px;" title="Remove Hero">✖</button>
                 </div>
                 <div style="font-size: 9.5px; color: ${classColor}; font-weight: bold;">
-                  ${raceName} ${hero.className || hero.classKey.toUpperCase()}
+                  ${raceName} ${hero.className || String(hero.classKey || 'warrior').toUpperCase()}
                 </div>
               </div>
             </div>
@@ -268,7 +268,7 @@ export class PartyBuilderUI {
                 <div style="min-width: 0;">
                   <b style="color: var(--gold-tsr); font-size: 12px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.name}</b>
                   <div style="font-size: 9.5px; color: var(--parchment-light); font-weight: bold;">
-                    ${p.race.toUpperCase()} ${p.classKey.toUpperCase()}
+                    ${String(p.race || 'human').toUpperCase()} ${String(p.classKey || 'warrior').toUpperCase()}
                   </div>
                   ${spellLabel ? `<div style="font-size: 8.5px; color: ${p.classKey === 'mage' ? '#d2a8ff' : '#79c0ff'}; font-weight: 600; margin-top: 1px;">${spellLabel}</div>` : ''}
                 </div>
@@ -462,9 +462,9 @@ export class PartyBuilderUI {
     const previewAc = baseArmorAc + dexAcMod - shieldBonus;
 
     // Calculate preview HP
-    const hitDie = char.classKey === 'fighter' ? 10 : char.classKey === 'cleric' ? 8 : char.classKey === 'thief' ? 6 : 4;
-    const conBonus = finalAttrs.constitution >= 18 ? (char.classKey === 'fighter' ? 4 : 2) :
-                     finalAttrs.constitution === 17 ? (char.classKey === 'fighter' ? 3 : 2) :
+    const hitDie = (char.classKey === 'fighter' || char.classKey === 'ranger') ? 10 : char.classKey === 'cleric' ? 8 : char.classKey === 'thief' ? 6 : 4;
+    const conBonus = finalAttrs.constitution >= 18 ? ((char.classKey === 'fighter' || char.classKey === 'ranger') ? 4 : 2) :
+                     finalAttrs.constitution === 17 ? ((char.classKey === 'fighter' || char.classKey === 'ranger') ? 3 : 2) :
                      finalAttrs.constitution === 16 ? 2 :
                      finalAttrs.constitution === 15 ? 1 : 0;
     const previewHp = Math.max(1, hitDie + conBonus);
@@ -568,6 +568,15 @@ export class PartyBuilderUI {
                 <div>
                   <b style="color: #d29922;">Fighter</b>
                   <div style="font-size: 8.5px; color: var(--text-muted);">${classAvail.fighter.available ? 'Specialization, heavy armor' : classAvail.fighter.reason}</div>
+                </div>
+              </label>
+
+              <!-- Ranger -->
+              <label class="spell-option-label" style="margin: 0; padding: 6px 8px; font-size: 10px; cursor: ${classAvail.ranger?.available ? 'pointer' : 'not-allowed'}; opacity: ${classAvail.ranger?.available ? '1' : '0.4'}; ${char.classKey === 'ranger' ? 'border-color: #3fb950; background: rgba(63,185,80,0.15);' : ''}">
+                <input type="radio" name="char-class" value="ranger" ${char.classKey === 'ranger' ? 'checked' : ''} ${classAvail.ranger?.available ? '' : 'disabled'}>
+                <div>
+                  <b style="color: #3fb950;">Ranger</b>
+                  <div style="font-size: 8.5px; color: var(--text-muted);">${classAvail.ranger?.available ? 'Scouting, dual-wield, animal bond' : classAvail.ranger?.reason}</div>
                 </div>
               </label>
 
@@ -1085,8 +1094,9 @@ export class PartyBuilderUI {
           }
         }
 
-        const heroAttrs = CharacterFactory.applyRaceAdjustments(char.baseAttributes, char.race);
-        const heroName = (char.name || '').trim() || `${char.race.charAt(0).toUpperCase() + char.race.slice(1)} ${char.classKey.charAt(0).toUpperCase() + char.classKey.slice(1)}`;
+        const rStr = String(char.race || 'human');
+        const cStr = String(char.classKey || 'warrior');
+        const heroName = (char.name || '').trim() || `${rStr.charAt(0).toUpperCase() + rStr.slice(1)} ${cStr.charAt(0).toUpperCase() + cStr.slice(1)}`;
 
         let chosenSpells = [];
         if (char.classKey === 'mage') {

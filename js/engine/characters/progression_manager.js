@@ -11,6 +11,7 @@ export class ProgressionManager {
   /** Attack Bonus Growth per class, purely dependent on current level. */
   static ATTACK_BONUS_GROWTH = {
     fighter: 1,      // Best in the game unconditionally (+1 every level)
+    ranger:  1,      // Warrior group: +1 every level unconditionally
     thief:   0.5,    // +1 every 2 levels
     cleric:  0.5,    // +1 every 2 levels
     mage:    0.34    // +1 every 3 levels
@@ -99,6 +100,7 @@ export class ProgressionManager {
       thief:   [0, 1250, 2500, 5000, 10000, 20000, 40000, 70000, 110000, 160000],
       cleric:  [0, 1500, 3000, 6000, 13000, 27500, 55000, 110000, 225000, 450000],
       fighter: [0, 2000, 4000, 8000, 16000, 32000, 64000, 125000, 250000, 500000],
+      ranger:  [0, 2250, 4500, 9000, 18000, 36000, 75000, 150000, 300000, 600000],
       mage:    [0, 2500, 5000, 10000, 20000, 40000, 60000, 90000, 135000, 250000]
     };
     const table = archetype?.xp_table || defaultTables[classKey] || defaultTables.fighter;
@@ -113,7 +115,7 @@ export class ProgressionManager {
    */
   static getConHpModifier(hero) {
     const con = hero?.attributes?.constitution || 10;
-    const isWarrior = hero?.classKey === 'fighter';
+    const isWarrior = hero?.classKey === 'fighter' || hero?.classKey === 'ranger';
     if (con <= 3) return -2;
     if (con <= 6) return -1;
     if (con <= 14) return 0;
@@ -140,6 +142,7 @@ export class ProgressionManager {
     if (!hero) return "Patron Encampment & Town Sanctuary";
     const key = (hero.classKey || '').toLowerCase();
     if (key === 'fighter') return "Highstone Military Garrison (Captain Valerius)";
+    if (key === 'ranger') return "Borderlands Ranger Lodge (Strider Brand)";
     if (key === 'mage') return "Arcane Spire Sanctum (Archmage Cynthia Ravenwing)";
     if (key === 'cleric') return "Sunfire Sanctuary (High Priestess Kaelen)";
     if (key === 'thief') return "Thieves' Guild Crypt (Master Jax Quick-Fingers)";
@@ -304,6 +307,12 @@ export class ProgressionManager {
       'Sling'
     ];
 
+    const availableCompanions = (hero.classKey === 'ranger' && nextLevel >= 9) ? [
+      { id: 'wolf', name: 'Sylvan Wolf', hp: 24, maxHp: 24, ac: 6, damage: '1d6+1', icon: '🐺', stance: 'harrier', desc: 'Loyal wolf pack striker (+1 flanking attack).' },
+      { id: 'hawk', name: 'Hunting Falcon', hp: 10, maxHp: 10, ac: 4, damage: '1d3', icon: '🦅', stance: 'disrupt', desc: 'Keen-eyed raptor that harries enemy spellcasters.' },
+      { id: 'badger', name: 'Cave Badger', hp: 28, maxHp: 28, ac: 5, damage: '1d8', icon: '🦡', stance: 'bodyguard', desc: 'Stout burrowing defender shielding allies.' }
+    ] : [];
+
     return {
       heroIndex,
       heroName: hero.name,
@@ -326,6 +335,8 @@ export class ProgressionManager {
       thiefPoints: hero.classKey === 'thief' ? (archetype.discretionary_skill_points_per_level || 15) : 0,
       skills: hero.skills ? JSON.parse(JSON.stringify(hero.skills)) : {},
       availableSpells,
+      availableCompanions,
+      currentCompanion: hero.companion || null,
       specializedWeapon: hero.specializedWeapon || 'Longsword',
       availableWeapons
     };
@@ -370,6 +381,24 @@ export class ProgressionManager {
       hero.specializedWeapon = choices.specializedWeapon;
       if (oldSpec !== choices.specializedWeapon) {
         state.addLog(`⚔️ ${hero.name} designates the ${hero.specializedWeapon} as their weapon of martial specialization (+1 to-hit, +2 damage)!`, "success");
+      }
+    }
+
+    // Apply Ranger skills & companion
+    if (hero.classKey === 'ranger') {
+      if (hero.skills) {
+        if (hero.skills.scout) hero.skills.scout.base = Math.min(95, (hero.skills.scout.base || 40) + 5);
+        if (hero.skills.tracking) hero.skills.tracking.base = Math.min(95, (hero.skills.tracking.base || 35) + 5);
+      }
+      if (hero.level >= 9 && (!hero.companion || choices.companionArchetype)) {
+        const compArch = choices.companionArchetype || (hero.companion ? hero.companion.id : 'wolf');
+        const compMap = {
+          wolf: { id: 'wolf', name: 'Sylvan Wolf', hp: 24, maxHp: 24, ac: 6, damage: '1d6+1', icon: '🐺', stance: 'harrier' },
+          hawk: { id: 'hawk', name: 'Hunting Falcon', hp: 10, maxHp: 10, ac: 4, damage: '1d3', icon: '🦅', stance: 'disrupt' },
+          badger: { id: 'badger', name: 'Cave Badger', hp: 28, maxHp: 28, ac: 5, damage: '1d8', icon: '🦡', stance: 'bodyguard' }
+        };
+        hero.companion = compMap[compArch] || compMap.wolf;
+        state.addLog(`🐾 A wild ${hero.companion.name} answers ${hero.name}'s frontier call as a loyal bonded companion!`, "success");
       }
     }
 

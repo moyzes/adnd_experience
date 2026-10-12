@@ -29,6 +29,44 @@
         "description": "AD&D 2e Fighter Mastery: +1 to-hit and +2 damage when wielding the chosen specialized weapon."
       }
     },
+    "ranger": {
+      "name": "Ranger",
+      "group": "Warrior",
+      "hit_die": 10,
+      "starting_hp": 12,
+      "armor_class": 5,
+      "attack_bonus": 2,
+      "default_weapon": "Longsword",
+      "offhand_weapon": "Short Sword",
+      "xp_table": [0, 2250, 4500, 9000, 18000, 36000, 75000, 150000, 300000, 600000],
+      "attributes": {
+        "strength": 14,
+        "dexterity": 15,
+        "constitution": 14,
+        "intelligence": 11,
+        "wisdom": 14,
+        "charisma": 10
+      },
+      "skills": {
+        "scout": { "name": "Scout Ahead", "type": "percentile", "base": 40, "perLevel": 5, "attribute": "wisdom", "description": "Frontier line-of-sight and reconnaissance spotting traps and hostile positions." },
+        "tracking": { "name": "Tracking", "type": "percentile", "base": 35, "perLevel": 5, "attribute": "wisdom", "description": "Wilderness spoor and scent reading detecting approaching wandering patrols." },
+        "species_enemy": { "name": "Species Enemy", "type": "modifier", "target": "humanoid", "to_hit_bonus": 4, "description": "+4 to-hit against goblinoids, orcs, kobolds, and giant-kin." }
+      },
+      "two_weapon_fighting": {
+        "enabled": true,
+        "max_armor": "light",
+        "description": "Dual-wields twin weapons in light armor without off-hand penalties."
+      },
+      "companion": {
+        "enabled_level": 9,
+        "default": "wolf",
+        "archetypes": {
+          "wolf": { "name": "Sylvan Wolf", "hp": 24, "maxHp": 24, "ac": 6, "damage": "1d6+1", "icon": "🐺", "stance": "harrier" },
+          "hawk": { "name": "Hunting Falcon", "hp": 10, "maxHp": 10, "ac": 4, "damage": "1d3", "icon": "🦅", "stance": "disrupt" },
+          "badger": { "name": "Cave Badger", "hp": 28, "maxHp": 28, "ac": 5, "damage": "1d8", "icon": "🦡", "stance": "bodyguard" }
+        }
+      }
+    },
     "thief": {
       "name": "Thief",
       "group": "Rogue",

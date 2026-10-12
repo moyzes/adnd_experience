@@ -50,6 +50,89 @@ export class CombatActions {
   }
 
   /**
+   * Evaluates class-specific combat to-hit bonus (e.g. Ranger Species Enemy +4 vs humanoids/giant-kin).
+   */
+  static getClassCombatBonus(hero, target, weaponName, attackMode) {
+    if (!hero || !target) return 0;
+    let bonus = 0;
+    if (hero.classKey === 'ranger') {
+      const mobName = (target.name || '').toLowerCase();
+      const mobType = (target.type || target.creatureType || '').toLowerCase();
+      const mobId = (target.id || '').toLowerCase();
+      const humanoids = ['goblin', 'orc', 'hobgoblin', 'bugbear', 'kobold', 'ogre', 'gnoll', 'troll', 'giant'];
+      if (mobType === 'humanoid' || mobType === 'giant' || humanoids.some(h => mobName.includes(h) || mobId.includes(h))) {
+        bonus += 4;
+      }
+    }
+    return bonus;
+  }
+
+  /**
+   * Resolves autonomous action for high-level Ranger animal companion based on selected stance.
+   */
+  static resolveCompanionAction(state, hero, target, simMobHp, combatEvents) {
+    if (!hero || hero.classKey !== 'ranger' || !hero.companion || hero.companion.hp <= 0) return;
+    if (!target || (simMobHp[target.instanceId] ?? target.hp) <= 0) return;
+
+    const comp = hero.companion;
+    const stance = comp.stance || 'harrier';
+
+    if (stance === 'harrier') {
+      const roll = Math.floor(Math.random() * 20) + 1;
+      const targetNum = 12 + Math.floor((hero.level || 1) / 2);
+      if (roll <= targetNum && roll !== 20) {
+        let maxDmg = 6;
+        if (comp.damage === '1d8') maxDmg = 8;
+        else if (comp.damage === '1d3') maxDmg = 3;
+        const dmgRoll = Math.floor(Math.random() * maxDmg) + 1;
+        const netDmg = Math.max(1, dmgRoll);
+        simMobHp[target.instanceId] = Math.max(0, (simMobHp[target.instanceId] ?? target.hp) - netDmg);
+        const isDead = simMobHp[target.instanceId] <= 0;
+        if (isDead) {
+          target.hp = 0;
+          target.surrendered = false;
+          target.slain = true;
+          target.moraleStatus = 'DEAD';
+        }
+        combatEvents.push({
+          eventType: 'MONSTER_HIT',
+          sourceName: `${hero.name}'s ${comp.name}`,
+          targetInstanceId: target.instanceId,
+          targetName: target.name,
+          damage: netDmg,
+          isDead: isDead,
+          attackMode: 'melee',
+          cueBadge: '🐺 HARRIER',
+          cueClass: 'cue-badge-flank',
+          logText: `🐾 ${comp.icon || '🐺'} ${comp.name} lunges at ${target.name} in coordinated flank attack for ${netDmg} damage!${isDead ? ` ${target.name} collapses!` : ''}`,
+          logType: isDead ? 'danger' : 'success'
+        });
+      } else {
+        combatEvents.push({
+          eventType: 'HERO_MISS',
+          sourceName: `${hero.name}'s ${comp.name}`,
+          logText: `🐾 ${comp.icon || '🐺'} ${comp.name} snaps at ${target.name} but the beast slips away.`,
+          logType: 'muted'
+        });
+      }
+    } else if (stance === 'disrupt') {
+      combatEvents.push({
+        eventType: 'COMPANION_STANCE',
+        sourceName: `${hero.name}'s ${comp.name}`,
+        logText: `🦅 ${comp.icon || '🦅'} ${comp.name} swoops aggressively over ${target.name}, harrying their sightlines and breaking focus!`,
+        logType: 'info'
+      });
+    } else if (stance === 'bodyguard') {
+      combatEvents.push({
+        eventType: 'COMPANION_STANCE',
+        sourceName: `${hero.name}'s ${comp.name}`,
+        logText: `🦡 ${comp.icon || '🦡'} ${comp.name} plants firmly beside ${hero.name}, maintaining a vigilant protective screen!`,
+        logType: 'info'
+      });
+    }
+  }
+
+  /**
    * Resolves a hero's melee weapon strike.
    */
   static resolveHeroMelee(state, hero, target, simMobHp, combatEvents) {
@@ -72,7 +155,8 @@ export class CombatActions {
 
     const mastery = state.getWeaponMastery(hero, hero.equippedWeapon);
     const racialAtk = this.getRacialCombatBonus(hero, target, hero.equippedWeapon, 'melee');
-    const targetNum = strVal + (hero.attackBonus || 1) + state.getLevelAttackBonus(hero) + mastery.atkBonus + bless + racialAtk;
+    const classAtk = this.getClassCombatBonus(hero, target, hero.equippedWeapon, 'melee');
+    const targetNum = strVal + (hero.attackBonus || 1) + state.getLevelAttackBonus(hero) + mastery.atkBonus + bless + racialAtk + classAtk;
     const dmgType = state.getWeaponDamageType(hero.equippedWeapon, 'slashing');
     const baseMaxDmg = state.getWeaponMaxDamage(hero.equippedWeapon, 8) || 8;
     const isFighterSpec = state.isHeroSpecialistWithEquipped(hero);
@@ -147,6 +231,45 @@ export class CombatActions {
         logType: missOutcome.logType
       });
     }
+
+    // Ranger Dual-Wield Offhand Strike (AD&D 2e Light Armor Mastery)
+    if (hero.classKey === 'ranger' && !state.isRangedWeapon(hero.equippedWeapon)) {
+      const armorType = hero.equippedArmor?.type || 'unarmored';
+      const isLightArmor = armorType === 'light' || armorType === 'unarmored';
+      const targetAlive = (simMobHp[target.instanceId] ?? target.hp) > 0;
+      if (isLightArmor && targetAlive) {
+        const offhandWeapon = hero.offhandWeapon || 'Short Sword';
+        const offRoll = Math.floor(Math.random() * 20) + 1;
+        const offTarget = 12 + Math.floor((hero.level || 1) / 2);
+        if (offRoll <= offTarget && offRoll !== 20) {
+          const offDmg = Math.floor(Math.random() * 6) + 1;
+          simMobHp[target.instanceId] = Math.max(0, (simMobHp[target.instanceId] ?? target.hp) - offDmg);
+          const isDead = simMobHp[target.instanceId] <= 0;
+          if (isDead) {
+            target.hp = 0;
+            target.surrendered = false;
+            target.slain = true;
+            target.moraleStatus = 'DEAD';
+          }
+          combatEvents.push({
+            eventType: 'MONSTER_HIT',
+            sourceName: `${hero.name} (Offhand)`,
+            targetInstanceId: target.instanceId,
+            targetName: target.name,
+            damage: offDmg,
+            isDead: isDead,
+            attackMode: 'melee',
+            cueBadge: '⚔️ DUAL-WIELD',
+            cueClass: 'cue-badge-flank',
+            logText: `⚔️ ${hero.name} follows through with a swift offhand ${offhandWeapon} strike for ${offDmg} damage!${isDead ? ` ${target.name} collapses!` : ''}`,
+            logType: isDead ? 'danger' : 'success'
+          });
+        }
+      }
+    }
+
+    // Companion autonomous combat action
+    this.resolveCompanionAction(state, hero, target, simMobHp, combatEvents);
   }
 
   /**

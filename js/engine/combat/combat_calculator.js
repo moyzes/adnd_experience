@@ -140,7 +140,7 @@ export class CombatCalculator {
       cueClass = 'backstab';
       cueBadge = `🗡️ ${netDmg} BACKSTAB!`;
       logType = 'masterstroke';
-      logText = `<div class="ms-title"><span>🗡️ MASTER BACKSTAB — ${attackerName.toUpperCase()}</span><span class="ms-meta">${weaponName} (${netDmg} dmg)</span></div><div class="ms-quote">"${attackerName} emerges unseen from the gloom and sinks the blade to the hilt into ${targetName}!"</div>`;
+      logText = `<div class="ms-title"><span>🗡️ MASTER BACKSTAB — ${String(attackerName || 'Hero').toUpperCase()}</span><span class="ms-meta">${weaponName} (${netDmg} dmg)</span></div><div class="ms-quote">"${attackerName} emerges unseen from the gloom and sinks the blade to the hilt into ${targetName}!"</div>`;
 
       if (netDmg >= 12 || isDead || isBoss) {
         masterstrokeFeat = {
@@ -176,7 +176,7 @@ export class CombatCalculator {
       }
 
       const titlePrefix = isSpecialist ? '🏹🎯 SPECIALIST MASTERSTROKE' : '⚔️ MASTERSTROKE';
-      logText = `<div class="ms-title"><span>${titlePrefix} — ${attackerName.toUpperCase()}</span><span class="ms-meta">${weaponName} (${netDmg}/${maxDamage} dmg)</span></div><div class="ms-quote">"${quote}"</div>`;
+      logText = `<div class="ms-title"><span>${titlePrefix} — ${String(attackerName || 'Hero').toUpperCase()}</span><span class="ms-meta">${weaponName} (${netDmg}/${maxDamage} dmg)</span></div><div class="ms-quote">"${quote}"</div>`;
 
       // Rare Cinematic Banner for exceptional feats
       if (isDead && (isBoss || isNat20 || roll === 1 || netDmg >= 8)) {

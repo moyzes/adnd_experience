@@ -78,18 +78,18 @@ In AD&D 2nd Edition, different character classes require different amounts of Ex
 
 ### Class XP Thresholds (Levels 1 to 10)
 
-| Level | Fighter (Warrior) | Thief (Rogue) | Cleric (Priest) | Mage (Wizard) |
-| :---: | :---: | :---: | :---: | :---: |
-| **1** | 0 XP | 0 XP | 0 XP | 0 XP |
-| **2** | 2,000 XP | 1,250 XP | 1,500 XP | 2,500 XP |
-| **3** | 4,000 XP | 2,500 XP | 3,000 XP | 5,000 XP |
-| **4** | 8,000 XP | 5,000 XP | 6,000 XP | 10,000 XP |
-| **5** | 16,000 XP | 10,000 XP | 13,000 XP | 20,000 XP |
-| **6** | 32,000 XP | 20,000 XP | 27,500 XP | 40,000 XP |
-| **7** | 64,000 XP | 40,000 XP | 55,000 XP | 60,000 XP |
-| **8** | 125,000 XP | 70,000 XP | 110,000 XP | 90,000 XP |
-| **9** | 250,000 XP | 110,000 XP | 225,000 XP | 135,000 XP |
-| **10** | 500,000 XP | 160,000 XP | 450,000 XP | 250,000 XP |
+| Level | Fighter (Warrior) | Ranger (Warrior) | Thief (Rogue) | Cleric (Priest) | Mage (Wizard) |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| **1** | 0 XP | 0 XP | 0 XP | 0 XP | 0 XP |
+| **2** | 2,000 XP | 2,250 XP | 1,250 XP | 1,500 XP | 2,500 XP |
+| **3** | 4,000 XP | 4,500 XP | 2,500 XP | 3,000 XP | 5,000 XP |
+| **4** | 8,000 XP | 9,000 XP | 5,000 XP | 6,000 XP | 10,000 XP |
+| **5** | 16,000 XP | 18,000 XP | 10,000 XP | 13,000 XP | 20,000 XP |
+| **6** | 32,000 XP | 36,000 XP | 20,000 XP | 27,500 XP | 40,000 XP |
+| **7** | 64,000 XP | 75,000 XP | 40,000 XP | 55,000 XP | 60,000 XP |
+| **8** | 125,000 XP | 150,000 XP | 70,000 XP | 110,000 XP | 90,000 XP |
+| **9** | 250,000 XP | 300,000 XP | 110,000 XP | 225,000 XP | 135,000 XP |
+| **10** | 500,000 XP | 600,000 XP | 160,000 XP | 450,000 XP | 250,000 XP |
 
 ---
 
@@ -113,6 +113,38 @@ In AD&D 2nd Edition, different character classes require different amounts of Ex
 | **10** | 11 | +11 | 10d10 + Con | 8 / 10 / 9 / 9 / 11 |
 
 *(PPD = Paralyzation/Poison/Death; RSW = Rod/Staff/Wand; PP = Petrification/Polymorph; BW = Breath Weapon; Sp = Spell)*
+
+---
+
+### Ranger (Warrior) Detailed Progression
+* **Hit Die:** 1d10 (Full Warrior HP bonuses up to +4 at 18 Con).
+* **Attack Bonus Rate:** +1.0 per level unconditionally (Warrior THAC0 chart).
+* **Primary Requisites:** Strength 13+, Dexterity 13+, Constitution 14+, Wisdom 14+.
+* **Alignment Requisite:** Lawful alignment sworn to frontier defense.
+
+#### Ranger Martial Disciplines & Combat Traits:
+1. **Two-Weapon Fighting (Dual-Wielding):** When clad in light armor (Studded Leather, Leather, or Robes), a Ranger can wield a primary weapon (Longsword) and an off-hand weapon (Short Sword) simultaneously, delivering a devastating off-hand follow-through attack without off-hand penalty.
+2. **Species Enemy:** Innate +4 bonus on all attack rolls against humanoid and giant raiders (Orcs, Goblins, Kobolds, Hobgoblins, Bugbears, Ogres, Trolls, and Giants).
+3. **Frontier Reconnaissance (Scout Ahead):** Base 40% (+5% per level, Wisdom bonus, +15% in wilderness). Detects ambushes, wandering patrols, and traps in line of sight.
+4. **Wilderness Spoor (Tracking):** Base 35% (+5% per level, +15% in wilderness, +10% with Wolf companion). Reads tracks, scent, creature distance, and direction.
+5. **Bonded Animal Companion (Level 9+):**
+   * **Sylvan Wolf (🐺):** 24 HP, AC 6, 1d6+1 damage. Stance: *Harrier* (+coordinated flank damage).
+   * **Hunting Falcon (🦅):** 10 HP, AC 4, 1d3 damage. Stance: *Disrupt* (harries foes and disrupts spells).
+   * **Cave Badger (🦡):** 28 HP, AC 5, 1d8 damage. Stance: *Bodyguard* (vigilant protective defense).
+   * **UI Option C Dock:** Integrated companion sub-card attached directly to the Ranger's hero card, showing the companion's icon, HP bar, and instant one-click stance cycle button.
+
+| Level | THAC0 | Base Attack Bonus | Hit Dice | Scout Ahead | Tracking | Saving Throws (PPD / RSW / PP / BW / Sp) |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **1** | 20 | +2 | 1d10 + Con | 40% | 35% | 14 / 16 / 15 / 17 / 17 |
+| **2** | 19 | +3 | 2d10 + Con | 45% | 40% | 14 / 16 / 15 / 17 / 17 |
+| **3** | 18 | +4 | 3d10 + Con | 50% | 45% | 13 / 15 / 14 / 16 / 16 |
+| **4** | 17 | +5 | 4d10 + Con | 55% | 50% | 13 / 15 / 14 / 16 / 16 |
+| **5** | 16 | +6 | 5d10 + Con | 60% | 55% | 11 / 13 / 12 / 13 / 14 |
+| **6** | 15 | +7 | 6d10 + Con | 65% | 60% | 11 / 13 / 12 / 13 / 14 |
+| **7** | 14 | +8 | 7d10 + Con | 70% | 65% | 10 / 12 / 11 / 12 / 13 |
+| **8** | 13 | +9 | 8d10 + Con | 75% | 70% | 10 / 12 / 11 / 12 / 13 |
+| **9** | 12 | +10 | 9d10 + Con | 80% (Bond 🐺) | 75% | 8 / 10 / 9 / 9 / 11 |
+| **10** | 11 | +11 | 10d10 + Con | 85% | 80% | 8 / 10 / 9 / 9 / 11 |
 
 ---
 

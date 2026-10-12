@@ -411,9 +411,16 @@ class GameOrchestrator {
     }
     this.state.lastMovementTurnResult = null;
 
-    // 1. Passive Thief checks
+    // 1. Passive Thief / Ranger checks
     const hint = this.state.checkPassiveHearNoise();
-    if (hint) this.log(`${hint.heroName} catches a faint sound to the ${hint.direction}...`, "muted");
+    if (hint) {
+      if (hint.isRangerTracking) {
+        const compText = hint.hasCompanionScent ? " and animal companion catch a predator scent" : " spots fresh tracks and wilderness spoor";
+        this.log(`🐾 ${hint.heroName}${compText} to the ${hint.direction}...`, "muted");
+      } else {
+        this.log(`👂 ${hint.heroName} catches a faint sound to the ${hint.direction}...`, "muted");
+      }
+    }
 
     // 2. Map Interaction Triggers
     const interaction = this.state.checkInteractionTrigger(currentX, currentY);
@@ -648,15 +655,16 @@ class GameOrchestrator {
       }
     }
     else if (actionType === 'SCOUT_AHEAD') {
-      if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");
+      const scoutHero = this.state.party.find(p => p.classKey === 'ranger' && p.hp > 0) || this.state.party.find(p => p.classKey === 'thief' && p.hp > 0);
+      if (!scoutHero) return this.log("The party has no conscious scout or ranger.", "warning");
       const result = this.state.attemptScout();
       if (!result.success) return this.log(result.reason || `Scouting turned up nothing.`, "info");
-      this.log(`⏳ An exploration turn passes (10 min) while scouting ahead...`, "muted");
+      this.log(`⏳ An exploration turn passes (10 min) while ${result.scoutName || scoutHero.name} scouts ahead...`, "muted");
       
       const otherDiscoveries = (result.discoveries || []).filter(d => d.type !== 'patrol');
 
       if (result.turnResult && result.turnResult.wanderingSpawned) {
-        this.log(`🗡️ Scouting Discovery! While creeping down the corridor, ${thief.name} spotted an incoming hostile patrol: ${result.turnResult.patrolName || 'Wandering Monsters'}! The party readies weapons with surprise advantage!`, "warning");
+        this.log(`🏹 Scouting Discovery! While reconnoitering ahead, ${result.scoutName || scoutHero.name} spotted an incoming hostile patrol: ${result.turnResult.patrolName || 'Wandering Monsters'}! The party readies weapons with surprise advantage!`, "warning");
         this.handlePostActionPatrol(result.turnResult);
       } else if (otherDiscoveries.length > 0) {
         otherDiscoveries.forEach(d => this.log(`Scouted ahead: ${d.name} detected.`, "warning"));
@@ -664,6 +672,29 @@ class GameOrchestrator {
         this.log(`The way ahead looks clear.`, "info");
       }
       this.uiController.updateHUD();
+    }
+    else if (actionType === 'TRACK_SPOOR') {
+      const ranger = this.state.party.find(p => p.classKey === 'ranger' && p.hp > 0);
+      if (!ranger) return this.log("The party has no conscious ranger to track spoor.", "warning");
+      const result = this.state.attemptTrack();
+      this.playSFX('study');
+      if (!result.success) {
+        this.log(result.reason || `${ranger.name} found no discernable spoor.`, "info");
+      } else {
+        const compNote = result.hasCompanionScent ? ` with help from ${ranger.companion.name}'s keen scent` : '';
+        this.log(`🐾 Tracking Success! ${ranger.name}${compNote} identifies wilderness spoor!`, "success");
+        if (result.trails && result.trails.length > 0) {
+          result.trails.forEach(t => {
+            this.log(`👣 Spoor of ${t.name}: detected approximately ${t.distance} tile${t.distance === 1 ? '' : 's'} to the ${t.direction}.`, "warning");
+          });
+        } else {
+          this.log(`🌿 Disturbances and scents confirm monster presence in this level, but no immediate tracks leave this chamber.`, "info");
+        }
+      }
+      this.uiController.updateHUD(true);
+      if (result.turnResult && result.turnResult.wanderingSpawned) {
+        this.handlePostActionPatrol(result.turnResult);
+      }
     }
     else if (actionType === 'PICKPOCKET_NPC') {
       if (!thief || thief.hp <= 0) return this.log("The thief is incapacitated.", "warning");

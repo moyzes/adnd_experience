@@ -20,8 +20,9 @@ export class CharacterSheetUI {
     const hero = this.state.party[heroIndex];
     this.currentHeroIndex = heroIndex;
 
-    const raceLabel = hero.race ? `${hero.race.toUpperCase()} ` : '';
-    this.titleEl.textContent = `${(hero.name || 'Hero').toUpperCase()} — LEVEL ${hero.level || 1} ${raceLabel}${(hero.className || 'Adventurer').toUpperCase()}`;
+    const raceName = hero.race || hero.raceKey || '';
+    const raceLabel = raceName ? `${String(raceName).toUpperCase()} ` : '';
+    this.titleEl.textContent = `${String(hero.name || 'Hero').toUpperCase()} — LEVEL ${hero.level || 1} ${raceLabel}${String(hero.className || hero.classKey || 'Adventurer').toUpperCase()}`;
 
     // Character Portrait Resolution
     const portraitUrl = CharacterFactory.resolvePortrait(hero.classKey, hero.name, hero.portrait);
@@ -195,6 +196,7 @@ export class CharacterSheetUI {
     let skillsHTML = '';
     if (hero.skills && Object.keys(hero.skills).length > 0) {
       const skillRows = Object.entries(hero.skills).map(([key, skill]) => {
+        if (!skill) return '';
         const target = this.state.getSkillTarget(hero, key);
         if (skill.type === 'percentile') {
           const levelBonus = (hero.level - 1) * (skill.perLevel || 5);
@@ -203,12 +205,19 @@ export class CharacterSheetUI {
             <span><b>${skill.name}</b> <span style="color:var(--text-muted); font-size:10px;">(d100 Tradecraft)</span></span>
             <span style="color: #f0883e; font-weight: bold;">${target}% <span style="font-size: 10px; color: var(--text-muted); font-weight: normal;">(Base:${skill.base}% + Lvl:+${levelBonus}%)</span></span>
           </div>`;
-        } else {
-          const rawAttr = hero.attributes[skill.attribute] || 10;
-          const skillBonus = skill.base + (hero.level - 1) * (skill.perLevel || 1);
+        } else if (skill.type === 'modifier' && skill.to_hit_bonus) {
           return `
           <div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px dashed #21262d; font-size: 12px;">
-            <span><b>${skill.name}</b> <span style="color:var(--text-muted); font-size:10px;">(${skill.attribute.toUpperCase()})</span></span>
+            <span><b>${skill.name}</b> <span style="color:var(--text-muted); font-size:10px;">(Combat Trait)</span></span>
+            <span style="color: #7ee787; font-weight: bold;">+${skill.to_hit_bonus} To-Hit <span style="font-size: 10px; color: var(--text-muted); font-weight: normal;">(vs ${skill.target || 'humanoids'})</span></span>
+          </div>`;
+        } else {
+          const attrKey = String(skill.attribute || 'wisdom');
+          const rawAttr = (hero.attributes && hero.attributes[attrKey]) || 10;
+          const skillBonus = (skill.base || 0) + (hero.level - 1) * (skill.perLevel || 1);
+          return `
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px dashed #21262d; font-size: 12px;">
+            <span><b>${skill.name || key}</b> <span style="color:var(--text-muted); font-size:10px;">(${attrKey.toUpperCase()})</span></span>
             <span style="color: var(--accent-gold); font-weight: bold;">d20 ≤ ${target} <span style="font-size: 10px; color: var(--text-muted); font-weight: normal;">(Attr:${rawAttr} + Skill:+${skillBonus})</span></span>
           </div>`;
         }
@@ -444,12 +453,12 @@ export class CharacterSheetUI {
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
             <div>
               <div style="color: #d2a8ff; font-weight: bold;">Backstab</div>
-              <div style="color: var(--text-muted); font-size: 10px; margin: 2px 0;">${backstabTier.toUpperCase()}</div>
+              <div style="color: var(--text-muted); font-size: 10px; margin: 2px 0;">${String(backstabTier || 'novice').toUpperCase()}</div>
               <div style="color: var(--favor-blue); font-size: 10px;">Hits: ${hero.backstabSuccesses || 0}</div>
             </div>
             <div>
               <div style="color: #d2a8ff; font-weight: bold;">Shadowcraft</div>
-              <div style="color: var(--text-muted); font-size: 10px; margin: 2px 0;">${shadowTier.toUpperCase()}</div>
+              <div style="color: var(--text-muted); font-size: 10px; margin: 2px 0;">${String(shadowTier || 'novice').toUpperCase()}</div>
               <div style="color: var(--favor-blue); font-size: 10px;">Successes: ${hero.shadowcraftSuccesses || 0}</div>
             </div>
           </div>
@@ -467,9 +476,10 @@ export class CharacterSheetUI {
       const usageEntries = Object.entries(hero.weaponUsage || {}).map(([wName, hits]) => {
         const m = this.state.getWeaponMastery(hero, wName);
         const isR = this.state.isRangedWeapon(wName);
+        const tierName = String(m?.tier || 'novice').toUpperCase();
         return `<div style="display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-bottom:1px dashed #21262d; font-size:11px;">
-          <span>${isR ? '🏹' : '⚔️'} <b>${wName}</b> <span style="color:var(--text-muted); font-size:10px;">(${m.tier.toUpperCase()})</span></span>
-          <span style="color:var(--favor-blue); font-size:10px;">${hits} hits (+${m.atkBonus} / +${m.dmgBonus})</span>
+          <span>${isR ? '🏹' : '⚔️'} <b>${wName}</b> <span style="color:var(--text-muted); font-size:10px;">(${tierName})</span></span>
+          <span style="color:var(--favor-blue); font-size:10px;">${hits} hits (+${m?.atkBonus || 0} / +${m?.dmgBonus || 0})</span>
         </div>`;
       }).join('') || `<div style="color:var(--text-muted); font-size:10px; font-style:italic;">No weapon strikes logged yet in this expedition.</div>`;
 
@@ -491,6 +501,92 @@ export class CharacterSheetUI {
           ${usageEntries}
         </div>
       </div>`;
+    } else if (hero.classKey === 'ranger') {
+      const armType = hero.equippedArmor?.type || 'unarmored';
+      const isLight = armType === 'light' || armType === 'unarmored';
+      const isRanged = this.state.isRangedWeapon(hero.equippedWeapon);
+      const offhandWep = hero.offhandWeapon || 'Short Sword';
+
+      const dualStatus = isRanged
+        ? `<span style="color:var(--text-muted);">(Wielding 2H Ranged Bow)</span>`
+        : (isLight
+          ? `<span style="color:#3fb950; font-weight:700;">✓ Active (${hero.equippedWeapon || 'Longsword'} + ${offhandWep} offhand)</span>`
+          : `<span style="color:#f85149; font-weight:600;">⚠️ Inactive (Requires Light Armor or Robes)</span>`);
+
+      let companionHTML = '';
+      if (hero.companion) {
+        const comp = hero.companion;
+        const compHpPct = Math.max(0, Math.min(100, Math.round((comp.hp / comp.maxHp) * 100)));
+        const curStance = comp.stance || 'harrier';
+        const stanceBtns = [
+          { id: 'harrier', icon: '🐺', name: 'Harrier', desc: 'Coordinated flank attack (+1d6 damage)' },
+          { id: 'disrupt', icon: '🦅', name: 'Disrupt', desc: 'Harries foes and breaks spell concentration' },
+          { id: 'bodyguard', icon: '🦡', name: 'Bodyguard', desc: 'Protective screen absorbing blows' }
+        ].map(s => {
+          const isActive = curStance === s.id;
+          const bg = isActive ? 'background: rgba(63,185,80,0.2); border-color: #3fb950; color: #7ee787;' : 'background: #0d1117; border-color: var(--border-iron); color: var(--text-muted);';
+          return `<button class="sheet-companion-stance-btn" data-hero-index="${heroIndex}" data-stance="${s.id}" style="padding: 4px 8px; font-size: 10px; border-radius: 3px; cursor: pointer; border: 1px solid; ${bg}" title="${s.desc}">
+            ${s.icon} <b>${s.name}</b>
+          </button>`;
+        }).join('');
+
+        companionHTML = `
+        <div style="background: #0d1117; border: 1px solid #1f3d26; border-radius: 4px; padding: 10px; margin-top: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <div style="font-family: 'Cinzel', serif; font-size: 13px; font-weight: bold; color: #7ee787;">
+              🐾 ${comp.icon || '🐺'} ${comp.name}
+            </div>
+            <span style="font-size: 10.5px; color: var(--gold-tsr);">Level 9 Bond</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: 11px; margin-bottom: 6px;">
+            <div>Hit Points: <b style="color: ${comp.hp > 0 ? '#3fb950' : '#ff7b72'};">${comp.hp} / ${comp.maxHp}</b></div>
+            <div>Armor Class: <b style="color: var(--text-parchment);">AC ${comp.ac}</b></div>
+            <div>Attack / Dmg: <b style="color: var(--gold-tsr);">${comp.damage}</b></div>
+          </div>
+          <div style="height: 4px; background: #080a0c; border: 1px solid #1a1e27; border-radius: 2px; overflow: hidden; margin-bottom: 8px;">
+            <div style="height: 100%; width: ${compHpPct}%; background: #3fb950; transition: width 0.3s ease;"></div>
+          </div>
+          <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px; font-weight: bold;">Tactical Combat Stance:</div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            ${stanceBtns}
+          </div>
+        </div>`;
+      } else {
+        companionHTML = `
+        <div style="background: #0d1117; border: 1px dashed #21262d; border-radius: 4px; padding: 8px 10px; margin-top: 8px; font-size: 11px;">
+          <div style="color: var(--gold-tsr); font-weight: bold;">🐾 Frontier Animal Companion (Level 9 Warden Bond)</div>
+          <div style="color: var(--text-muted); font-size: 10.5px; margin-top: 3px; line-height: 1.3;">
+            At Level 9, a bonded animal companion (Sylvan Wolf, Hunting Falcon, or Cave Badger) answers the frontier call to fight beside the ranger.
+          </div>
+        </div>`;
+      }
+
+      specializedHTML = `
+      <div style="background: #161b22; padding: 10px; border: 1px solid var(--border-steel); border-radius: 4px; margin-bottom: 12px; font-size: 12px;">
+        <div style="color: var(--accent-gold); font-weight: bold; margin-bottom: 6px; font-size: 13px;">🌲 Borderlands Warden & Frontier Disciplines</div>
+        
+        <div style="background: #0d1117; padding: 8px; border: 1px solid var(--border-iron); border-radius: 3px; margin-bottom: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+            <span>⚔️ <b>Two-Weapon Fighting (Dual-Wield):</b></span>
+            ${dualStatus}
+          </div>
+          <div style="font-size: 10px; color: var(--text-muted);">
+            AD&D 2e Warden Style: In light armor (Studded Leather or lighter), the Ranger strikes with main hand blade and delivers an offhand follow-through attack without standard two-weapon penalties.
+          </div>
+        </div>
+
+        <div style="background: #0d1117; padding: 8px; border: 1px solid var(--border-iron); border-radius: 3px; margin-bottom: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+            <span>🏹 <b>Species Enemy:</b></span>
+            <b style="color: #f0883e;">+4 To-Hit vs Humanoids & Giants</b>
+          </div>
+          <div style="font-size: 10px; color: var(--text-muted);">
+            Decades spent guarding the marches grant instinctual tactical precision against goblins, orcs, hobgoblins, kobolds, bugbears, ogres, trolls, and giant-kin.
+          </div>
+        </div>
+
+        ${companionHTML}
+      </div>`;
     }
 
     const equipped = hero.equippedWeapon || 'None';
@@ -500,9 +596,10 @@ export class CharacterSheetUI {
     
     const weaponMastery = hero.equippedWeapon ? this.state.getWeaponMastery(hero, hero.equippedWeapon) : null;
     const weaponUsageCount = hero.weaponUsage?.[hero.equippedWeapon] || 0;
+    const wTierStr = String(weaponMastery?.tier || 'novice').toUpperCase();
     const masteryInfo = weaponMastery ? `
     <div style="background: #0a0b0e; padding: 8px; border: 1px solid #1a1e27; border-radius: 2px; margin-top: 6px; font-size: 11px;">
-      <div style="color: var(--gold-tsr); font-weight: bold; margin-bottom: 4px;">${hero.equippedWeapon} — ${weaponMastery.tier.toUpperCase()}</div>
+      <div style="color: var(--gold-tsr); font-weight: bold; margin-bottom: 4px;">${hero.equippedWeapon} — ${wTierStr}</div>
       <div style="color: var(--text-muted); margin-bottom: 3px;">Successful hits: ${weaponUsageCount}</div>
       ${weaponMastery.tier !== 'mastery' ? `<div style="color: var(--favor-blue); font-size: 10px;">Next tier at ${weaponMastery.tier === 'familiarity' ? '40 hits' : '15 hits'}</div>` : '<div style="color: #3fb950; font-size: 10px;">✓ Mastery reached</div>'}
       ${weaponMastery.atkBonus > 0 || weaponMastery.dmgBonus > 0 ? `<div style="color: #58a6ff; margin-top: 4px; font-size: 10px;">+${weaponMastery.atkBonus} to-hit${weaponMastery.dmgBonus > 0 ? `, +${weaponMastery.dmgBonus} damage` : ''}</div>` : ''}
@@ -619,13 +716,14 @@ export class CharacterSheetUI {
     const heroCapacity = this.state.getHeroCapacity ? Math.round(this.state.getHeroCapacity(hero) * 10) / 10 : 10;
     const heroLoad = this.state.getHeroTotalLoad ? Math.round(this.state.getHeroTotalLoad(hero) * 10) / 10 : 0;
     const heroTier = this.state.getHeroEncumbranceTier ? this.state.getHeroEncumbranceTier(hero) : { tier: 'unencumbered' };
-    const loadColor = heroTier.tier === 'unencumbered' ? '#3fb950' : heroTier.tier === 'burdened' ? '#e3b341' : '#ff7b72';
+    const encTierStr = String(heroTier?.tier || 'unencumbered');
+    const loadColor = encTierStr === 'unencumbered' ? '#3fb950' : encTierStr === 'burdened' ? '#e3b341' : '#ff7b72';
 
     const gearHTML = `
     <div style="background: #161b22; padding: 10px; border: 1px solid var(--border-steel); border-radius: 4px; font-size: 12px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
         <span style="color: var(--accent-gold); font-weight: bold; font-size: 13px;">📦 Equipment & Worn Panoply</span>
-        <span style="font-size: 11px; color: var(--parchment);">⚖️ Load: <b style="color:${loadColor};">${heroLoad} / ${heroCapacity} lbs</b> (${heroTier.tier.toUpperCase()})</span>
+        <span style="font-size: 11px; color: var(--parchment);">⚖️ Load: <b style="color:${loadColor};">${heroLoad} / ${heroCapacity} lbs</b> (${encTierStr.toUpperCase()})</span>
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #21262d;">
         <div style="background: #0d1117; padding: 6px 8px; border: 1px solid #21262d; border-radius: 3px;">
@@ -778,9 +876,9 @@ export class CharacterSheetUI {
           </div>
         </div>
         <div style="text-align: right; flex-shrink: 0;">
-          <div style="display: inline-flex; align-items: center; gap: 5px; background: rgba(0,0,0,0.5); border: 1px solid ${alignment.color}; padding: 3px 8px; border-radius: 3px; box-shadow: 0 0 10px ${alignment.color}22;">
+          <div style="display: inline-flex; align-items: center; gap: 5px; background: rgba(0,0,0,0.5); border: 1px solid ${alignment?.color || '#d29922'}; padding: 3px 8px; border-radius: 3px; box-shadow: 0 0 10px ${alignment?.color || '#d29922'}22;">
             <span style="font-size: 11px;">🧭</span>
-            <b style="font-family: 'Cinzel', serif; font-size: 11px; color: ${alignment.color}; letter-spacing: 0.5px;">${alignment.name.toUpperCase()}</b>
+            <b style="font-family: 'Cinzel', serif; font-size: 11px; color: ${alignment?.color || '#d29922'}; letter-spacing: 0.5px;">${String(alignment?.name || 'True Neutral').toUpperCase()}</b>
           </div>
           <div style="font-size: 9px; color: var(--text-parchment); margin-top: 3px; font-family: monospace;">
             Coords: Order ${orderSign}${orderVal} | Morality ${moralSign}${moralityVal}
@@ -909,9 +1007,10 @@ export class CharacterSheetUI {
     if (sheetLvlBtn) {
       sheetLvlBtn.addEventListener('click', () => {
         this.close();
+        const titleHeroName = (this.titleEl?.textContent?.split(' — ')[0] || '').trim().toUpperCase();
         const hIdx = (this.currentHeroIndex != null && this.currentHeroIndex >= 0)
           ? this.currentHeroIndex
-          : this.state.party.findIndex(p => p && p.name.toUpperCase() === (this.titleEl.textContent.split(' — ')[0] || '').trim().toUpperCase());
+          : this.state.party.findIndex(p => p && String(p.name || '').trim().toUpperCase() === titleHeroName);
         if (hIdx !== -1 && this.context.onLevelUpClick) {
           this.context.onLevelUpClick(hIdx);
         }
@@ -1089,6 +1188,27 @@ export class CharacterSheetUI {
         this.context.onUIAction('CAST_MAGE_SPELL', sIdx);
         const mage = this.state.party.find(p => p.classKey === 'mage');
         if (mage) this.open(mage.name);
+      });
+    });
+
+    this.contentEl.querySelectorAll('.sheet-companion-stance-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const hIdx = parseInt(btn.getAttribute('data-hero-index'), 10);
+        const stance = btn.getAttribute('data-stance');
+        const hero = this.state.party[hIdx];
+        if (hero && hero.companion) {
+          hero.companion.stance = stance;
+          const stanceIcons = { harrier: '🐺', disrupt: '🦅', bodyguard: '🦡' };
+          const stanceNames = {
+            harrier: 'Harrier (Coordinated Flank Damage)',
+            disrupt: 'Disrupt (Break Enemy Focus)',
+            bodyguard: 'Bodyguard (Vigilant Defense)'
+          };
+          this.state.addLog(`🐾 ${hero.companion.name} changes tactical stance to ${stanceIcons[stance]} ${stanceNames[stance]}!`, "success");
+          this.context.playSFX('button');
+          if (this.context.updateHUD) this.context.updateHUD(true);
+          this.open(hero.name);
+        }
       });
     });
   }
