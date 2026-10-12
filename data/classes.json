@@ -56,15 +56,6 @@
         "enabled": true,
         "max_armor": "light",
         "description": "Dual-wields twin weapons in light armor without off-hand penalties."
-      },
-      "companion": {
-        "enabled_level": 9,
-        "default": "wolf",
-        "archetypes": {
-          "wolf": { "name": "Sylvan Wolf", "hp": 24, "maxHp": 24, "ac": 6, "damage": "1d6+1", "icon": "🐺", "stance": "harrier", "desc": "Loyal wolf pack striker (+1 flanking attack)." },
-          "hawk": { "name": "Hunting Falcon", "hp": 10, "maxHp": 10, "ac": 4, "damage": "1d3", "icon": "🦅", "stance": "disrupt", "desc": "Keen-eyed raptor that harries enemy spellcasters." },
-          "badger": { "name": "Cave Badger", "hp": 28, "maxHp": 28, "ac": 5, "damage": "1d8", "icon": "🦡", "stance": "bodyguard", "desc": "Stout burrowing defender shielding allies." }
-        }
       }
     },
     "thief": {

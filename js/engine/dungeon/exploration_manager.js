@@ -451,7 +451,7 @@ export class ExplorationManager {
 
   /**
    * Ranger / Scout skill: Scout Ahead.
-   * Prioritizes the Ranger's frontier reconnaissance and Falcon companion reach.
+   * Prioritizes the Ranger's frontier reconnaissance.
    */
   static attemptScout(state, baseRange = 3) {
     const scout = state.party.find(p => p.classKey === 'ranger' && p.hp > 0) || state.party.find(p => p.classKey === 'thief' && p.hp > 0);
@@ -473,11 +473,7 @@ export class ExplorationManager {
       if (wis >= 16) chance += 10;
       else if (wis >= 14) chance += 5;
 
-      // Falcon / Hawk companion expands scout radius and acuity!
-      if (scout.companion && scout.companion.type === 'hawk' && scout.companion.hp > 0) {
-        range += 2;
-        chance += 10;
-      }
+
     } else {
       // Fallback Thief scouting
       chance = state.getSkillTarget(scout, 'find_traps');
@@ -568,8 +564,7 @@ export class ExplorationManager {
     return {
       heroName: tracker.name,
       direction: dir,
-      isRangerTracking: tracker.classKey === 'ranger',
-      hasCompanionScent: tracker.companion && tracker.companion.hp > 0
+      isRangerTracking: tracker.classKey === 'ranger'
     };
   }
 
@@ -588,11 +583,6 @@ export class ExplorationManager {
 
     const zone = state.getCurrentZone ? state.getCurrentZone() : 'dungeon';
     if (zone === 'wilderness') chance += 15;
-
-    // Wolf or hunting companion adds keen scent tracking bonus
-    if (ranger.companion && ranger.companion.hp > 0 && ranger.companion.type === 'wolf') {
-      chance += 10;
-    }
 
     const roll = Math.floor(Math.random() * 100) + 1;
     const success = roll <= chance;
@@ -642,8 +632,7 @@ export class ExplorationManager {
       chance,
       rangerName: ranger.name,
       trails,
-      turnResult,
-      hasCompanionScent: ranger.companion && ranger.companion.hp > 0
+      turnResult
     };
   }
 

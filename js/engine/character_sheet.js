@@ -513,54 +513,6 @@ export class CharacterSheetUI {
           ? `<span style="color:#3fb950; font-weight:700;">✓ Active (${hero.equippedWeapon || 'Longsword'} + ${offhandWep} offhand)</span>`
           : `<span style="color:#f85149; font-weight:600;">⚠️ Inactive (Requires Light Armor or Robes)</span>`);
 
-      let companionHTML = '';
-      if (hero.companion) {
-        const comp = hero.companion;
-        const compHpPct = Math.max(0, Math.min(100, Math.round((comp.hp / comp.maxHp) * 100)));
-        const curStance = comp.stance || 'harrier';
-        const stanceBtns = [
-          { id: 'harrier', icon: '🐺', name: 'Harrier', desc: 'Coordinated flank attack (+1d6 damage)' },
-          { id: 'disrupt', icon: '🦅', name: 'Disrupt', desc: 'Harries foes and breaks spell concentration' },
-          { id: 'bodyguard', icon: '🦡', name: 'Bodyguard', desc: 'Protective screen absorbing blows' }
-        ].map(s => {
-          const isActive = curStance === s.id;
-          const bg = isActive ? 'background: rgba(63,185,80,0.2); border-color: #3fb950; color: #7ee787;' : 'background: #0d1117; border-color: var(--border-iron); color: var(--text-muted);';
-          return `<button class="sheet-companion-stance-btn" data-hero-index="${heroIndex}" data-stance="${s.id}" style="padding: 4px 8px; font-size: 10px; border-radius: 3px; cursor: pointer; border: 1px solid; ${bg}" title="${s.desc}">
-            ${s.icon} <b>${s.name}</b>
-          </button>`;
-        }).join('');
-
-        companionHTML = `
-        <div style="background: #0d1117; border: 1px solid #1f3d26; border-radius: 4px; padding: 10px; margin-top: 8px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <div style="font-family: 'Cinzel', serif; font-size: 13px; font-weight: bold; color: #7ee787;">
-              🐾 ${comp.icon || '🐺'} ${comp.name}
-            </div>
-            <span style="font-size: 10.5px; color: var(--gold-tsr);">Level 9 Bond</span>
-          </div>
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: 11px; margin-bottom: 6px;">
-            <div>Hit Points: <b style="color: ${comp.hp > 0 ? '#3fb950' : '#ff7b72'};">${comp.hp} / ${comp.maxHp}</b></div>
-            <div>Armor Class: <b style="color: var(--text-parchment);">AC ${comp.ac}</b></div>
-            <div>Attack / Dmg: <b style="color: var(--gold-tsr);">${comp.damage}</b></div>
-          </div>
-          <div style="height: 4px; background: #080a0c; border: 1px solid #1a1e27; border-radius: 2px; overflow: hidden; margin-bottom: 8px;">
-            <div style="height: 100%; width: ${compHpPct}%; background: #3fb950; transition: width 0.3s ease;"></div>
-          </div>
-          <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px; font-weight: bold;">Tactical Combat Stance:</div>
-          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-            ${stanceBtns}
-          </div>
-        </div>`;
-      } else {
-        companionHTML = `
-        <div style="background: #0d1117; border: 1px dashed #21262d; border-radius: 4px; padding: 8px 10px; margin-top: 8px; font-size: 11px;">
-          <div style="color: var(--gold-tsr); font-weight: bold;">🐾 Frontier Animal Companion (Level 9 Warden Bond)</div>
-          <div style="color: var(--text-muted); font-size: 10.5px; margin-top: 3px; line-height: 1.3;">
-            At Level 9, a bonded animal companion (Wolf, Falcon, or Badger) answers the frontier call to fight beside the ranger.
-          </div>
-        </div>`;
-      }
-
       specializedHTML = `
       <div style="background: #161b22; padding: 10px; border: 1px solid var(--border-steel); border-radius: 4px; margin-bottom: 12px; font-size: 12px;">
         <div style="color: var(--accent-gold); font-weight: bold; margin-bottom: 6px; font-size: 13px;">🌲 Borderlands Warden & Frontier Disciplines</div>
@@ -584,8 +536,6 @@ export class CharacterSheetUI {
             Decades spent guarding the marches grant instinctual tactical precision against goblins, orcs, hobgoblins, kobolds, bugbears, ogres, trolls, and giant-kin.
           </div>
         </div>
-
-        ${companionHTML}
       </div>`;
     }
 
@@ -1191,26 +1141,7 @@ export class CharacterSheetUI {
       });
     });
 
-    this.contentEl.querySelectorAll('.sheet-companion-stance-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const hIdx = parseInt(btn.getAttribute('data-hero-index'), 10);
-        const stance = btn.getAttribute('data-stance');
-        const hero = this.state.party[hIdx];
-        if (hero && hero.companion) {
-          hero.companion.stance = stance;
-          const stanceIcons = { harrier: '🐺', disrupt: '🦅', bodyguard: '🦡' };
-          const stanceNames = {
-            harrier: 'Harrier (Coordinated Flank Damage)',
-            disrupt: 'Disrupt (Break Enemy Focus)',
-            bodyguard: 'Bodyguard (Vigilant Defense)'
-          };
-          this.state.addLog(`🐾 ${hero.companion.name} changes tactical stance to ${stanceIcons[stance]} ${stanceNames[stance]}!`, "success");
-          this.context.playSFX('button');
-          if (this.context.updateHUD) this.context.updateHUD(true);
-          this.open(hero.name);
-        }
-      });
-    });
+
   }
 
   close() {

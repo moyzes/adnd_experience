@@ -263,28 +263,6 @@ export class ProgressionManager {
   }
 
   /**
-   * Builds a standardized companion object from classes.json spec.
-   */
-  static buildCompanion(classesSpec, archetypeId) {
-    const rangerSpec = classesSpec?.archetypes?.ranger;
-    const archetypes = rangerSpec?.companion?.archetypes || {};
-    const id = (archetypes[archetypeId] ? archetypeId : 'wolf');
-    const data = archetypes[id] || archetypes['wolf'] || { name: 'Wolf', hp: 24, maxHp: 24, ac: 6, damage: '1d6+1', icon: '🐺', stance: 'harrier', desc: '' };
-    return {
-      id: id,
-      type: id,
-      name: data.name,
-      hp: data.hp,
-      maxHp: data.maxHp,
-      ac: data.ac,
-      damage: data.damage,
-      icon: data.icon,
-      stance: data.stance || 'harrier',
-      desc: data.desc || ''
-    };
-  }
-
-  /**
    * Prepares the options and rolled metrics for a hero's training advancement modal.
    */
   static calculateLevelUpOptions(state, heroIndex) {
@@ -329,20 +307,6 @@ export class ProgressionManager {
       'Sling'
     ];
 
-    const rangerSpec = state?.classesSpec?.archetypes?.ranger || {};
-    const compArchetypes = rangerSpec.companion?.archetypes || {};
-    const availableCompanions = (hero.classKey === 'ranger' && nextLevel >= 9) ? Object.entries(compArchetypes).map(([id, data]) => ({
-      id,
-      name: data.name,
-      hp: data.hp,
-      maxHp: data.maxHp,
-      ac: data.ac,
-      damage: data.damage,
-      icon: data.icon,
-      stance: data.stance,
-      desc: data.desc || ''
-    })) : [];
-
     return {
       heroIndex,
       heroName: hero.name,
@@ -365,8 +329,6 @@ export class ProgressionManager {
       thiefPoints: hero.classKey === 'thief' ? (archetype.discretionary_skill_points_per_level || 15) : 0,
       skills: hero.skills ? JSON.parse(JSON.stringify(hero.skills)) : {},
       availableSpells,
-      availableCompanions,
-      currentCompanion: hero.companion || null,
       specializedWeapon: hero.specializedWeapon || 'Longsword',
       availableWeapons
     };
@@ -414,20 +376,13 @@ export class ProgressionManager {
       }
     }
 
-    // Apply Ranger skills & companion
+    // Apply Ranger skills
     if (hero.classKey === 'ranger') {
       if (hero.skills) {
         if (hero.skills.scout) hero.skills.scout.base = Math.min(95, (hero.skills.scout.base || 40) + 5);
         if (hero.skills.tracking) hero.skills.tracking.base = Math.min(95, (hero.skills.tracking.base || 35) + 5);
       }
-      if (hero.level >= 9 && (!hero.companion || choices.companionArchetype)) {
-        const compArch = choices.companionArchetype || (hero.companion ? hero.companion.id : 'wolf');
-        hero.companion = ProgressionManager.buildCompanion(state.classesSpec, compArch);
-        state.addLog(`🐾 A wild ${hero.companion.name} answers ${hero.name}'s frontier call as a loyal bonded companion!`, "success");
-      }
     }
-
-    // Apply Thief Discretionary Points
     if (hero.classKey === 'thief' && choices.skillAllocations) {
       Object.entries(choices.skillAllocations).forEach(([skillKey, pts]) => {
         if (hero.skills && hero.skills[skillKey] && pts > 0) {

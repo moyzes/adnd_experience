@@ -775,11 +775,6 @@ export class CharacterFactory {
     if (classKey === 'ranger') {
       member.isStealth = false;
       member.offhandWeapon = 'Short Sword';
-      if (member.level >= 9) {
-        member.companion = ProgressionManager.buildCompanion(classesSpec, 'wolf');
-      } else {
-        member.companion = null;
-      }
     }
 
     if (classKey === 'thief') {

@@ -415,8 +415,7 @@ class GameOrchestrator {
     const hint = this.state.checkPassiveHearNoise();
     if (hint) {
       if (hint.isRangerTracking) {
-        const compText = hint.hasCompanionScent ? " and animal companion catch a predator scent" : " spots fresh tracks and wilderness spoor";
-        this.log(`🐾 ${hint.heroName}${compText} to the ${hint.direction}...`, "muted");
+        this.log(`🐾 ${hint.heroName} spots fresh tracks and wilderness spoor to the ${hint.direction}...`, "muted");
       } else {
         this.log(`👂 ${hint.heroName} catches a faint sound to the ${hint.direction}...`, "muted");
       }
@@ -681,8 +680,7 @@ class GameOrchestrator {
       if (!result.success) {
         this.log(result.reason || `${ranger.name} found no discernable spoor.`, "info");
       } else {
-        const compNote = result.hasCompanionScent ? ` with help from ${ranger.companion.name}'s keen scent` : '';
-        this.log(`🐾 Tracking Success! ${ranger.name}${compNote} identifies wilderness spoor!`, "success");
+        this.log(`🐾 Tracking Success! ${ranger.name} identifies wilderness spoor!`, "success");
         if (result.trails && result.trails.length > 0) {
           result.trails.forEach(t => {
             this.log(`👣 Spoor of ${t.name}: detected approximately ${t.distance} tile${t.distance === 1 ? '' : 's'} to the ${t.direction}.`, "warning");

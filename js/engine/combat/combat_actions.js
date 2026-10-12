@@ -69,71 +69,6 @@ export class CombatActions {
   }
 
   /**
-   * Resolves autonomous action for high-level Ranger animal companion based on selected stance.
-   */
-  static resolveCompanionAction(state, hero, target, simMobHp, combatEvents) {
-    if (!hero || hero.classKey !== 'ranger' || !hero.companion || hero.companion.hp <= 0) return;
-    if (!target || (simMobHp[target.instanceId] ?? target.hp) <= 0) return;
-
-    const comp = hero.companion;
-    const stance = comp.stance || 'harrier';
-
-    if (stance === 'harrier') {
-      const roll = Math.floor(Math.random() * 20) + 1;
-      const targetNum = 12 + Math.floor((hero.level || 1) / 2);
-      if (roll <= targetNum && roll !== 20) {
-        let maxDmg = 6;
-        if (comp.damage === '1d8') maxDmg = 8;
-        else if (comp.damage === '1d3') maxDmg = 3;
-        const dmgRoll = Math.floor(Math.random() * maxDmg) + 1;
-        const netDmg = Math.max(1, dmgRoll);
-        simMobHp[target.instanceId] = Math.max(0, (simMobHp[target.instanceId] ?? target.hp) - netDmg);
-        const isDead = simMobHp[target.instanceId] <= 0;
-        if (isDead) {
-          target.hp = 0;
-          target.surrendered = false;
-          target.slain = true;
-          target.moraleStatus = 'DEAD';
-        }
-        combatEvents.push({
-          eventType: 'MONSTER_HIT',
-          sourceName: `${hero.name}'s ${comp.name}`,
-          targetInstanceId: target.instanceId,
-          targetName: target.name,
-          damage: netDmg,
-          isDead: isDead,
-          attackMode: 'melee',
-          cueBadge: '🐺 HARRIER',
-          cueClass: 'cue-badge-flank',
-          logText: `🐾 ${comp.icon || '🐺'} ${comp.name} lunges at ${target.name} in coordinated flank attack for ${netDmg} damage!${isDead ? ` ${target.name} collapses!` : ''}`,
-          logType: isDead ? 'danger' : 'success'
-        });
-      } else {
-        combatEvents.push({
-          eventType: 'HERO_MISS',
-          sourceName: `${hero.name}'s ${comp.name}`,
-          logText: `🐾 ${comp.icon || '🐺'} ${comp.name} snaps at ${target.name} but the beast slips away.`,
-          logType: 'muted'
-        });
-      }
-    } else if (stance === 'disrupt') {
-      combatEvents.push({
-        eventType: 'COMPANION_STANCE',
-        sourceName: `${hero.name}'s ${comp.name}`,
-        logText: `🦅 ${comp.icon || '🦅'} ${comp.name} swoops aggressively over ${target.name}, harrying their sightlines and breaking focus!`,
-        logType: 'info'
-      });
-    } else if (stance === 'bodyguard') {
-      combatEvents.push({
-        eventType: 'COMPANION_STANCE',
-        sourceName: `${hero.name}'s ${comp.name}`,
-        logText: `🦡 ${comp.icon || '🦡'} ${comp.name} plants firmly beside ${hero.name}, maintaining a vigilant protective screen!`,
-        logType: 'info'
-      });
-    }
-  }
-
-  /**
    * Resolves a hero's melee weapon strike.
    */
   static resolveHeroMelee(state, hero, target, simMobHp, combatEvents) {
@@ -276,8 +211,7 @@ export class CombatActions {
       }
     }
 
-    // Companion autonomous combat action
-    this.resolveCompanionAction(state, hero, target, simMobHp, combatEvents);
+
   }
 
   /**

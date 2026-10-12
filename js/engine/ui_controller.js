@@ -230,8 +230,8 @@ export class UIController {
             const shName = h.equippedShield?.name || '';
             const bootsName = h.equippedBoots?.name || '';
             const glovesName = h.equippedGloves?.name || '';
-            const compSig = h.companion ? `${h.companion.hp}_${h.companion.stance}` : '';
-            return `${h.canLevelUp ? 1 : 0}_${h.hp}_${h.level}_${h.toolsDurability ?? ''}_${h.cognition ?? ''}_${h.divineFavor ?? ''}_${h.isStealth ? 1 : 0}_${h.tempIntDrain || 0}_${h.tempAcBonus || 0}_${h.tempAcRounds || 0}_${h.tempAttackBonus || 0}_${h.tempAttackRounds || 0}_${h.equippedWeapon || ''}_${h.specializedWeapon || ''}_${armName}_${shName}_${bootsName}_${glovesName}_${aQty}_${compSig}`;
+            const compSig = '';
+            return `${h.canLevelUp ? 1 : 0}_${h.hp}_${h.level}_${h.toolsDurability ?? ''}_${h.cognition ?? ''}_${h.divineFavor ?? ''}_${h.isStealth ? 1 : 0}_${h.tempIntDrain || 0}_${h.tempAcBonus || 0}_${h.tempAcRounds || 0}_${h.tempAttackBonus || 0}_${h.tempAttackRounds || 0}_${h.equippedWeapon || ''}_${h.specializedWeapon || ''}_${armName}_${shName}_${bootsName}_${glovesName}_${aQty}`;
         }).join('_') + `_${partyTier ? partyTier.tier : 'unencumbered'}`;
         // Build a lightweight signature of contextual UI triggers to prevent unnecessary DOM reconstruction on every step
         const lockSig = lockTarget ? `${lockTarget.x},${lockTarget.y},${lockTarget.locked}` : '';
@@ -288,7 +288,7 @@ export class UIController {
 
                 this.renderHeroDefenseAndBuffs(cache, hero);
 
-                // Keep secondary metrics visible in combat (cognition / divine favor / tools / animal companion)
+                // Keep secondary metrics visible in combat (cognition / divine favor / tools)
                 if (hero.classKey === 'mage' && hero.maxCognition) {
                     const maxBurden = hero.maxCognition || 100;
                     const burden = Math.max(0, maxBurden - (hero.cognition ?? maxBurden));
@@ -299,20 +299,6 @@ export class UIController {
                     cache.secondary.innerHTML = `<div class="metric-label"><span>Divine Favor</span><span>${hero.divineFavor}%</span></div><div class="status-bar-bg"><div class="favor-fill" style="width: ${favorPct}%;"></div></div>`;
                 } else if (hero.classKey === 'thief') {
                     cache.secondary.innerHTML = `<div class="metric-label"><span>Tools</span><span>${hero.toolsDurability}%</span></div><div class="status-bar-bg"><div class="tools-fill" style="width: ${hero.toolsDurability}%;"></div></div>`;
-                } else if (hero.classKey === 'ranger' && hero.companion) {
-                    const comp = hero.companion;
-                    const compHpPct = Math.max(0, Math.min(100, Math.round(((comp.hp || 0) / (comp.maxHp || 1)) * 100)));
-                    const compStanceStr = String(comp?.stance || 'harrier').toUpperCase();
-                    const stanceIcons = { harrier: '🐺', disrupt: '🦅', bodyguard: '🦡' };
-                    const stanceIcon = stanceIcons[comp?.stance || 'harrier'] || '🐾';
-                    cache.secondary.innerHTML = `
-                      <div class="companion-dock-mini" title="${comp.name} (${compStanceStr} stance: ${comp.hp}/${comp.maxHp} HP, AC ${comp.ac}, Dmg ${comp.damage})">
-                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 8.5px;">
-                          <span style="color: #7ee787;">🐾 ${comp.icon || '🐺'} ${comp.name.split(' ')[0]}</span>
-                          <button class="companion-stance-cycle-btn" data-hero="${index}" title="Click to cycle companion tactical stance">${stanceIcon} ${compStanceStr}</button>
-                        </div>
-                        <div class="status-bar-bg" style="margin-top: 1px;"><div class="companion-hp-fill" style="width: ${compHpPct}%;"></div></div>
-                      </div>`;
                 } else {
                     cache.secondary.innerHTML = '';
                 }
@@ -528,32 +514,7 @@ export class UIController {
                       : `<button id="scout-btn" class="tsr-sq-btn" title="Scout Ahead — Line-of-sight reconnaissance spotting traps and ambush positions">${this.SVG_ICONS.SCOUT}<span class="btn-word">Scout</span></button>`;
                     const trackBtnHTML = `<button id="track-btn" class="tsr-sq-btn" title="Track Spoor — Detect wilderness footprints, predator scents, and wandering patrols">${this.SVG_ICONS.FIND}<span class="btn-word">Track</span></button>`;
 
-                    if (hero.companion) {
-                        const comp = hero.companion;
-                        const compHpPct = Math.max(0, Math.min(100, Math.round(((comp.hp || 0) / (comp.maxHp || 1)) * 100)));
-                        const compStanceStr = String(comp?.stance || 'harrier').toUpperCase();
-                        const stanceIcons = { harrier: '🐺', disrupt: '🦅', bodyguard: '🦡' };
-                        const stanceIcon = stanceIcons[comp?.stance || 'harrier'] || '🐾';
-                        secondaryMetricBar = `
-                          <div class="companion-dock" title="${comp.name} — ${compStanceStr} Stance (${comp.hp}/${comp.maxHp} HP, AC ${comp.ac}, Dmg ${comp.damage})">
-                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 8.5px; margin-bottom: 2px;">
-                              <span style="color: #7ee787; font-weight: 600;">🐾 ${comp.icon || '🐺'} ${comp.name}</span>
-                              <button class="companion-stance-cycle-btn" data-hero="${index}" title="Click to cycle tactical stance: Harrier (Atk) / Disrupt (Break Cast) / Bodyguard (Shield)">
-                                ${stanceIcon} ${compStanceStr}
-                              </button>
-                            </div>
-                            <div class="status-bar-bg"><div class="companion-hp-fill" style="width: ${compHpPct}%;"></div></div>
-                          </div>`;
-                    } else {
-                        secondaryMetricBar = `
-                          <div class="metric-label" title="Frontier Bond Progress: At Level 9, an animal companion (Wolf, Falcon, or Badger) answers the Ranger's call to fight beside them.">
-                            <span>Frontier Bond</span>
-                            <span>Lvl ${hero.level}/9</span>
-                          </div>
-                          <div class="status-bar-bg" title="Frontier Bond: Lvl ${hero.level}/9 (Companion bond unlocks at Level 9)">
-                            <div class="favor-fill" style="width: ${Math.min(100, Math.round((hero.level / 9) * 100))}%; background: #3fb950;"></div>
-                          </div>`;
-                    }
+                    secondaryMetricBar = '';
 
                     const isR = this.state.isRangedWeapon(hero.equippedWeapon);
                     const armType = hero.equippedArmor?.type || 'unarmored';
@@ -683,12 +644,7 @@ export class UIController {
             if (e.target.closest('#steal-surrendered-btn')) this.callbacks.onUIAction('STEAL_CAPTIVE');
             if (e.target.closest('#read-magic-btn')) this.callbacks.onUIAction('READ_MAGIC');
 
-            const compStanceBtn = e.target.closest('.companion-stance-cycle-btn');
-            if (compStanceBtn) {
-                const hIdx = parseInt(compStanceBtn.getAttribute('data-hero'), 10);
-                this.cycleCompanionStance(hIdx);
-                return;
-            }
+
 
             const mageBtn = e.target.closest('.mage-spell-btn');
             if (mageBtn) {
@@ -719,29 +675,7 @@ export class UIController {
         });
     }
 
-    /**
-     * Cycles the tactical stance for the Ranger's bonded animal companion.
-     */
-    cycleCompanionStance(heroIndex) {
-        const hero = this.state.party[heroIndex];
-        if (!hero || !hero.companion) return;
-        const stances = ['harrier', 'disrupt', 'bodyguard'];
-        let curIdx = stances.indexOf(hero.companion.stance || 'harrier');
-        if (curIdx === -1) curIdx = 0;
-        const nextStance = stances[(curIdx + 1) % stances.length];
-        hero.companion.stance = nextStance;
 
-        const stanceIcons = { harrier: '🐺', disrupt: '🦅', bodyguard: '🦡' };
-        const stanceNames = {
-            harrier: 'Harrier (Coordinated Flank Attack Damage)',
-            disrupt: 'Disrupt (Break Enemy Focus & Spellcasting)',
-            bodyguard: 'Bodyguard (Vigilant Defense & Screen)'
-        };
-
-        this.state.addLog(`🐾 ${hero.companion.name} changes tactical stance to ${stanceIcons[nextStance]} ${stanceNames[nextStance]}!`, "success");
-        if (this.callbacks.playSFX) this.callbacks.playSFX('button');
-        this.updateHUD(true);
-    }
 
     /** 2D enemy HP overlay (replaces former 3D billboard bars). */
     #updateEnemyHpOverlay(aliveEnemies) {
