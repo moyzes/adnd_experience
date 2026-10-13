@@ -13,10 +13,10 @@ import { EncumbranceManager } from './items/encumbrance_manager.js';
 import { AlignmentManager } from './characters/alignment_manager.js';
 
 /**
- * GameState acts as the central data store and rules engine for the dungeon crawler.
- * It manages player position, party metrics, skill resolution (d100 tradecraft for Thieves,
- * d20 roll-under ability checks for other classes), Vancian cognition, Divine favor,
- * level progression, inventory, and dungeon interactions.
+ * GameState is a facade that holds state and tile/zone predicates, delegating domain logic
+ * to CombatCalculator / CombatActions / CombatEngine, InventoryManager / ItemCatalog /
+ * EncumbranceManager, ProgressionManager, CharacterFactory, AlignmentManager,
+ * ExplorationManager and RestManager.
  */
 export class GameState {
   // ===========================================================================
@@ -595,7 +595,6 @@ export class GameState {
     if (!this.party || !Array.isArray(this.party)) return false;
     return this.party.some(h => h && h.hp > 0 && h.equippedBoots && (
       h.equippedBoots.name?.toLowerCase().includes('elvenkind') ||
-      h.equippedBoots.name?.toLowerCase().includes('evenkind') ||
       h.equippedBoots.silentSteps
     ));
   }

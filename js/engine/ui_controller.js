@@ -104,7 +104,7 @@ export class UIController {
         if (hero.equippedGloves && (hero.equippedGloves.strengthSet || hero.equippedGloves.name?.toLowerCase().includes('ogre'))) {
             buffBadges.push(`<span class="hero-buff-pill" style="background:#281b0a;color:#f0883e;border:1px solid #bd561d;" title="${hero.equippedGloves.name}: STR 18/00 (+3 To-Hit, +4 Melee Dmg, 180 lb load)">🥊 STR 18/00</span>`);
         }
-        if (hero.equippedBoots && (hero.equippedBoots.name?.toLowerCase().includes('elvenkind') || hero.equippedBoots.name?.toLowerCase().includes('evenkind') || hero.equippedBoots.silentSteps)) {
+        if (hero.equippedBoots && (hero.equippedBoots.name?.toLowerCase().includes('elvenkind') || hero.equippedBoots.silentSteps)) {
             buffBadges.push(`<span class="hero-buff-pill" style="background:#0f2b1d;color:#7ee787;border:1px solid #238636;" title="${hero.equippedBoots.name}: Utter Silence (+25% Stealth, -1 AC, Ambush Immunity)">🧝 Elven Boots</span>`);
         }
         if (hero.tempAttackBonus > 0) {

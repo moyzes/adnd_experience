@@ -50,22 +50,22 @@ export class CombatActions {
   }
 
   /**
-   * Evaluates class-specific combat to-hit bonus (e.g. Ranger Species Enemy +4 vs humanoids/giant-kin).
+   * Evaluates class-specific combat to-hit bonus based on class definition (e.g. Ranger Species Enemy).
    */
   static getClassCombatBonus(state, hero, target, weaponName, attackMode) {
     if (!hero || !target) return 0;
     const specEnemy = state?.classesSpec?.archetypes?.[hero.classKey]?.skills?.species_enemy;
-    if (!specEnemy) return 0;
-    let bonus = 0;
+    if (!specEnemy || !Array.isArray(specEnemy.enemy_types) || typeof specEnemy.to_hit_bonus !== 'number') return 0;
     const mobName = (target.name || '').toLowerCase();
-    const mobType = (target.type || target.creatureType || '').toLowerCase();
     const mobId = (target.id || '').toLowerCase();
-    const enemyTypes = specEnemy.enemy_types || ['goblin', 'orc', 'hobgoblin', 'bugbear', 'kobold', 'ogre', 'gnoll', 'troll', 'giant'];
-    const toHitBonus = specEnemy.to_hit_bonus ?? 4;
-    if (mobType === 'humanoid' || mobType === 'giant' || enemyTypes.some(h => mobName.includes(h) || mobId.includes(h))) {
-      bonus += toHitBonus;
+    const enemyTypes = specEnemy.enemy_types;
+    if (enemyTypes.some(h => {
+      const typeStr = (h || '').toLowerCase();
+      return typeStr && (mobName.includes(typeStr) || mobId.includes(typeStr));
+    })) {
+      return specEnemy.to_hit_bonus;
     }
-    return bonus;
+    return 0;
   }
 
   /**

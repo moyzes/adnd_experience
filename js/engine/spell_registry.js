@@ -3,7 +3,17 @@
  * Vancian constructs use effect.dice (NdS+M); buffs still use effect.amount.
  */
 
+let warnedBeforeInit = false;
+
+function checkInitGuard(isReady) {
+  if (!isReady && !warnedBeforeInit) {
+    warnedBeforeInit = true;
+    console.warn("SpellRegistry used before init(): Mage/Cleric spell lists will be empty.");
+  }
+}
+
 export class SpellRegistry {
+  static #ready = false;
   static #spellsById = new Map();
   static #spellsByClass = { mage: [], cleric: [] };
 
@@ -19,6 +29,7 @@ export class SpellRegistry {
     });
     this.#spellsByClass.mage.sort((a, b) => (a.tier || 1) - (b.tier || 1));
     this.#spellsByClass.cleric.sort((a, b) => (a.tier || 1) - (b.tier || 1));
+    this.#ready = true;
     if (classesData && classesData.archetypes) {
       if (classesData.archetypes.mage) {
         if (!classesData.archetypes.mage.vancian_magic) classesData.archetypes.mage.vancian_magic = {};
@@ -30,14 +41,25 @@ export class SpellRegistry {
     }
   }
 
-  static getAll() { return Array.from(this.#spellsById.values()); }
-  static get(id) { return this.#spellsById.get(id) || null; }
-  static getSpell(id) { return this.#spellsById.get(id) || null; }
+  static getAll() {
+    checkInitGuard(this.#ready);
+    return Array.from(this.#spellsById.values());
+  }
+  static get(id) {
+    checkInitGuard(this.#ready);
+    return this.#spellsById.get(id) || null;
+  }
+  static getSpell(id) {
+    checkInitGuard(this.#ready);
+    return this.#spellsById.get(id) || null;
+  }
   static getSpellsForClass(classKey, maxTier = 4) {
+    checkInitGuard(this.#ready);
     const list = this.#spellsByClass[(classKey || '').toLowerCase()] || [];
     return list.filter(s => (s.tier || 1) <= maxTier);
   }
   static getTierMapForClass(classKey) {
+    checkInitGuard(this.#ready);
     const list = this.#spellsByClass[(classKey || '').toLowerCase()] || [];
     const tierMap = {};
     list.forEach(s => {

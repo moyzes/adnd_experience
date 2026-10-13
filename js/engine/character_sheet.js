@@ -145,7 +145,7 @@ export class CharacterSheetUI {
     if (hero.equippedGloves && (hero.equippedGloves.strengthSet || hero.equippedGloves.name?.toLowerCase().includes('ogre'))) {
       activeBuffs.push(`<span style="background:#281b0a;color:#f0883e;border:1px solid #bd561d;padding:3px 8px;border-radius:3px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">🥊 ${hero.equippedGloves.name}: STR 18/00 (+3 To-Hit, +4 Melee Dmg, 180 lb load)</span>`);
     }
-    if (hero.equippedBoots && (hero.equippedBoots.name?.toLowerCase().includes('elvenkind') || hero.equippedBoots.name?.toLowerCase().includes('evenkind') || hero.equippedBoots.silentSteps)) {
+    if (hero.equippedBoots && (hero.equippedBoots.name?.toLowerCase().includes('elvenkind') || hero.equippedBoots.silentSteps)) {
       activeBuffs.push(`<span style="background:#0f2b1d;color:#7ee787;border:1px solid #238636;padding:3px 8px;border-radius:3px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">🧝 ${hero.equippedBoots.name}: Utter Silence (+25% Stealth, -1 AC, Ambush Immunity)</span>`);
     }
     if (hero.tempAcBonus > 0) {

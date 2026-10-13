@@ -221,7 +221,7 @@ export class ProgressionManager {
         }
       }
       let gearBonus = 0;
-      if (key === 'hide_in_shadows' && hero.equippedBoots && (hero.equippedBoots.stealthBonus || hero.equippedBoots.name?.toLowerCase().includes('elvenkind') || hero.equippedBoots.name?.toLowerCase().includes('evenkind'))) {
+      if (key === 'hide_in_shadows' && hero.equippedBoots && (hero.equippedBoots.stealthBonus || hero.equippedBoots.name?.toLowerCase().includes('elvenkind'))) {
         gearBonus += (hero.equippedBoots.stealthBonus || 25);
       }
       return Math.min(99, Math.max(1, skill.base + levelBonus + dexMod + gearBonus));

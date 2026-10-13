@@ -7,10 +7,11 @@
     "dev": "node server.js",
     "build": "echo 'Static build ready'",
     "lint": "node -c server.js",
+    "test": "node --test tests/",
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.21.2",
-    "three": "^0.185.1"
+    "three": "0.160.0"
   }
 }
