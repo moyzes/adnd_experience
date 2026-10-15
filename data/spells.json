@@ -58,7 +58,7 @@
       "badge": "LIGHT",
       "badgeClass": "normal",
       "description": "Conjures a floating orb of eerie arcane radiance, piercing dungeon gloom.",
-      "effect": { "type": "illumination", "duration_seconds": 240, "light_type": "arcane" }
+      "effect": { "type": "illumination", "duration_minutes": 60, "duration_seconds": 3600, "light_type": "arcane" }
     },
     {
       "id": "burning_hands",

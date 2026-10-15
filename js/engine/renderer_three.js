@@ -58,6 +58,23 @@ export class RendererThreeJS {
     this.partyLight = new THREE.PointLight(0xff8833, 0, 10, 1.8);
     this.scene.add(this.partyLight);
 
+    // Floating Arcane Light Orb (Eerie glowing sphere for the Mage Light spell)
+    const orbGroup = new THREE.Group();
+    const coreGeo = new THREE.SphereGeometry(0.065, 16, 16);
+    const coreMat = new THREE.MeshBasicMaterial({ color: 0xa5f3fc, transparent: true, opacity: 0.95 });
+    const orbCore = new THREE.Mesh(coreGeo, coreMat);
+    orbGroup.add(orbCore);
+
+    const haloGeo = new THREE.SphereGeometry(0.13, 16, 16);
+    const haloMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.35 });
+    const orbHalo = new THREE.Mesh(haloGeo, haloMat);
+    orbGroup.add(orbHalo);
+
+    orbGroup.visible = false;
+    this.scene.add(orbGroup);
+    this.arcaneOrbGroup = orbGroup;
+    this.arcaneOrbHalo = orbHalo;
+
     // 5. Scene Groups
     this.worldGroup = new THREE.Group();
     this.scene.add(this.worldGroup);
@@ -1092,20 +1109,34 @@ export class RendererThreeJS {
         : (state.getActiveLightSource ? state.getActiveLightSource() : { active: false, type: null });
 
       if (isWilderness) {
+        if (this.arcaneOrbGroup) this.arcaneOrbGroup.visible = false;
         // Open wilderness: clear twilight atmosphere, gentle ambient light
         this.scene.fog.density = 0.045;
         this.scene.fog.color.setHex(0x0c1520);
         this.scene.background.setHex(0x0c1520);
-        if (this.ambientLight) this.ambientLight.intensity = 0.75;
-        if (this.dirLight) this.dirLight.intensity = 0.75;
+        if (this.ambientLight) {
+          this.ambientLight.color.setHex(0xddeeff);
+          this.ambientLight.intensity = 0.75;
+        }
+        if (this.dirLight) {
+          this.dirLight.color.setHex(0xffeedd);
+          this.dirLight.intensity = 0.75;
+        }
         if (this.partyLight) this.partyLight.intensity = 0;
       } else if (!isDarkDungeon) {
+        if (this.arcaneOrbGroup) this.arcaneOrbGroup.visible = false;
         // Optional lighter dungeon mode (specified by adventure module)
         this.scene.fog.density = 0.08;
         this.scene.fog.color.setHex(0x0a1018);
         this.scene.background.setHex(0x0a1018);
-        if (this.ambientLight) this.ambientLight.intensity = 0.60;
-        if (this.dirLight) this.dirLight.intensity = 0.50;
+        if (this.ambientLight) {
+          this.ambientLight.color.setHex(0xddeeff);
+          this.ambientLight.intensity = 0.60;
+        }
+        if (this.dirLight) {
+          this.dirLight.color.setHex(0xffeedd);
+          this.dirLight.intensity = 0.50;
+        }
         if (this.partyLight) this.partyLight.intensity = 0;
       } else {
         // Dark Dungeon / Ruins / Cave mode: requires torch or Arcane Light spell
@@ -1115,42 +1146,82 @@ export class RendererThreeJS {
         }
 
         if (lightSource.active && lightSource.type === 'arcane_light') {
-          // Arcane Light: eerie azure/cyan mystical glow with pulsing hum
-          const pulse = Math.sin(elapsedTime * 2.5) * 0.35 + Math.sin(elapsedTime * 5.2) * 0.15;
-          this.partyLight.color.setHex(0x5ce1e6);
-          this.partyLight.intensity = 2.6 + pulse;
-          this.partyLight.distance = 11.0;
-          this.partyLight.decay = 1.6;
+          // Arcane Light: eerie azure/cyan mystical glow with hovering ethereal orb
+          const orbBob = Math.sin(elapsedTime * 2.2) * 0.06;
+          const orbY = 0.22 + orbBob;
+          this.partyLight.position.y = orbY;
 
-          this.scene.fog.density = 0.10;
-          this.scene.fog.color.setHex(0x03080e);
-          this.scene.background.setHex(0x03080e);
-          if (this.ambientLight) this.ambientLight.intensity = 0.15;
-          if (this.dirLight) this.dirLight.intensity = 0.05;
+          const pulse = Math.sin(elapsedTime * 2.2) * 0.40 + Math.sin(elapsedTime * 4.4) * 0.15;
+          this.partyLight.color.setHex(0x5ce1e6);
+          this.partyLight.intensity = 2.8 + pulse;
+          this.partyLight.distance = 12.0;
+          this.partyLight.decay = 1.5;
+
+          // Eerie midnight-indigo abyssal fog and cool spectral ambient
+          this.scene.fog.density = 0.095;
+          this.scene.fog.color.setHex(0x020712);
+          this.scene.background.setHex(0x020712);
+          if (this.ambientLight) {
+            this.ambientLight.color.setHex(0x38bdf8);
+            this.ambientLight.intensity = 0.18;
+          }
+          if (this.dirLight) {
+            this.dirLight.color.setHex(0x7dd3fc);
+            this.dirLight.intensity = 0.06;
+          }
+
+          // Floating Arcane Orb hovering ahead of the party
+          if (this.arcaneOrbGroup && cameraState) {
+            this.arcaneOrbGroup.visible = true;
+            const forwardOffset = 0.55;
+            const fx = Math.cos(cameraState.angle) * forwardOffset;
+            const fz = Math.sin(cameraState.angle) * forwardOffset;
+            this.arcaneOrbGroup.position.set(this.partyLight.position.x + fx, orbY, this.partyLight.position.z + fz);
+            this.arcaneOrbGroup.rotation.y = elapsedTime * 1.5;
+            if (this.arcaneOrbHalo) {
+              const hScale = 1.0 + Math.sin(elapsedTime * 3.0) * 0.18;
+              this.arcaneOrbHalo.scale.set(hScale, hScale, hScale);
+            }
+          }
         } else if (lightSource.active && lightSource.type === 'torch') {
+          if (this.arcaneOrbGroup) this.arcaneOrbGroup.visible = false;
           // Torchlight: warm organic flame flicker & slight jitter
           const flicker = Math.sin(elapsedTime * 14.0) * 0.30 + Math.sin(elapsedTime * 28.0) * 0.18 + (Math.random() * 0.12);
           this.partyLight.color.setHex(0xff8a33);
           this.partyLight.intensity = 2.4 + flicker;
           this.partyLight.distance = 9.5;
           this.partyLight.decay = 1.8;
-          // Slight handheld sway
+          // Slight handheld sway at waist height
+          this.partyLight.position.y = 0.1;
           this.partyLight.position.x += Math.sin(elapsedTime * 7) * 0.04;
           this.partyLight.position.z += Math.cos(elapsedTime * 8) * 0.04;
 
           this.scene.fog.density = 0.11;
           this.scene.fog.color.setHex(0x050403);
           this.scene.background.setHex(0x050403);
-          if (this.ambientLight) this.ambientLight.intensity = 0.12;
-          if (this.dirLight) this.dirLight.intensity = 0.04;
+          if (this.ambientLight) {
+            this.ambientLight.color.setHex(0xddeeff);
+            this.ambientLight.intensity = 0.12;
+          }
+          if (this.dirLight) {
+            this.dirLight.color.setHex(0xffeedd);
+            this.dirLight.intensity = 0.04;
+          }
         } else {
           // Pitch darkness: heavy thick fog, faint silhouettes only
+          if (this.arcaneOrbGroup) this.arcaneOrbGroup.visible = false;
           this.partyLight.intensity = 0;
           this.scene.fog.density = 0.28;
           this.scene.fog.color.setHex(0x010204);
           this.scene.background.setHex(0x010204);
-          if (this.ambientLight) this.ambientLight.intensity = 0.04;
-          if (this.dirLight) this.dirLight.intensity = 0.0;
+          if (this.ambientLight) {
+            this.ambientLight.color.setHex(0xddeeff);
+            this.ambientLight.intensity = 0.04;
+          }
+          if (this.dirLight) {
+            this.dirLight.color.setHex(0xffeedd);
+            this.dirLight.intensity = 0.0;
+          }
         }
       }
     }

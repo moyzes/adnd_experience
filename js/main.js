@@ -316,10 +316,14 @@ class GameOrchestrator {
     while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
     this.camera.angle += angleDiff * speed;
 
-    // Torch Lighting Renderer Hook
-    const isTorchLit = this.state.torchLitUntil && this.state.torchLitUntil > Date.now();
+    // Illumination Renderer Hook (Torch or Arcane Light spell)
+    const activeLight = this.state.getActiveLightSource ? this.state.getActiveLightSource() : null;
     if (this.renderer3D.setTorchLight) {
-      this.renderer3D.setTorchLight(isTorchLit);
+      if (activeLight && activeLight.active) {
+        this.renderer3D.setTorchLight(true, activeLight.type);
+      } else {
+        this.renderer3D.setTorchLight(false);
+      }
     }
 
     this.renderer3D.render(this.camera, this.state);

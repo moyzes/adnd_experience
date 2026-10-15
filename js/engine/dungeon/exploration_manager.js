@@ -29,7 +29,10 @@ export class ExplorationManager {
       state.lightSpellUntil = Math.max(0, state.lightSpellUntil - msToDeduct);
       if (state.lightSpellUntil <= now) {
         state.lightSpellUntil = 0;
+        state.lightSpellMinutesLeft = 0;
         state.addLog(`✨ The radiant glow of the Light spell fades away.`, "info");
+      } else {
+        state.lightSpellMinutesLeft = Math.ceil((state.lightSpellUntil - now) / 60000);
       }
     }
 

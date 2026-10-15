@@ -324,14 +324,16 @@ export class SpellRegistry {
         log: `${caster.name} invokes ${spell.name} upon ${target.name}! (-${amt} AC for ${rounds} rounds).` };
     }
     if (effect.type === 'illumination' || spell.id === 'light') {
-      const durationMinutes = effect.duration_minutes || Math.round((effect.duration_seconds || 3600) / 60);
+      const durationMinutes = effect.duration_minutes || (effect.duration_seconds ? Math.round(effect.duration_seconds / 60) : 60);
+      const durationMs = durationMinutes * 60 * 1000;
       if (state) {
-        state.lightSpellMinutesLeft = (state.lightSpellMinutesLeft || 0) + durationMinutes;
+        state.lightSpellUntil = Math.max(Date.now(), state.lightSpellUntil || 0) + durationMs;
+        state.lightSpellMinutesLeft = Math.ceil((state.lightSpellUntil - Date.now()) / (60 * 1000));
         state.isDirty = true;
       }
       spell.spent = true;
       return { success: true, spellName: spell.name, spellId: spell.id, sfx: spell.sfx || 'bless', isLightSpell: true,
-        log: `${caster.name} casts Arcane Light! A sphere of radiance hovers for ${durationMinutes} minutes.` };
+        log: `✨ ${caster.name} casts Arcane Light! An eerie sphere of radiant luminescence hovers, lighting the dungeon for ${durationMinutes} minutes.` };
     }
     return { success: false, reason: `${spell.name} can only be unleashed against hostile targets during combat!` };
   }

@@ -170,3 +170,35 @@ test('6. Species Enemy combat bonus', () => {
   assert.strictEqual(fMelee, 0, 'Fighter vs goblin should be 0');
   assert.strictEqual(rHumanoid, 0, 'Ranger vs humanoid unlisted name should be 0');
 });
+
+test('7. Mage Light spell illuminates dungeon with arcane_light', async () => {
+  initSpellRegistry();
+  const { GameState } = await import('../js/engine/state.js');
+  const adventureData = JSON.parse(fs.readFileSync(new URL('../data/adventure.json', import.meta.url), 'utf8'));
+
+  const state = new GameState(adventureData, classesData);
+  const mage = state.party.find(p => p.classKey === 'mage');
+  assert.ok(mage, 'Party should contain a mage');
+
+  // Verify initial dark state in dungeon
+  assert.strictEqual(state.getActiveLightSource().active, false, 'No light source active initially');
+
+  // Equip Light spell if not present
+  const lightDef = SpellRegistry.getSpell('light');
+  assert.ok(lightDef, 'Light spell exists in registry');
+  mage.spells = [{ ...lightDef, spent: false }];
+
+  const res = state.castMageSpell(0);
+  assert.strictEqual(res.success, true, 'Light spell should cast successfully');
+  assert.strictEqual(res.isLightSpell, true, 'Should be flagged as light spell');
+
+  // Active light source should now be arcane_light
+  const activeLight = state.getActiveLightSource();
+  assert.strictEqual(activeLight.active, true, 'Light source should be active');
+  assert.strictEqual(activeLight.type, 'arcane_light', 'Light source type should be arcane_light');
+  assert.ok(activeLight.remainingMs > 0, 'Remaining time should be positive');
+
+  // Party can see ahead in dark dungeon
+  assert.strictEqual(state.canPartySeeAhead(), true, 'Party should be able to see ahead');
+});
+
