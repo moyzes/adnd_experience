@@ -1,3 +1,5 @@
+import { getResolveButtonLabel } from './combat_controller.js';
+
 export class UIController {
     constructor(state, renderer2D, elements, callbacks) {
         this.state = state;
@@ -250,10 +252,15 @@ export class UIController {
         if (this.state.combat.active) {
             const existingBtn = document.getElementById('resolve-round-btn');
             if (!existingBtn || !existingBtn.disabled) {
+                const label = getResolveButtonLabel(this.state.combat);
+                const isBusy = (this.state.combat.phase || 'PLANNING') !== 'PLANNING';
+                const fleeBtnDisabled = isBusy
+                    ? 'disabled style="flex: 1; padding: 10px; font-size: 11px; background: #21262d; border-color: #d29922; color: #e3b341; opacity: 0.5; cursor: not-allowed;"'
+                    : 'style="flex: 1; padding: 10px; font-size: 11px; background: #21262d; border-color: #d29922; color: #e3b341;"';
                 this.elements.globalActions.innerHTML = `
                     <div style="display: flex; gap: 6px; width: 100%;">
-                        <button id="resolve-round-btn" class="action-tab primary" style="flex: 2; padding: 10px; font-size: 11px;">🔥 RESOLVE ROUND ${this.state.combat.round}</button>
-                        <button id="flee-combat-btn" class="action-tab warning" style="flex: 1; padding: 10px; font-size: 11px; background: #21262d; border-color: #d29922; color: #e3b341;" title="Retreat from battle (Agility check & tactical disengagement)">🏃 RETREAT</button>
+                        <button id="resolve-round-btn" class="action-tab primary" style="flex: 2; padding: 10px; font-size: 11px;">${label}</button>
+                        <button id="flee-combat-btn" class="action-tab warning" ${fleeBtnDisabled} title="Retreat from battle (Agility check & tactical disengagement)">🏃 RETREAT</button>
                     </div>`;
             }
 

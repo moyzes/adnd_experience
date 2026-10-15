@@ -482,11 +482,28 @@ class GameOrchestrator {
   // UI ACTION DISPATCHERS
   // ===========================================================================
 
+  logBusyRateLimited() {
+    const now = Date.now();
+    if (!this._lastBusyLogTime || now - this._lastBusyLogTime > 1000) {
+      this._lastBusyLogTime = now;
+      this.log("The round is still resolving.", "warning");
+    }
+  }
+
   handleGlobalAction(actionType) {
     if (this.audioManager) this.audioManager.unlockAudio();
     if (this.isGameOver || this.state.isPartyWiped()) return;
-    if (actionType === 'RESOLVE_ROUND') this.combatController.resolveCombatRoundSequence();
-    else if (actionType === 'FLEE_COMBAT') this.combatController.handlePartyRetreat();
+    if (actionType === 'RESOLVE_ROUND') {
+      this.combatController.resolveCombatRoundSequence();
+      return;
+    }
+    if (this.combatController && this.combatController.isBusy()) {
+      if (actionType === 'FLEE_COMBAT') {
+        this.log("The round is still resolving.", "warning");
+      }
+      return;
+    }
+    if (actionType === 'FLEE_COMBAT') this.combatController.handlePartyRetreat();
     else if (actionType === 'TALK_NPC') {
       const npc = this.state.getCurrentNPC() || this.state.getFacingNPC();
       if (npc) this.dialogueController.startNPCInteraction(npc.id);
@@ -896,6 +913,10 @@ class GameOrchestrator {
   }
 
   handleCombatCommandQueue(hIdx, cmdType, extra) {
+    if (this.combatController && this.combatController.isBusy()) {
+      this.logBusyRateLimited();
+      return;
+    }
     const hero = this.state.party[hIdx];
     if (cmdType === 'SWAP_WEAPON') {
       const res = this.state.swapHeroWeapon(hIdx);
@@ -933,6 +954,10 @@ class GameOrchestrator {
   }
 
   handleTargetChange(hIdx, targetId) {
+    if (this.combatController && this.combatController.isBusy()) {
+      this.logBusyRateLimited();
+      return;
+    }
     const currentCmd = this.state.combat.queuedCommands[hIdx] || { type: 'ATTACK' };
     this.state.queueHeroCommand(hIdx, { ...currentCmd, targetInstanceId: targetId });
   }

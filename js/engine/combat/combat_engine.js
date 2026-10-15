@@ -55,6 +55,9 @@ export class CombatEngine {
     const surprise = (!isDarkAmbush && (!!encSpec.scouted || hasElvenBoots));
     state.combat = {
       active: true,
+      phase: 'PLANNING',
+      fastForward: false,
+      resolveProgress: 0,
       round: 1,
       encounterId: encounterId,
       enemies: spawnedEnemies,

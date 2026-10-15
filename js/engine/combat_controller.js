@@ -1,9 +1,42 @@
+export function getResolveButtonLabel(combat) {
+    const phase = combat?.phase || 'PLANNING';
+    const fastForward = !!combat?.fastForward;
+    const pct = combat?.resolveProgress || 0;
+    if (phase === 'RESOLVING') {
+        if (fastForward) {
+            return `⚡ FAST-FORWARDING... ${pct}%`;
+        }
+        return `⏳ RESOLVING ${pct}% [Click ⏩ to Skip]`;
+    }
+    return `🔥 RESOLVE ROUND ${combat?.round || 1}`;
+}
+
 export class CombatController {
+    static getResolveButtonLabel(combat) {
+        return getResolveButtonLabel(combat);
+    }
+
     constructor(state, renderer3D, callbacks) {
         this.state = state;
         this.renderer3D = renderer3D;
         // callbacks: { log, updateHUD, playSFX, playCombatBgm, stopCombatBgm, flashHeroCard, ... }
         this.callbacks = callbacks;
+    }
+
+    isBusy() {
+        return (this.state?.combat?.phase || 'PLANNING') !== 'PLANNING';
+    }
+
+    requestFastForward() {
+        if (!this.state?.combat) return;
+        const phase = this.state.combat.phase || 'PLANNING';
+        if (phase === 'RESOLVING') {
+            this.state.combat.fastForward = true;
+            const resolveBtn = document.getElementById('resolve-round-btn');
+            if (resolveBtn) {
+                resolveBtn.textContent = getResolveButtonLabel(this.state.combat);
+            }
+        }
     }
 
     stopCombatMusic() {
@@ -44,263 +77,288 @@ export class CombatController {
     }
 
     async resolveCombatRoundSequence() {
-        const resolveBtn = document.getElementById('resolve-round-btn');
-        let fastForward = false;
-        const handleFastForward = (e) => {
-            if (e) e.stopPropagation();
-            fastForward = true;
-            if (resolveBtn) {
-                resolveBtn.textContent = `⚡ FAST-FORWARDING...`;
-                resolveBtn.style.background = '#8957e5';
-            }
-        };
+        if (this.isBusy()) {
+            this.requestFastForward();
+            return;
+        }
 
+        if (this.state.combat) {
+            this.state.combat.phase = 'RESOLVING';
+            this.state.combat.fastForward = false;
+            this.state.combat.resolveProgress = 0;
+        }
+
+        const resolveBtn = document.getElementById('resolve-round-btn');
         if (resolveBtn) {
             resolveBtn.disabled = false;
             resolveBtn.style.opacity = '1';
             resolveBtn.style.cursor = 'pointer';
             resolveBtn.title = 'Click to skip delays and fast-forward round resolution';
-            resolveBtn.addEventListener('click', handleFastForward);
+            resolveBtn.textContent = getResolveButtonLabel(this.state.combat);
         }
 
-        // Pure calculation — live HP / victory flags are NOT mutated yet
-        const { events, finalMobHp, finalHeroHp, victory, partyWiped, totalXp } =
-            this.state.resolveCombatRound();
+        let result = null;
+        try {
+            // Snapshot taken BEFORE the simulation runs
+            const visualEnemies = this.state.combat.enemies.map(e => ({ ...e }));
+            const visualHeroHp = this.state.party.map(h => h.hp);
 
-        // Visual snapshots start at pre-round values; drained event-by-event in sync with beats
-        const visualEnemies = this.state.combat.enemies.map(e => ({ ...e }));
-        const visualHeroHp = this.state.party.map(h => h.hp);
+            // Calculation
+            result = this.state.resolveCombatRound();
+            const { events, finalMobHp, finalHeroHp, victory, partyWiped, totalXp } = result;
 
-        const totalEvents = events.length;
-        let currentEventIndex = 0;
+            const totalEvents = events.length;
+            let currentEventIndex = 0;
 
-        for (const evt of events) {
-            currentEventIndex++;
-            if (resolveBtn && totalEvents > 0) {
-                const pct = Math.round((currentEventIndex / totalEvents) * 100);
-                if (fastForward) {
-                    resolveBtn.textContent = `⚡ FAST-FORWARDING... ${pct}%`;
-                } else {
-                    resolveBtn.textContent = `⏳ RESOLVING ${pct}% [Click ⏩ to Skip]`;
+            for (const evt of events) {
+                currentEventIndex++;
+                const pct = totalEvents > 0 ? Math.round((currentEventIndex / totalEvents) * 100) : 100;
+                if (this.state.combat) {
+                    this.state.combat.resolveProgress = pct;
                 }
-            }
+                const currentBtn = document.getElementById('resolve-round-btn');
+                if (currentBtn && totalEvents > 0) {
+                    currentBtn.textContent = getResolveButtonLabel(this.state.combat);
+                }
 
-            this.callbacks.log(evt.logText, evt.logType);
+                this.callbacks.log(evt.logText, evt.logType);
 
-            // Tier 1: Canvas floating impact badges
-            if (evt.cueBadge && typeof this.callbacks.showCombatFloatingCue === 'function') {
-                const isHeroTarget = evt.eventType === 'HERO_HIT' || evt.cueClass === 'heal';
-                this.callbacks.showCombatFloatingCue(evt.cueBadge, evt.cueClass || 'normal', isHeroTarget);
-            }
+                // Tier 1: Canvas floating impact badges
+                if (evt.cueBadge && typeof this.callbacks.showCombatFloatingCue === 'function') {
+                    const isHeroTarget = evt.eventType === 'HERO_HIT' || evt.cueClass === 'heal';
+                    this.callbacks.showCombatFloatingCue(evt.cueBadge, evt.cueClass || 'normal', isHeroTarget);
+                }
 
-            // Tier 3: Rare cinematic masterstroke banner
-            if (evt.masterstrokeFeat && typeof this.callbacks.showMasterstrokeCue === 'function') {
-                this.callbacks.showMasterstrokeCue(evt.masterstrokeFeat);
-            }
+                // Tier 3: Rare cinematic masterstroke banner
+                if (evt.masterstrokeFeat && typeof this.callbacks.showMasterstrokeCue === 'function') {
+                    this.callbacks.showMasterstrokeCue(evt.masterstrokeFeat);
+                }
 
-            if (evt.attackerSpec && evt.attackerSpec.soundAttack) {
-                this.callbacks.playSFX(evt.attackerSpec.soundAttack);
-            }
+                if (evt.attackerSpec && evt.attackerSpec.soundAttack) {
+                    this.callbacks.playSFX(evt.attackerSpec.soundAttack);
+                }
 
-            if (evt.eventType === 'HERO_HIT') {
-                if (!evt.attackerSpec || !evt.attackerSpec.soundAttack) {
-                    this.callbacks.playSFX('sword_hit');
-                }
-                // Drain visual party HP at the moment of impact
-                if (evt.targetHeroIndex != null && visualHeroHp[evt.targetHeroIndex] !== undefined) {
-                    visualHeroHp[evt.targetHeroIndex] = Math.max(
-                        0,
-                        visualHeroHp[evt.targetHeroIndex] - (evt.damage || 0)
-                    );
-                }
-                if (evt.isDead) this.callbacks.playSFX('death');
-                this.callbacks.flashHeroCard(evt.targetHeroIndex);
-                if (this.callbacks.applyVisualCombatHp) {
-                    this.callbacks.applyVisualCombatHp(visualEnemies, visualHeroHp);
-                }
-            } else if (evt.eventType === 'MONSTER_HIT') {
-                if (evt.sfx) {
-                    this.callbacks.playSFX(evt.sfx);
-                } else if (evt.attackMode === 'ranged') {
-                    this.callbacks.playSFX('arrow_impact');
-                } else if (evt.attackMode === 'backstab') {
-                    this.callbacks.playSFX('backstab');
-                } else if (evt.attackMode === 'spell') {
-                    this.callbacks.playSFX('magic_missile');
-                } else {
-                    this.callbacks.playSFX('sword_hit');
-                }
-                const vMob = visualEnemies.find(m => m.instanceId === evt.targetInstanceId);
-                if (vMob) vMob.hp = Math.max(0, vMob.hp - (evt.damage || 0));
-
-                if (this.renderer3D && typeof this.renderer3D.shakeMonsterModel === 'function') {
-                    this.renderer3D.shakeMonsterModel(evt.targetInstanceId);
-                }
-                if (this.renderer3D && typeof this.renderer3D.renderEncounterMonsters === 'function') {
-                    this.renderer3D.renderEncounterMonsters(visualEnemies, this.state.player);
-                }
-                if (evt.isDead) this.callbacks.playSFX('death');
-                if (this.callbacks.applyVisualCombatHp) {
-                    this.callbacks.applyVisualCombatHp(visualEnemies, visualHeroHp);
-                }
-            } else if (evt.eventType === 'HERO_MISS' || evt.eventType === 'MONSTER_MISS') {
-                if (evt.missLayer === 'SHIELD' || evt.missLayer === 'ARMOR') {
-                    this.callbacks.playSFX('blocked');
-                } else {
-                    this.callbacks.playSFX('sword_miss');
-                }
-            } else if (evt.eventType === 'GUARD') {
-                this.callbacks.playSFX('button');
-            } else if (evt.eventType === 'SPELL_CAST') {
-                const sfx = evt.sfx || (evt.healedHp || evt.partyHeal ? 'cure_wounds' : 'magic_missile');
-                this.callbacks.playSFX(sfx);
-                if (evt.targetHeroIndex != null && evt.healedHp != null && visualHeroHp[evt.targetHeroIndex] !== undefined) {
-                    visualHeroHp[evt.targetHeroIndex] = Math.min(
-                        this.state.party[evt.targetHeroIndex].maxHp,
-                        visualHeroHp[evt.targetHeroIndex] + evt.healedHp
-                    );
-                    if (this.callbacks.flashHeroCard) {
-                        this.callbacks.flashHeroCard(evt.targetHeroIndex);
+                if (evt.eventType === 'HERO_HIT') {
+                    if (!evt.attackerSpec || !evt.attackerSpec.soundAttack) {
+                        this.callbacks.playSFX('sword_hit');
                     }
-                } else if (evt.partyHeal && evt.partyHealMap) {
-                    for (const [idxStr, newHp] of Object.entries(evt.partyHealMap)) {
-                        const idx = parseInt(idxStr, 10);
-                        if (visualHeroHp[idx] !== undefined) {
-                            visualHeroHp[idx] = newHp;
-                            if (this.callbacks.flashHeroCard) {
-                                this.callbacks.flashHeroCard(idx);
-                            }
-                        }
+                    // Drain visual party HP at the moment of impact
+                    if (evt.targetHeroIndex != null && visualHeroHp[evt.targetHeroIndex] !== undefined) {
+                        visualHeroHp[evt.targetHeroIndex] = Math.max(
+                            0,
+                            visualHeroHp[evt.targetHeroIndex] - (evt.damage || 0)
+                        );
                     }
-                }
-                if (this.callbacks.applyVisualCombatHp) {
-                    this.callbacks.applyVisualCombatHp(visualEnemies, visualHeroHp);
-                }
-            } else if (evt.eventType === 'SPELL_FIZZLE') {
-                this.callbacks.playSFX('sword_miss');
-                if (evt.targetHeroIndex != null) {
+                    if (evt.isDead) this.callbacks.playSFX('death');
                     this.callbacks.flashHeroCard(evt.targetHeroIndex);
-                }
-            } else if (evt.eventType === 'TURN_UNDEAD') {
-                this.callbacks.playSFX('turn_undead');
-            } else if (evt.eventType === 'MORALE_SURRENDER') {
-                this.callbacks.playSFX('button');
-                const vMob = visualEnemies.find(m => m.instanceId === evt.targetInstanceId);
-                if (vMob) vMob.surrendered = true;
-            } else if (evt.eventType === 'MORALE_FLEE') {
-                this.callbacks.playSFX('sword_miss');
-                const vMobIdx = visualEnemies.findIndex(m => m.instanceId === evt.targetInstanceId);
-                if (vMobIdx !== -1) {
-                    visualEnemies.splice(vMobIdx, 1);
+                    if (this.callbacks.applyVisualCombatHp) {
+                        this.callbacks.applyVisualCombatHp(visualEnemies, visualHeroHp);
+                    }
+                } else if (evt.eventType === 'MONSTER_HIT') {
+                    if (evt.sfx) {
+                        this.callbacks.playSFX(evt.sfx);
+                    } else if (evt.attackMode === 'ranged') {
+                        this.callbacks.playSFX('arrow_impact');
+                    } else if (evt.attackMode === 'backstab') {
+                        this.callbacks.playSFX('backstab');
+                    } else if (evt.attackMode === 'spell') {
+                        this.callbacks.playSFX('magic_missile');
+                    } else {
+                        this.callbacks.playSFX('sword_hit');
+                    }
+                    const vMob = visualEnemies.find(m => m.instanceId === evt.targetInstanceId);
+                    if (vMob) vMob.hp = Math.max(0, vMob.hp - (evt.damage || 0));
+
+                    if (this.renderer3D && typeof this.renderer3D.shakeMonsterModel === 'function') {
+                        this.renderer3D.shakeMonsterModel(evt.targetInstanceId);
+                    }
                     if (this.renderer3D && typeof this.renderer3D.renderEncounterMonsters === 'function') {
                         this.renderer3D.renderEncounterMonsters(visualEnemies, this.state.player);
                     }
-                }
-            } else if (evt.eventType === 'SAVE_SUCCESS') {
-                this.callbacks.playSFX('reward');
-                if (this.callbacks.showSavingThrowCue && evt.savingThrow) {
-                    this.callbacks.showSavingThrowCue(evt.savingThrow);
-                }
-            } else if (evt.eventType === 'SAVE_FAILURE') {
-                this.callbacks.playSFX('backstab');
-                if (this.callbacks.showSavingThrowCue && evt.savingThrow) {
-                    this.callbacks.showSavingThrowCue(evt.savingThrow);
-                }
-                if (evt.targetHeroIndex != null && visualHeroHp[evt.targetHeroIndex] !== undefined) {
-                    visualHeroHp[evt.targetHeroIndex] = Math.max(
-                        0,
-                        visualHeroHp[evt.targetHeroIndex] - (evt.damage || 0)
-                    );
-                }
-                if (evt.isDead) this.callbacks.playSFX('death');
-                if (evt.targetHeroIndex != null) this.callbacks.flashHeroCard(evt.targetHeroIndex);
-                if (this.callbacks.applyVisualCombatHp) {
-                    this.callbacks.applyVisualCombatHp(visualEnemies, visualHeroHp);
-                }
-            } else if (evt.eventType === 'VICTORY') {
-                this.stopCombatMusic();
-                this.callbacks.playSFX('victory');
-                if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
-                    const surrenderedMob = this.state.combat.enemies.find(e => e.surrendered && (finalMobHp[e.instanceId] ?? e.hp) > 0 && !e.fled && !e.slain);
-                    if (surrenderedMob && typeof this.renderer3D.renderEncounterMonsters === 'function') {
-                        this.renderer3D.renderEncounterMonsters([surrenderedMob], this.state.player);
+                    if (evt.isDead) this.callbacks.playSFX('death');
+                    if (this.callbacks.applyVisualCombatHp) {
+                        this.callbacks.applyVisualCombatHp(visualEnemies, visualHeroHp);
+                    }
+                } else if (evt.eventType === 'HERO_MISS' || evt.eventType === 'MONSTER_MISS') {
+                    if (evt.missLayer === 'SHIELD' || evt.missLayer === 'ARMOR') {
+                        this.callbacks.playSFX('blocked');
                     } else {
+                        this.callbacks.playSFX('sword_miss');
+                    }
+                } else if (evt.eventType === 'GUARD') {
+                    this.callbacks.playSFX('button');
+                } else if (evt.eventType === 'SPELL_CAST') {
+                    const sfx = evt.sfx || (evt.healedHp || evt.partyHeal ? 'cure_wounds' : 'magic_missile');
+                    this.callbacks.playSFX(sfx);
+                    if (evt.targetHeroIndex != null && evt.healedHp != null && visualHeroHp[evt.targetHeroIndex] !== undefined) {
+                        visualHeroHp[evt.targetHeroIndex] = Math.min(
+                            this.state.party[evt.targetHeroIndex].maxHp,
+                            visualHeroHp[evt.targetHeroIndex] + evt.healedHp
+                        );
+                        if (this.callbacks.flashHeroCard) {
+                            this.callbacks.flashHeroCard(evt.targetHeroIndex);
+                        }
+                    } else if (evt.partyHeal && evt.partyHealMap) {
+                        for (const [idxStr, newHp] of Object.entries(evt.partyHealMap)) {
+                            const idx = parseInt(idxStr, 10);
+                            if (visualHeroHp[idx] !== undefined) {
+                                visualHeroHp[idx] = newHp;
+                                if (this.callbacks.flashHeroCard) {
+                                    this.callbacks.flashHeroCard(idx);
+                                }
+                            }
+                        }
+                    }
+                    if (this.callbacks.applyVisualCombatHp) {
+                        this.callbacks.applyVisualCombatHp(visualEnemies, visualHeroHp);
+                    }
+                } else if (evt.eventType === 'SPELL_FIZZLE') {
+                    this.callbacks.playSFX('sword_miss');
+                    if (evt.targetHeroIndex != null) {
+                        this.callbacks.flashHeroCard(evt.targetHeroIndex);
+                    }
+                } else if (evt.eventType === 'TURN_UNDEAD') {
+                    this.callbacks.playSFX('turn_undead');
+                } else if (evt.eventType === 'MORALE_SURRENDER') {
+                    this.callbacks.playSFX('button');
+                    const vMob = visualEnemies.find(m => m.instanceId === evt.targetInstanceId);
+                    if (vMob) vMob.surrendered = true;
+                } else if (evt.eventType === 'MORALE_FLEE') {
+                    this.callbacks.playSFX('sword_miss');
+                    const vMobIdx = visualEnemies.findIndex(m => m.instanceId === evt.targetInstanceId);
+                    if (vMobIdx !== -1) {
+                        visualEnemies.splice(vMobIdx, 1);
+                        if (this.renderer3D && typeof this.renderer3D.renderEncounterMonsters === 'function') {
+                            this.renderer3D.renderEncounterMonsters(visualEnemies, this.state.player);
+                        }
+                    }
+                } else if (evt.eventType === 'SAVE_SUCCESS') {
+                    this.callbacks.playSFX('reward');
+                    if (this.callbacks.showSavingThrowCue && evt.savingThrow) {
+                        this.callbacks.showSavingThrowCue(evt.savingThrow);
+                    }
+                } else if (evt.eventType === 'SAVE_FAILURE') {
+                    this.callbacks.playSFX('backstab');
+                    if (this.callbacks.showSavingThrowCue && evt.savingThrow) {
+                        this.callbacks.showSavingThrowCue(evt.savingThrow);
+                    }
+                    if (evt.targetHeroIndex != null && visualHeroHp[evt.targetHeroIndex] !== undefined) {
+                        visualHeroHp[evt.targetHeroIndex] = Math.max(
+                            0,
+                            visualHeroHp[evt.targetHeroIndex] - (evt.damage || 0)
+                        );
+                    }
+                    if (evt.isDead) this.callbacks.playSFX('death');
+                    if (evt.targetHeroIndex != null) this.callbacks.flashHeroCard(evt.targetHeroIndex);
+                    if (this.callbacks.applyVisualCombatHp) {
+                        this.callbacks.applyVisualCombatHp(visualEnemies, visualHeroHp);
+                    }
+                } else if (evt.eventType === 'VICTORY') {
+                    this.stopCombatMusic();
+                    this.callbacks.playSFX('victory');
+                    if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
+                        const surrenderedMob = this.state.combat.enemies.find(e => e.surrendered && (finalMobHp[e.instanceId] ?? e.hp) > 0 && !e.fled && !e.slain);
+                        if (surrenderedMob && typeof this.renderer3D.renderEncounterMonsters === 'function') {
+                            this.renderer3D.renderEncounterMonsters([surrenderedMob], this.state.player);
+                        } else {
+                            this.renderer3D.clearEncounterMonsters();
+                        }
+                    }
+                    if (this.callbacks.applyVisualCombatHp) {
+                        this.callbacks.applyVisualCombatHp([], visualHeroHp);
+                    }
+                } else if (evt.eventType === 'PARTY_WIPED') {
+                    this.stopCombatMusic();
+                    this.callbacks.playSFX('death');
+                }
+
+                // Immersion beat: log + SFX + HP drain land together, then wait
+                const delay = (this.state.combat && this.state.combat.fastForward) ? 120 : 1150;
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        } catch (err) {
+            console.error('Combat replay error', err);
+        } finally {
+            if (result) {
+                const { finalMobHp, finalHeroHp, victory, partyWiped, totalXp } = result;
+                // Commit real state only after every beat has played
+                this.state.commitCombatRoundResults(finalMobHp, finalHeroHp, victory, 0);
+
+                // Award XP and capture any resulting level-up events
+                const levelUps = victory ? this.state.awardQuestXP(totalXp || 0) : [];
+
+                if (partyWiped || this.state.party.every(h => h.hp <= 0)) {
+                    this.stopCombatMusic();
+                    if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
                         this.renderer3D.clearEncounterMonsters();
                     }
-                }
-                if (this.callbacks.applyVisualCombatHp) {
-                    this.callbacks.applyVisualCombatHp([], visualHeroHp);
-                }
-            } else if (evt.eventType === 'PARTY_WIPED') {
-                this.stopCombatMusic();
-                this.callbacks.playSFX('death');
-            }
+                    this.state.combat.active = false;
+                    this.callbacks.log(`💀 PARTY WIPED. The expedition ends here.`, "danger");
+                    if (this.callbacks.onPartyWiped) {
+                        this.callbacks.onPartyWiped();
+                    }
+                } else if (victory) {
+                    this.state.combat.active = false;
+                    this.stopCombatMusic();
+                    if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
+                        if (this.state.surrenderedEnemy && this.state.surrenderedEnemy.hp > 0 && !this.state.surrenderedEnemy.fled && !this.state.surrenderedEnemy.slain && typeof this.renderer3D.renderEncounterMonsters === 'function') {
+                            this.renderer3D.renderEncounterMonsters([this.state.surrenderedEnemy], this.state.player);
+                        } else {
+                            this.renderer3D.clearEncounterMonsters();
+                        }
+                    }
+                    const currentEnc = (this.state.spec.encounters || []).find(e => e.id === this.state.combat.encounterId);
+                    if (currentEnc) currentEnc.completed = true;
+                    this.state.combat.encounterId = null;
 
-            // Immersion beat: log + SFX + HP drain land together, then wait
-            const delay = fastForward ? 120 : 1150;
-            await new Promise(resolve => setTimeout(resolve, delay));
-        }
+                    // Trigger level-up fanfare modal and audio cues here
+                    if (levelUps && levelUps.length > 0 && this.callbacks.onLevelUp) {
+                        this.callbacks.onLevelUp(levelUps);
+                    }
 
-        if (resolveBtn) {
-            resolveBtn.removeEventListener('click', handleFastForward);
-            resolveBtn.style.background = '';
-        }
-
-        // Commit real state only after every beat has played
-        this.state.commitCombatRoundResults(finalMobHp, finalHeroHp, victory, 0);
-
-        // Award XP and capture any resulting level-up events
-        const levelUps = victory ? this.state.awardQuestXP(totalXp || 0) : [];
-
-        if (partyWiped || this.state.party.every(h => h.hp <= 0)) {
-            this.stopCombatMusic();
-            if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
-                this.renderer3D.clearEncounterMonsters();
-            }
-            this.state.combat.active = false;
-            this.callbacks.log(`💀 PARTY WIPED. The expedition ends here.`, "danger");
-            if (this.callbacks.onPartyWiped) {
-                this.callbacks.onPartyWiped();
-            }
-        } else if (victory) {
-            this.state.combat.active = false;
-            this.stopCombatMusic();
-            if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
-                if (this.state.surrenderedEnemy && this.state.surrenderedEnemy.hp > 0 && !this.state.surrenderedEnemy.fled && !this.state.surrenderedEnemy.slain && typeof this.renderer3D.renderEncounterMonsters === 'function') {
-                    this.renderer3D.renderEncounterMonsters([this.state.surrenderedEnemy], this.state.player);
+                    this.callbacks.log(`Area secured! Return to exploration stance.`, "success");
+                    if (this.callbacks.onCombatEnd) {
+                        this.callbacks.onCombatEnd();
+                    }
                 } else {
-                    this.renderer3D.clearEncounterMonsters();
+                    this.callbacks.playSFX('combat_turn');
                 }
             }
-            const currentEnc = this.state.spec.encounters.find(e => e.id === this.state.combat.encounterId);
-            if (currentEnc) currentEnc.completed = true;
-            this.state.combat.encounterId = null;
 
-            // Trigger level-up fanfare modal and audio cues here
-            if (levelUps && levelUps.length > 0 && this.callbacks.onLevelUp) {
-                this.callbacks.onLevelUp(levelUps);
+            if (this.state.combat) {
+                this.state.combat.phase = 'PLANNING';
+                this.state.combat.fastForward = false;
+                this.state.combat.resolveProgress = 0;
             }
 
-            this.callbacks.log(`Area secured! Return to exploration stance.`, "success");
-            if (this.callbacks.onCombatEnd) {
-                this.callbacks.onCombatEnd();
-            }
-        } else {
-            this.callbacks.playSFX('combat_turn');
+            const resolveBtn = document.getElementById('resolve-round-btn');
             if (resolveBtn) {
                 resolveBtn.disabled = false;
                 resolveBtn.style.opacity = '1';
                 resolveBtn.style.cursor = 'pointer';
-                resolveBtn.textContent = `🔥 RESOLVE ROUND ${this.state.combat.round}`;
+                resolveBtn.style.background = '';
+                resolveBtn.textContent = getResolveButtonLabel(this.state.combat);
+            }
+
+            const fleeBtn = document.getElementById('flee-combat-btn');
+            if (fleeBtn && this.state.combat && this.state.combat.active) {
+                fleeBtn.disabled = false;
+                fleeBtn.style.opacity = '1';
+                fleeBtn.style.cursor = 'pointer';
+            }
+
+            this.state.isDirty = true;
+            if (this.callbacks && typeof this.callbacks.updateHUD === 'function') {
+                this.callbacks.updateHUD(true);
             }
         }
-
-        this.state.isDirty = true;
-        this.callbacks.updateHUD(true);
     }
 
     async handlePartyRetreat() {
         if (!this.state.combat || !this.state.combat.active) return;
+        if (this.isBusy()) return;
+
+        this.state.combat.phase = 'RETREATING';
 
         const resolveBtn = document.getElementById('resolve-round-btn');
         const fleeBtn = document.getElementById('flee-combat-btn');
@@ -314,96 +372,116 @@ export class CombatController {
             fleeBtn.textContent = '🏃 RETREATING...';
         }
 
-        const { success, partyWiped, finalHeroHp, events } = this.state.attemptPartyRetreat();
+        try {
+            // Snapshot taken BEFORE attemptPartyRetreat runs
+            const visualEnemies = this.state.combat.enemies.map(e => ({ ...e }));
+            const visualHeroHp = this.state.party.map(h => h.hp);
 
-        const visualEnemies = this.state.combat.enemies.map(e => ({ ...e }));
-        const visualHeroHp = this.state.party.map(h => h.hp);
+            const { success, partyWiped, finalHeroHp, events } = this.state.attemptPartyRetreat();
 
-        for (const evt of events) {
-            this.callbacks.log(evt.logText, evt.logType);
+            for (const evt of events) {
+                this.callbacks.log(evt.logText, evt.logType);
 
-            if (evt.cueBadge && typeof this.callbacks.showCombatFloatingCue === 'function') {
-                const isHeroTarget = evt.eventType === 'HERO_HIT' || evt.cueClass === 'hero';
-                this.callbacks.showCombatFloatingCue(evt.cueBadge, evt.cueClass || 'normal', isHeroTarget);
+                if (evt.cueBadge && typeof this.callbacks.showCombatFloatingCue === 'function') {
+                    const isHeroTarget = evt.eventType === 'HERO_HIT' || evt.cueClass === 'hero';
+                    this.callbacks.showCombatFloatingCue(evt.cueBadge, evt.cueClass || 'normal', isHeroTarget);
+                }
+
+                if (evt.eventType === 'HERO_HIT') {
+                    this.callbacks.playSFX('sword_hit');
+                    if (evt.targetHeroIndex != null && visualHeroHp[evt.targetHeroIndex] !== undefined) {
+                        visualHeroHp[evt.targetHeroIndex] = Math.max(0, visualHeroHp[evt.targetHeroIndex] - (evt.damage || 0));
+                    }
+                    if (evt.isDead) this.callbacks.playSFX('death');
+                    this.callbacks.flashHeroCard(evt.targetHeroIndex);
+                    if (this.callbacks.applyVisualCombatHp) {
+                        this.callbacks.applyVisualCombatHp(visualEnemies, visualHeroHp);
+                    }
+                } else if (evt.eventType === 'HERO_MISS') {
+                    this.callbacks.playSFX('sword_miss');
+                } else if (evt.eventType === 'RETREAT_ATTEMPT') {
+                    this.callbacks.playSFX(evt.success ? 'button' : 'sword_miss');
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 800));
             }
 
-            if (evt.eventType === 'HERO_HIT') {
-                this.callbacks.playSFX('sword_hit');
-                if (evt.targetHeroIndex != null && visualHeroHp[evt.targetHeroIndex] !== undefined) {
-                    visualHeroHp[evt.targetHeroIndex] = Math.max(0, visualHeroHp[evt.targetHeroIndex] - (evt.damage || 0));
-                }
-                if (evt.isDead) this.callbacks.playSFX('death');
-                this.callbacks.flashHeroCard(evt.targetHeroIndex);
-                if (this.callbacks.applyVisualCombatHp) {
-                    this.callbacks.applyVisualCombatHp(visualEnemies, visualHeroHp);
-                }
-            } else if (evt.eventType === 'HERO_MISS') {
-                this.callbacks.playSFX('sword_miss');
-            } else if (evt.eventType === 'RETREAT_ATTEMPT') {
-                this.callbacks.playSFX(evt.success ? 'button' : 'sword_miss');
+            // Apply real HP after retreat resolution
+            if (finalHeroHp) {
+                this.state.party.forEach((hero, idx) => {
+                    if (finalHeroHp[idx] !== undefined) {
+                        hero.hp = finalHeroHp[idx];
+                    }
+                });
             }
 
-            await new Promise(resolve => setTimeout(resolve, 800));
+            if (partyWiped || this.state.party.every(h => h.hp <= 0)) {
+                this.stopCombatMusic();
+                if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
+                    this.renderer3D.clearEncounterMonsters();
+                }
+                this.state.combat.active = false;
+                this.callbacks.log(`💀 PARTY WIPED. The retreat was cut short in blood.`, "danger");
+                if (this.callbacks.onPartyWiped) {
+                    this.callbacks.onPartyWiped();
+                }
+            } else if (success) {
+                this.stopCombatMusic();
+                this.callbacks.playSFX('button');
+                this.state.combat.active = false;
+
+                // Push the party back safely 1 tile if walkable
+                let dx = 0, dy = 0;
+                if (this.state.player.facing === 'NORTH') dy = 1;
+                else if (this.state.player.facing === 'SOUTH') dy = -1;
+                else if (this.state.player.facing === 'EAST') dx = -1;
+                else if (this.state.player.facing === 'WEST') dx = 1;
+
+                const targetX = this.state.player.x + dx;
+                const targetY = this.state.player.y + dy;
+                if (this.state.isWalkable(targetX, targetY)) {
+                    this.state.player.x = targetX;
+                    this.state.player.y = targetY;
+                    if (this.callbacks.syncCamera) {
+                        this.callbacks.syncCamera(this.state.player.x, this.state.player.y, this.state.player.facing);
+                    }
+                }
+                this.state.revealExploration();
+
+                if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
+                    this.renderer3D.clearEncounterMonsters();
+                }
+
+                this.callbacks.log(`💨 You successfully broke contact and retreated to safety!`, "success");
+                if (this.callbacks.onCombatEnd) {
+                    this.callbacks.onCombatEnd();
+                }
+            } else {
+                // Failed retreat - advance round and stay in combat
+                this.state.combat.round = (this.state.combat.round || 1) + 1;
+                this.callbacks.playSFX('combat_turn');
+                this.callbacks.log(`The party remains pinned down in melee! Prepare for round ${this.state.combat.round}.`, "warning");
+            }
+        } finally {
+            if (this.state.combat) {
+                this.state.combat.phase = 'PLANNING';
+            }
+            const resBtn = document.getElementById('resolve-round-btn');
+            if (resBtn) {
+                resBtn.disabled = false;
+                resBtn.style.opacity = '1';
+                resBtn.textContent = getResolveButtonLabel(this.state.combat);
+            }
+            const flBtn = document.getElementById('flee-combat-btn');
+            if (flBtn) {
+                flBtn.disabled = false;
+                flBtn.style.opacity = '1';
+                flBtn.textContent = '🏃 RETREAT';
+            }
+            this.state.isDirty = true;
+            if (this.callbacks && typeof this.callbacks.updateHUD === 'function') {
+                this.callbacks.updateHUD(true);
+            }
         }
-
-        // Apply real HP after retreat resolution
-        if (finalHeroHp) {
-            this.state.party.forEach((hero, idx) => {
-                if (finalHeroHp[idx] !== undefined) {
-                    hero.hp = finalHeroHp[idx];
-                }
-            });
-        }
-
-        if (partyWiped || this.state.party.every(h => h.hp <= 0)) {
-            this.stopCombatMusic();
-            if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
-                this.renderer3D.clearEncounterMonsters();
-            }
-            this.state.combat.active = false;
-            this.callbacks.log(`💀 PARTY WIPED. The retreat was cut short in blood.`, "danger");
-            if (this.callbacks.onPartyWiped) {
-                this.callbacks.onPartyWiped();
-            }
-        } else if (success) {
-            this.stopCombatMusic();
-            this.callbacks.playSFX('button');
-            this.state.combat.active = false;
-
-            // Push the party back safely 1 tile if walkable
-            let dx = 0, dy = 0;
-            if (this.state.player.facing === 'NORTH') dy = 1;
-            else if (this.state.player.facing === 'SOUTH') dy = -1;
-            else if (this.state.player.facing === 'EAST') dx = -1;
-            else if (this.state.player.facing === 'WEST') dx = 1;
-
-            const targetX = this.state.player.x + dx;
-            const targetY = this.state.player.y + dy;
-            if (this.state.isWalkable(targetX, targetY)) {
-                this.state.player.x = targetX;
-                this.state.player.y = targetY;
-                if (this.callbacks.syncCamera) {
-                    this.callbacks.syncCamera(this.state.player.x, this.state.player.y, this.state.player.facing);
-                }
-            }
-            this.state.revealExploration();
-
-            if (this.renderer3D && typeof this.renderer3D.clearEncounterMonsters === 'function') {
-                this.renderer3D.clearEncounterMonsters();
-            }
-
-            this.callbacks.log(`💨 You successfully broke contact and retreated to safety!`, "success");
-            if (this.callbacks.onCombatEnd) {
-                this.callbacks.onCombatEnd();
-            }
-        } else {
-            // Failed retreat - advance round and stay in combat
-            this.state.combat.round = (this.state.combat.round || 1) + 1;
-            this.callbacks.playSFX('combat_turn');
-            this.callbacks.log(`The party remains pinned down in melee! Prepare for round ${this.state.combat.round}.`, "warning");
-        }
-
-        this.state.isDirty = true;
-        this.callbacks.updateHUD(true);
     }
 }

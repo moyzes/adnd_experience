@@ -165,6 +165,9 @@ export class GameState {
 
     this.combat = {
       active: false,
+      phase: 'PLANNING',
+      fastForward: false,
+      resolveProgress: 0,
       round: 1,
       encounterId: null,
       enemies: [],               // Active monster instances

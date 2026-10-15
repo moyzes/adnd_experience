@@ -151,6 +151,9 @@ export class ExplorationManager {
 
             state.combat = {
               active: true,
+              phase: 'PLANNING',
+              fastForward: false,
+              resolveProgress: 0,
               round: 1,
               encounterId: `wandering_${Date.now()}`,
               enemies: enemies,
